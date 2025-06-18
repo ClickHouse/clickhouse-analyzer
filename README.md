@@ -4,7 +4,7 @@ An analyzer for ClickHouse SQL.
 
 ## Goal
 
-The idea for this project is to have a tool like [rust-analyzer](https://rust-analyzer.github.io) for ClickHouse SQL (LSP, auto-complete, code suggestions, analysis, node extraction, etc.)
+The idea for this project is to have a tool like [rust-analyzer](https://rust-analyzer.github.io) for ClickHouse SQL (LSP, auto-complete, formatting, code suggestions, analysis, node extraction, etc.)
 
 ## Contributing
 
