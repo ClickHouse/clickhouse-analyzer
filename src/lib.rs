@@ -1,11 +1,11 @@
+mod analyzer;
 mod lexer;
 mod parser;
-mod analyzer;
 
 use wasm_bindgen::prelude::*;
 extern crate console_error_panic_hook;
-use std::panic;
 use crate::parser::parser::parse;
+use std::panic;
 
 #[wasm_bindgen(start)]
 pub fn main() -> Result<(), JsValue> {
@@ -29,7 +29,7 @@ mod tests {
 
     #[test]
     fn test_parser() {
-            let sql = "
+        let sql = "
             WITH
                 a,
                 b

@@ -1,5 +1,5 @@
-use std::fmt;
 use crate::lexer::token::{Token, TokenKind};
+use std::fmt;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum TreeKind {
@@ -131,7 +131,7 @@ impl Child {
     pub fn is_token(&self) -> bool {
         matches!(self, Child::Token(_))
     }
-    
+
     pub fn is_tree(&self) -> bool {
         matches!(self, Child::Token(_))
     }
@@ -142,7 +142,7 @@ impl Child {
             _ => None,
         }
     }
-    
+
     pub fn get_tree_with_kind(&self, kind: TreeKind) -> Option<&Tree> {
         match self {
             Child::Tree(tree) if tree.kind == kind => Some(tree),
@@ -163,11 +163,11 @@ impl ChildOptionExt for Option<&Child> {
             _ => None,
         }
     }
-    
+
     fn get_tree_with_kind(&self, kind: TreeKind) -> Option<&Tree> {
         match self {
             Some(Child::Tree(tree)) if tree.kind == kind => Some(tree),
-            _ => None
+            _ => None,
         }
     }
 }

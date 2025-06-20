@@ -1,4 +1,4 @@
-pub mod parser;
-pub mod tree;
 pub mod keyword;
+pub mod parser;
 mod parsers;
+pub mod tree;

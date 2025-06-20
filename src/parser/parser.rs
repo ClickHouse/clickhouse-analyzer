@@ -1,9 +1,9 @@
-use std::cell::Cell;
 use crate::lexer::token::{Token, TokenKind};
 use crate::lexer::tokenizer::tokenize_with_whitespace;
 use crate::parser::keyword::Keyword;
 use crate::parser::parsers::select::{at_select_statement, parse_select_statement};
 use crate::parser::tree::{Child, Tree, TreeKind};
+use std::cell::Cell;
 
 #[derive(Debug)]
 pub enum Event {

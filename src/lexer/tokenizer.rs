@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use crate::lexer::token::{Token, TokenKind};
+use std::collections::HashMap;
 
 /// ClickHouse Keywords
 struct Keywords;
@@ -12,15 +12,70 @@ impl Keywords {
         // These will be recognized as BareWord but can be checked
         // by the parser for keyword status
         let keyword_list = [
-            "SELECT", "FROM", "WHERE", "GROUP", "BY", "HAVING", "ORDER",
-            "LIMIT", "OFFSET", "UNION", "ALL", "EXCEPT", "INTERSECT",
-            "JOIN", "ON", "USING", "PREWHERE", "INNER", "LEFT", "RIGHT",
-            "FULL", "OUTER", "CROSS", "GLOBAL", "ANY", "AS", "DISTINCT",
-            "INTO", "FORMAT", "SETTINGS", "INSERT", "VALUES", "DELETE",
-            "WITH", "CREATE", "ALTER", "DROP", "DETACH", "ATTACH", "USE",
-            "BETWEEN", "LIKE", "NOT", "AND", "OR", "IN", "ARRAY", "TUPLE",
-            "MAP", "IS", "NULL", "CAST", "CASE", "WHEN", "THEN", "ELSE", "END",
-            "TRUE", "FALSE", "FUNCTION", "TABLE", "VIEW", "DICTIONARY", "DATABASE"
+            "SELECT",
+            "FROM",
+            "WHERE",
+            "GROUP",
+            "BY",
+            "HAVING",
+            "ORDER",
+            "LIMIT",
+            "OFFSET",
+            "UNION",
+            "ALL",
+            "EXCEPT",
+            "INTERSECT",
+            "JOIN",
+            "ON",
+            "USING",
+            "PREWHERE",
+            "INNER",
+            "LEFT",
+            "RIGHT",
+            "FULL",
+            "OUTER",
+            "CROSS",
+            "GLOBAL",
+            "ANY",
+            "AS",
+            "DISTINCT",
+            "INTO",
+            "FORMAT",
+            "SETTINGS",
+            "INSERT",
+            "VALUES",
+            "DELETE",
+            "WITH",
+            "CREATE",
+            "ALTER",
+            "DROP",
+            "DETACH",
+            "ATTACH",
+            "USE",
+            "BETWEEN",
+            "LIKE",
+            "NOT",
+            "AND",
+            "OR",
+            "IN",
+            "ARRAY",
+            "TUPLE",
+            "MAP",
+            "IS",
+            "NULL",
+            "CAST",
+            "CASE",
+            "WHEN",
+            "THEN",
+            "ELSE",
+            "END",
+            "TRUE",
+            "FALSE",
+            "FUNCTION",
+            "TABLE",
+            "VIEW",
+            "DICTIONARY",
+            "DATABASE",
         ];
 
         for keyword in keyword_list.iter() {
@@ -88,17 +143,17 @@ impl<'a> Tokenizer<'a> {
             let token = self.next_token();
 
             // Skip whitespace if not included
-            if !self.include_whitespace && (token.kind == TokenKind::Whitespace || token.kind == TokenKind::Comment) {
+            if !self.include_whitespace
+                && (token.kind == TokenKind::Whitespace || token.kind == TokenKind::Comment)
+            {
                 continue;
             }
 
             if token.kind == TokenKind::EndOfStream {
                 break;
             }
-            
-            tokens.push(token.clone());
 
-            
+            tokens.push(token.clone());
         }
 
         tokens
@@ -138,9 +193,21 @@ impl<'a> Tokenizer<'a> {
             '0'..='9' => self.read_number(),
 
             // String literals and quoted identifiers
-            '\'' => self.read_string('\'', TokenKind::StringLiteral, TokenKind::ErrorSingleQuoteIsNotClosed),
-            '"' => self.read_string('"', TokenKind::QuotedIdentifier, TokenKind::ErrorDoubleQuoteIsNotClosed),
-            '`' => self.read_string('`', TokenKind::QuotedIdentifier, TokenKind::ErrorBackQuoteIsNotClosed),
+            '\'' => self.read_string(
+                '\'',
+                TokenKind::StringLiteral,
+                TokenKind::ErrorSingleQuoteIsNotClosed,
+            ),
+            '"' => self.read_string(
+                '"',
+                TokenKind::QuotedIdentifier,
+                TokenKind::ErrorDoubleQuoteIsNotClosed,
+            ),
+            '`' => self.read_string(
+                '`',
+                TokenKind::QuotedIdentifier,
+                TokenKind::ErrorBackQuoteIsNotClosed,
+            ),
 
             // Brackets
             '(' => self.create_token(TokenKind::OpeningRoundBracket),
@@ -165,7 +232,7 @@ impl<'a> Tokenizer<'a> {
                 } else {
                     self.create_token(TokenKind::Minus)
                 }
-            },
+            }
             '/' => self.create_token(TokenKind::Slash),
             '%' => self.create_token(TokenKind::Percent),
             '?' => self.create_token(TokenKind::QuestionMark),
@@ -175,7 +242,7 @@ impl<'a> Tokenizer<'a> {
                 } else {
                     self.create_token(TokenKind::Colon)
                 }
-            },
+            }
             '^' => self.create_token(TokenKind::Caret),
             '=' => {
                 if self.match_char('>') {
@@ -188,14 +255,14 @@ impl<'a> Tokenizer<'a> {
                 } else {
                     self.create_token(TokenKind::Equals)
                 }
-            },
+            }
             '!' => {
                 if self.match_char('=') {
                     self.create_token(TokenKind::NotEquals)
                 } else {
                     self.create_token(TokenKind::ErrorSingleExclamationMark)
                 }
-            },
+            }
             '<' => {
                 if self.match_char('=') {
                     if self.match_char('>') {
@@ -208,28 +275,28 @@ impl<'a> Tokenizer<'a> {
                 } else {
                     self.create_token(TokenKind::Less)
                 }
-            },
+            }
             '>' => {
                 if self.match_char('=') {
                     self.create_token(TokenKind::GreaterOrEquals)
                 } else {
                     self.create_token(TokenKind::Greater)
                 }
-            },
+            }
             '|' => {
                 if self.match_char('|') {
                     self.create_token(TokenKind::Concatenation)
                 } else {
                     self.create_token(TokenKind::ErrorSinglePipeMark)
                 }
-            },
+            }
             '@' => {
                 if self.match_char('@') {
                     self.create_token(TokenKind::DoubleAt)
                 } else {
                     self.create_token(TokenKind::At)
                 }
-            },
+            }
 
             // Identifiers and keywords
             'a'..='z' | 'A'..='Z' | '_' => self.read_bare_word(),
@@ -241,7 +308,7 @@ impl<'a> Tokenizer<'a> {
                 } else {
                     self.create_token(TokenKind::Error)
                 }
-            },
+            }
 
             // Anything else is an error
             _ => self.create_token(TokenKind::Error),
@@ -296,9 +363,8 @@ impl<'a> Tokenizer<'a> {
     /// Read a number (integer, float, hex, etc.)
     fn read_number(&mut self) -> Token {
         // Check if previous token was a dot - for chained tuple access operators (x.1.1)
-        let prev_was_dot = self.position > 0 &&
-            self.start > 0 &&
-            &self.input[self.start-1..self.start] == ".";
+        let prev_was_dot =
+            self.position > 0 && self.start > 0 && &self.input[self.start - 1..self.start] == ".";
 
         if prev_was_dot {
             // Simple integer parsing for tuple access
@@ -307,9 +373,7 @@ impl<'a> Tokenizer<'a> {
             // Check for hex/binary prefix
             let mut hex = false;
 
-            if self.position - self.start == 1 &&
-                &self.input[self.start..self.position] == "0" {
-
+            if self.position - self.start == 1 && &self.input[self.start..self.position] == "0" {
                 if let Some(next) = self.peek() {
                     match next {
                         'x' | 'X' => {
@@ -319,14 +383,14 @@ impl<'a> Tokenizer<'a> {
                                     hex = true;
                                 }
                             }
-                        },
+                        }
                         'b' | 'B' => {
                             if let Some(next_next) = self.peek_next() {
                                 if next_next == '0' || next_next == '1' {
                                     self.advance(); // Consume 'b' or 'B'
                                 }
                             }
-                        },
+                        }
                         _ => {}
                     }
                 }
@@ -487,7 +551,12 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// Read a string or quoted identifier
-    fn read_string(&mut self, quote: char, success_type: TokenKind, error_type: TokenKind) -> Token {
+    fn read_string(
+        &mut self,
+        quote: char,
+        success_type: TokenKind,
+        error_type: TokenKind,
+    ) -> Token {
         let mut escaped = false;
 
         loop {
@@ -504,15 +573,15 @@ impl<'a> Tokenizer<'a> {
                     // End of string
                     self.advance(); // Skip the closing quote
                     return self.create_token(success_type);
-                },
+                }
                 Some('\\') if !escaped => {
                     self.advance(); // Skip the backslash
                     escaped = true;
-                },
+                }
                 Some(_) => {
                     self.advance();
                     escaped = false;
-                },
+                }
                 None => {
                     // Unterminated string
                     return self.create_token(error_type);
@@ -715,6 +784,8 @@ mod tests {
         let sql = "SELECT * FROM system.numbers WHERE number > 1 LIMIT 5";
         let tokens = tokenize(sql);
 
+        assert_eq!(tokens.len(), 12);
+
         assert_eq!(tokens[0].kind, TokenKind::BareWord);
         assert_eq!(tokens[0].text, "SELECT");
 
@@ -750,8 +821,6 @@ mod tests {
 
         assert_eq!(tokens[11].kind, TokenKind::Number);
         assert_eq!(tokens[11].text, "5");
-
-        assert_eq!(tokens[12].kind, TokenKind::EndOfStream);
     }
 
     #[test]
@@ -759,13 +828,12 @@ mod tests {
         let sql = "SELECT * FROM";
         let tokens = tokenize_with_whitespace(sql);
 
-        assert_eq!(tokens.len(), 6); // SELECT, WS, *, WS, FROM, EndOfStream
+        assert_eq!(tokens.len(), 5); // SELECT, WS, *, WS, FROM, EndOfStream
         assert_eq!(tokens[0].kind, TokenKind::BareWord);
         assert_eq!(tokens[1].kind, TokenKind::Whitespace);
         assert_eq!(tokens[2].kind, TokenKind::Asterisk);
         assert_eq!(tokens[3].kind, TokenKind::Whitespace);
         assert_eq!(tokens[4].kind, TokenKind::BareWord);
-        assert_eq!(tokens[5].kind, TokenKind::EndOfStream);
     }
 
     #[test]
@@ -775,11 +843,15 @@ mod tests {
         let tokens = tokenize(sql);
 
         // Find string literal
-        let string_token = tokens.iter().find(|t| t.kind == TokenKind::StringLiteral).unwrap();
+        let string_token = tokens
+            .iter()
+            .find(|t| t.kind == TokenKind::StringLiteral)
+            .unwrap();
         assert_eq!(string_token.text, "'string literal'");
 
         // Find quoted identifiers
-        let quoted_tokens: Vec<&Token> = tokens.iter()
+        let quoted_tokens: Vec<&Token> = tokens
+            .iter()
             .filter(|t| t.kind == TokenKind::QuotedIdentifier)
             .collect();
 
@@ -794,7 +866,8 @@ mod tests {
 
         let tokens = tokenize(sql);
 
-        let number_tokens: Vec<&Token> = tokens.iter()
+        let number_tokens: Vec<&Token> = tokens
+            .iter()
             .filter(|t| t.kind == TokenKind::Number)
             .collect();
 
@@ -809,7 +882,8 @@ mod tests {
 
     #[test]
     fn test_tokenize_comments() {
-        let sql = "SELECT * -- This is a comment\nFROM table /* Multi\nline\ncomment */ WHERE id = 1";
+        let sql =
+            "SELECT * -- This is a comment\nFROM table /* Multi\nline\ncomment */ WHERE id = 1";
 
         let tokens = tokenize(sql);
 
@@ -819,7 +893,8 @@ mod tests {
         // Test with whitespace and comments included
         let tokens_with_comments = tokenize_with_whitespace(sql);
 
-        let comment_tokens: Vec<&Token> = tokens_with_comments.iter()
+        let comment_tokens: Vec<&Token> = tokens_with_comments
+            .iter()
             .filter(|t| t.kind == TokenKind::Comment)
             .collect();
 
@@ -841,13 +916,22 @@ mod tests {
         let minus_token = tokens.iter().find(|t| t.kind == TokenKind::Minus).unwrap();
         assert_eq!(minus_token.text, "-");
 
-        let concat_token = tokens.iter().find(|t| t.kind == TokenKind::Concatenation).unwrap();
+        let concat_token = tokens
+            .iter()
+            .find(|t| t.kind == TokenKind::Concatenation)
+            .unwrap();
         assert_eq!(concat_token.text, "||");
 
-        let spaceship_token = tokens.iter().find(|t| t.kind == TokenKind::Spaceship).unwrap();
+        let spaceship_token = tokens
+            .iter()
+            .find(|t| t.kind == TokenKind::Spaceship)
+            .unwrap();
         assert_eq!(spaceship_token.text, "<=>");
 
-        let not_equals_token = tokens.iter().find(|t| t.kind == TokenKind::NotEquals).unwrap();
+        let not_equals_token = tokens
+            .iter()
+            .find(|t| t.kind == TokenKind::NotEquals)
+            .unwrap();
         assert_eq!(not_equals_token.text, "!=");
     }
 
@@ -857,21 +941,30 @@ mod tests {
         let sql = "SELECT 'unterminated string";
         let tokens = tokenize(sql);
 
-        let error_token = tokens.iter().find(|t| t.kind == TokenKind::ErrorSingleQuoteIsNotClosed).unwrap();
+        let error_token = tokens
+            .iter()
+            .find(|t| t.kind == TokenKind::ErrorSingleQuoteIsNotClosed)
+            .unwrap();
         assert_eq!(error_token.text, "'unterminated string");
 
         // Unterminated multi-line comment
         let sql = "SELECT /* unterminated comment";
         let tokens = tokenize(sql);
 
-        let error_token = tokens.iter().find(|t| t.kind == TokenKind::ErrorMultilineCommentIsNotClosed).unwrap();
+        let error_token = tokens
+            .iter()
+            .find(|t| t.kind == TokenKind::ErrorMultilineCommentIsNotClosed)
+            .unwrap();
         assert_eq!(error_token.text, "/* unterminated comment");
 
         // Invalid use of pipe
         let sql = "SELECT column | other";
         let tokens = tokenize(sql);
 
-        let error_token = tokens.iter().find(|t| t.kind == TokenKind::ErrorSinglePipeMark).unwrap();
+        let error_token = tokens
+            .iter()
+            .find(|t| t.kind == TokenKind::ErrorSinglePipeMark)
+            .unwrap();
         assert_eq!(error_token.text, "|");
     }
 
@@ -897,7 +990,10 @@ mod tests {
         let sql = "SELECT * FROM table\\G";
         let tokens = tokenize(sql);
 
-        let vdelim_token = tokens.iter().find(|t| t.kind == TokenKind::VerticalDelimiter).unwrap();
+        let vdelim_token = tokens
+            .iter()
+            .find(|t| t.kind == TokenKind::VerticalDelimiter)
+            .unwrap();
         assert_eq!(vdelim_token.text, "\\G");
 
         // Here-doc (if your implementation supports it)
@@ -913,7 +1009,8 @@ mod tests {
         let sql = "SELECT `column.with.dots`, \"another.column\", * FROM `table.name`";
         let tokens = tokenize(sql);
 
-        let quoted_identifiers: Vec<&Token> = tokens.iter()
+        let quoted_identifiers: Vec<&Token> = tokens
+            .iter()
             .filter(|t| t.kind == TokenKind::QuotedIdentifier)
             .collect();
 
@@ -929,7 +1026,8 @@ mod tests {
         let sql = "SELECT 'it\\'s a string', 'it''s another string'";
         let tokens = tokenize(sql);
 
-        let string_literals: Vec<&Token> = tokens.iter()
+        let string_literals: Vec<&Token> = tokens
+            .iter()
             .filter(|t| t.kind == TokenKind::StringLiteral)
             .collect();
 

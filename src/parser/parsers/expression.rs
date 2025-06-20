@@ -2,7 +2,9 @@ use crate::lexer::token::TokenKind;
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::{MarkClosed, Parser};
 use crate::parser::parsers::column_type::parse_column_type;
-use crate::parser::parsers::select::{at_end_of_column_list, at_select_statement, parse_select_statement};
+use crate::parser::parsers::select::{
+    at_end_of_column_list, at_select_statement, parse_select_statement,
+};
 use crate::parser::tree::TreeKind;
 
 pub fn parse_expression(p: &mut Parser) {
@@ -53,8 +55,8 @@ fn right_binds_tighter(left: TokenKind, right: TokenKind) -> bool {
             &[TokenKind::Plus, TokenKind::Minus],
             &[TokenKind::Asterisk, TokenKind::Slash],
         ]
-            .iter()
-            .position(|level| level.contains(&kind))
+        .iter()
+        .position(|level| level.contains(&kind))
     }
     let Some(right_tightness) = tightness(right) else {
         return false;
@@ -117,7 +119,7 @@ fn expr_delimited(p: &mut Parser) -> Option<MarkClosed> {
             } else {
                 p.close(m, TreeKind::Expression)
             }
-        },
+        }
         TokenKind::OpeningSquareBracket => {
             let m = p.open();
             p.expect(TokenKind::OpeningSquareBracket);
@@ -174,7 +176,7 @@ fn arg(p: &mut Parser) {
         p.advance();
         parse_expression(p);
         p.close(m, TreeKind::LambdaExpression);
-        return
+        return;
     }
 
     p.close(m, TreeKind::Expression);

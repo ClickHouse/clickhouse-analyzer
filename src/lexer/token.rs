@@ -7,9 +7,9 @@ pub enum TokenKind {
     Whitespace,
     Comment,
 
-    BareWord,       // Keywords or identifiers
-    Number,         // Numeric literals
-    StringLiteral,  // String literals with single quotes
+    BareWord,         // Keywords or identifiers
+    Number,           // Numeric literals
+    StringLiteral,    // String literals with single quotes
     QuotedIdentifier, // Double-quoted or backtick-quoted identifiers
 
     // Brackets
@@ -45,7 +45,7 @@ pub enum TokenKind {
     Greater,
     LessOrEquals,
     GreaterOrEquals,
-    Spaceship,     // <=>
+    Spaceship, // <=>
     PipeMark,
     Concatenation, // ||
 
@@ -66,10 +66,10 @@ pub enum TokenKind {
     ErrorSinglePipeMark,
     ErrorWrongNumber,
     ErrorMaxQuerySizeExceeded,
-    
+
     // Temporary hack for WHERE operators
     And, // AND
-    Or // OR
+    Or,  // OR
 }
 
 impl fmt::Display for TokenKind {
@@ -99,7 +99,14 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, value: String, start: usize, end: usize, line: usize, column: usize) -> Self {
+    pub fn new(
+        kind: TokenKind,
+        value: String,
+        start: usize,
+        end: usize,
+        line: usize,
+        column: usize,
+    ) -> Self {
         Self {
             kind,
             text: value,
