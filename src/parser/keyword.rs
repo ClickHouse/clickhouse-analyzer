@@ -9,7 +9,7 @@ pub enum Keyword {
     Where,
     And,
     Or,
-    Limit
+    Limit,
 }
 
 impl Keyword {
