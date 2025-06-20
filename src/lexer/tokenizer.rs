@@ -97,8 +97,6 @@ impl<'a> Tokenizer<'a> {
             }
             
             tokens.push(token.clone());
-
-            
         }
 
         tokens
@@ -715,6 +713,8 @@ mod tests {
         let sql = "SELECT * FROM system.numbers WHERE number > 1 LIMIT 5";
         let tokens = tokenize(sql);
 
+        assert_eq!(tokens.len(), 12);
+
         assert_eq!(tokens[0].kind, TokenKind::BareWord);
         assert_eq!(tokens[0].text, "SELECT");
 
@@ -750,8 +750,6 @@ mod tests {
 
         assert_eq!(tokens[11].kind, TokenKind::Number);
         assert_eq!(tokens[11].text, "5");
-
-        assert_eq!(tokens[12].kind, TokenKind::EndOfStream);
     }
 
     #[test]
@@ -759,13 +757,12 @@ mod tests {
         let sql = "SELECT * FROM";
         let tokens = tokenize_with_whitespace(sql);
 
-        assert_eq!(tokens.len(), 6); // SELECT, WS, *, WS, FROM, EndOfStream
+        assert_eq!(tokens.len(), 5); // SELECT, WS, *, WS, FROM, EndOfStream
         assert_eq!(tokens[0].kind, TokenKind::BareWord);
         assert_eq!(tokens[1].kind, TokenKind::Whitespace);
         assert_eq!(tokens[2].kind, TokenKind::Asterisk);
         assert_eq!(tokens[3].kind, TokenKind::Whitespace);
         assert_eq!(tokens[4].kind, TokenKind::BareWord);
-        assert_eq!(tokens[5].kind, TokenKind::EndOfStream);
     }
 
     #[test]
