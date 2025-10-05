@@ -1,7 +1,8 @@
 use crate::lexer::token::{Token, TokenKind};
+use serde::Serialize;
 use std::fmt;
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone, Serialize)]
 pub enum TreeKind {
     // Error handling
     ErrorTree,
@@ -117,11 +118,13 @@ pub enum TreeKind {
     BlockComment, // /* comment */
 }
 
+#[derive(Serialize)]
 pub struct Tree {
     pub kind: TreeKind,
     pub children: Vec<Child>,
 }
 
+#[derive(Serialize)]
 pub enum Child {
     Token(Token),
     Tree(Tree),

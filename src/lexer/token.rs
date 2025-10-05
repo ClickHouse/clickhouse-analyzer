@@ -1,7 +1,8 @@
+use serde::Serialize;
 use std::fmt;
 
 /// ClickHouse Tokens, same as the original
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum TokenKind {
     // Base tokens
     Whitespace,
@@ -88,7 +89,7 @@ impl fmt::Display for TokenKind {
 }
 
 /// Structure representing a token in the SQL
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Token {
     pub kind: TokenKind,
     pub text: String,

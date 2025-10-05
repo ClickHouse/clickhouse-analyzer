@@ -1,0 +1,2319 @@
+---
+source: src/parser/parser.rs
+description: select/two_selects.sql
+---
+kind: File
+children:
+  - Tree:
+      kind: SelectStatement
+      children:
+        - Tree:
+            kind: WithClause
+            children:
+              - Token:
+                  kind: BareWord
+                  text: WITH
+                  start: 0
+                  end: 4
+                  line: 1
+                  column: 1
+              - Tree:
+                  kind: ColumnList
+                  children:
+                    - Token:
+                        kind: Whitespace
+                        text: "\n    "
+                        start: 4
+                        end: 9
+                        line: 1
+                        column: 5
+                    - Tree:
+                        kind: ColumnReference
+                        children:
+                          - Token:
+                              kind: BareWord
+                              text: a
+                              start: 9
+                              end: 10
+                              line: 2
+                              column: 5
+                    - Token:
+                        kind: Comma
+                        text: ","
+                        start: 10
+                        end: 11
+                        line: 2
+                        column: 6
+                    - Token:
+                        kind: Whitespace
+                        text: "\n    "
+                        start: 11
+                        end: 16
+                        line: 2
+                        column: 7
+                    - Tree:
+                        kind: ColumnReference
+                        children:
+                          - Token:
+                              kind: BareWord
+                              text: b
+                              start: 16
+                              end: 17
+                              line: 3
+                              column: 5
+                          - Token:
+                              kind: Whitespace
+                              text: "\n"
+                              start: 17
+                              end: 18
+                              line: 3
+                              column: 6
+        - Tree:
+            kind: SelectClause
+            children:
+              - Token:
+                  kind: BareWord
+                  text: SELECT
+                  start: 18
+                  end: 24
+                  line: 4
+                  column: 1
+              - Tree:
+                  kind: ColumnList
+                  children:
+                    - Token:
+                        kind: Whitespace
+                        text: "\n    "
+                        start: 24
+                        end: 29
+                        line: 4
+                        column: 7
+                    - Tree:
+                        kind: ColumnReference
+                        children:
+                          - Token:
+                              kind: BareWord
+                              text: column_a
+                              start: 29
+                              end: 37
+                              line: 5
+                              column: 5
+                    - Token:
+                        kind: Comma
+                        text: ","
+                        start: 37
+                        end: 38
+                        line: 5
+                        column: 13
+                    - Token:
+                        kind: Whitespace
+                        text: "\n    "
+                        start: 38
+                        end: 43
+                        line: 5
+                        column: 14
+                    - Tree:
+                        kind: ColumnReference
+                        children:
+                          - Token:
+                              kind: BareWord
+                              text: column_b
+                              start: 43
+                              end: 51
+                              line: 6
+                              column: 5
+                    - Token:
+                        kind: Comma
+                        text: ","
+                        start: 51
+                        end: 52
+                        line: 6
+                        column: 13
+                    - Token:
+                        kind: Whitespace
+                        text: "\n    "
+                        start: 52
+                        end: 57
+                        line: 6
+                        column: 14
+                    - Tree:
+                        kind: ColumnReference
+                        children:
+                          - Token:
+                              kind: QuotedIdentifier
+                              text: "\"column c\""
+                              start: 57
+                              end: 67
+                              line: 7
+                              column: 5
+                    - Token:
+                        kind: Comma
+                        text: ","
+                        start: 67
+                        end: 68
+                        line: 7
+                        column: 15
+                    - Token:
+                        kind: Whitespace
+                        text: "\n    "
+                        start: 68
+                        end: 73
+                        line: 7
+                        column: 16
+                    - Tree:
+                        kind: ColumnReference
+                        children:
+                          - Token:
+                              kind: BareWord
+                              text: json
+                              start: 73
+                              end: 77
+                              line: 8
+                              column: 5
+                          - Token:
+                              kind: Dot
+                              text: "."
+                              start: 77
+                              end: 78
+                              line: 8
+                              column: 9
+                          - Tree:
+                              kind: ColumnReference
+                              children:
+                                - Token:
+                                    kind: BareWord
+                                    text: nested
+                                    start: 78
+                                    end: 84
+                                    line: 8
+                                    column: 10
+                                - Token:
+                                    kind: Dot
+                                    text: "."
+                                    start: 84
+                                    end: 85
+                                    line: 8
+                                    column: 16
+                                - Tree:
+                                    kind: ColumnReference
+                                    children:
+                                      - Token:
+                                          kind: BareWord
+                                          text: path
+                                          start: 85
+                                          end: 89
+                                          line: 8
+                                          column: 17
+                                      - Token:
+                                          kind: Whitespace
+                                          text: " "
+                                          start: 89
+                                          end: 90
+                                          line: 8
+                                          column: 21
+                    - Tree:
+                        kind: ColumnAlias
+                        children:
+                          - Token:
+                              kind: QuotedIdentifier
+                              text: "\"jsonNestedPath\""
+                              start: 90
+                              end: 106
+                              line: 8
+                              column: 22
+                    - Token:
+                        kind: Comma
+                        text: ","
+                        start: 106
+                        end: 107
+                        line: 8
+                        column: 38
+                    - Token:
+                        kind: Whitespace
+                        text: "\n    "
+                        start: 107
+                        end: 112
+                        line: 8
+                        column: 39
+                    - Tree:
+                        kind: Expression
+                        children:
+                          - Token:
+                              kind: OpeningRoundBracket
+                              text: (
+                              start: 112
+                              end: 113
+                              line: 9
+                              column: 5
+                          - Tree:
+                              kind: SubqueryExpression
+                              children:
+                                - Tree:
+                                    kind: SelectStatement
+                                    children:
+                                      - Tree:
+                                          kind: SelectClause
+                                          children:
+                                            - Token:
+                                                kind: BareWord
+                                                text: SELECT
+                                                start: 113
+                                                end: 119
+                                                line: 9
+                                                column: 6
+                                            - Tree:
+                                                kind: ColumnList
+                                                children:
+                                                  - Token:
+                                                      kind: Whitespace
+                                                      text: " "
+                                                      start: 119
+                                                      end: 120
+                                                      line: 9
+                                                      column: 12
+                                                  - Tree:
+                                                      kind: ColumnReference
+                                                      children:
+                                                        - Token:
+                                                            kind: BareWord
+                                                            text: sub_a
+                                                            start: 120
+                                                            end: 125
+                                                            line: 9
+                                                            column: 13
+                                                        - Token:
+                                                            kind: Whitespace
+                                                            text: " "
+                                                            start: 125
+                                                            end: 126
+                                                            line: 9
+                                                            column: 18
+                                      - Tree:
+                                          kind: FromClause
+                                          children:
+                                            - Token:
+                                                kind: BareWord
+                                                text: FROM
+                                                start: 126
+                                                end: 130
+                                                line: 9
+                                                column: 19
+                                            - Tree:
+                                                kind: TableIdentifier
+                                                children:
+                                                  - Token:
+                                                      kind: Whitespace
+                                                      text: " "
+                                                      start: 130
+                                                      end: 131
+                                                      line: 9
+                                                      column: 23
+                                                  - Token:
+                                                      kind: BareWord
+                                                      text: sub_table
+                                                      start: 131
+                                                      end: 140
+                                                      line: 9
+                                                      column: 24
+                          - Token:
+                              kind: ClosingRoundBracket
+                              text: )
+                              start: 140
+                              end: 141
+                              line: 9
+                              column: 33
+                    - Token:
+                        kind: Comma
+                        text: ","
+                        start: 141
+                        end: 142
+                        line: 9
+                        column: 34
+                    - Token:
+                        kind: Whitespace
+                        text: "\n    "
+                        start: 142
+                        end: 147
+                        line: 9
+                        column: 35
+                    - Tree:
+                        kind: BinaryExpression
+                        children:
+                          - Tree:
+                              kind: Expression
+                              children:
+                                - Token:
+                                    kind: OpeningRoundBracket
+                                    text: (
+                                    start: 147
+                                    end: 148
+                                    line: 10
+                                    column: 5
+                                - Tree:
+                                    kind: BinaryExpression
+                                    children:
+                                      - Tree:
+                                          kind: ColumnReference
+                                          children:
+                                            - Token:
+                                                kind: BareWord
+                                                text: column_d
+                                                start: 148
+                                                end: 156
+                                                line: 10
+                                                column: 6
+                                            - Token:
+                                                kind: Whitespace
+                                                text: " "
+                                                start: 156
+                                                end: 157
+                                                line: 10
+                                                column: 14
+                                      - Token:
+                                          kind: Plus
+                                          text: +
+                                          start: 157
+                                          end: 158
+                                          line: 10
+                                          column: 15
+                                      - Token:
+                                          kind: Whitespace
+                                          text: " "
+                                          start: 158
+                                          end: 159
+                                          line: 10
+                                          column: 16
+                                      - Tree:
+                                          kind: ColumnReference
+                                          children:
+                                            - Token:
+                                                kind: BareWord
+                                                text: column_e
+                                                start: 159
+                                                end: 167
+                                                line: 10
+                                                column: 17
+                                - Token:
+                                    kind: ClosingRoundBracket
+                                    text: )
+                                    start: 167
+                                    end: 168
+                                    line: 10
+                                    column: 25
+                          - Token:
+                              kind: Whitespace
+                              text: " "
+                              start: 168
+                              end: 169
+                              line: 10
+                              column: 26
+                          - Token:
+                              kind: Plus
+                              text: +
+                              start: 169
+                              end: 170
+                              line: 10
+                              column: 27
+                          - Token:
+                              kind: Whitespace
+                              text: " "
+                              start: 170
+                              end: 171
+                              line: 10
+                              column: 28
+                          - Tree:
+                              kind: ColumnReference
+                              children:
+                                - Token:
+                                    kind: BareWord
+                                    text: column_f
+                                    start: 171
+                                    end: 179
+                                    line: 10
+                                    column: 29
+                    - Token:
+                        kind: Comma
+                        text: ","
+                        start: 179
+                        end: 180
+                        line: 10
+                        column: 37
+                    - Token:
+                        kind: Whitespace
+                        text: "\n    "
+                        start: 180
+                        end: 185
+                        line: 10
+                        column: 38
+                    - Tree:
+                        kind: BinaryExpression
+                        children:
+                          - Tree:
+                              kind: FunctionCall
+                              children:
+                                - Tree:
+                                    kind: FunctionCall
+                                    children:
+                                      - Tree:
+                                          kind: ColumnReference
+                                          children:
+                                            - Token:
+                                                kind: BareWord
+                                                text: testFunc
+                                                start: 185
+                                                end: 193
+                                                line: 11
+                                                column: 5
+                                      - Tree:
+                                          kind: ExpressionList
+                                          children:
+                                            - Token:
+                                                kind: OpeningRoundBracket
+                                                text: (
+                                                start: 193
+                                                end: 194
+                                                line: 11
+                                                column: 13
+                                            - Tree:
+                                                kind: Expression
+                                                children:
+                                                  - Tree:
+                                                      kind: NumberLiteral
+                                                      children:
+                                                        - Token:
+                                                            kind: Number
+                                                            text: "5"
+                                                            start: 194
+                                                            end: 195
+                                                            line: 11
+                                                            column: 14
+                                            - Token:
+                                                kind: ClosingRoundBracket
+                                                text: )
+                                                start: 195
+                                                end: 196
+                                                line: 11
+                                                column: 15
+                                - Tree:
+                                    kind: ExpressionList
+                                    children:
+                                      - Token:
+                                          kind: OpeningRoundBracket
+                                          text: (
+                                          start: 196
+                                          end: 197
+                                          line: 11
+                                          column: 16
+                                      - Tree:
+                                          kind: Expression
+                                          children:
+                                            - Tree:
+                                                kind: ColumnReference
+                                                children:
+                                                  - Token:
+                                                      kind: BareWord
+                                                      text: column_g
+                                                      start: 197
+                                                      end: 205
+                                                      line: 11
+                                                      column: 17
+                                      - Token:
+                                          kind: ClosingRoundBracket
+                                          text: )
+                                          start: 205
+                                          end: 206
+                                          line: 11
+                                          column: 25
+                          - Token:
+                              kind: Whitespace
+                              text: " "
+                              start: 206
+                              end: 207
+                              line: 11
+                              column: 26
+                          - Token:
+                              kind: Plus
+                              text: +
+                              start: 207
+                              end: 208
+                              line: 11
+                              column: 27
+                          - Token:
+                              kind: Whitespace
+                              text: " "
+                              start: 208
+                              end: 209
+                              line: 11
+                              column: 28
+                          - Tree:
+                              kind: NumberLiteral
+                              children:
+                                - Token:
+                                    kind: Number
+                                    text: "5"
+                                    start: 209
+                                    end: 210
+                                    line: 11
+                                    column: 29
+                    - Token:
+                        kind: Comma
+                        text: ","
+                        start: 210
+                        end: 211
+                        line: 11
+                        column: 30
+                    - Token:
+                        kind: Whitespace
+                        text: "\n    "
+                        start: 211
+                        end: 216
+                        line: 11
+                        column: 31
+                    - Tree:
+                        kind: BinaryExpression
+                        children:
+                          - Tree:
+                              kind: Expression
+                              children:
+                                - Token:
+                                    kind: OpeningRoundBracket
+                                    text: (
+                                    start: 216
+                                    end: 217
+                                    line: 12
+                                    column: 5
+                                - Tree:
+                                    kind: SubqueryExpression
+                                    children:
+                                      - Tree:
+                                          kind: SelectStatement
+                                          children:
+                                            - Tree:
+                                                kind: SelectClause
+                                                children:
+                                                  - Token:
+                                                      kind: BareWord
+                                                      text: SELECT
+                                                      start: 217
+                                                      end: 223
+                                                      line: 12
+                                                      column: 6
+                                                  - Tree:
+                                                      kind: ColumnList
+                                                      children:
+                                                        - Token:
+                                                            kind: Whitespace
+                                                            text: " "
+                                                            start: 223
+                                                            end: 224
+                                                            line: 12
+                                                            column: 12
+                                                        - Tree:
+                                                            kind: NumberLiteral
+                                                            children:
+                                                              - Token:
+                                                                  kind: Number
+                                                                  text: "1"
+                                                                  start: 224
+                                                                  end: 225
+                                                                  line: 12
+                                                                  column: 13
+                                - Token:
+                                    kind: ClosingRoundBracket
+                                    text: )
+                                    start: 225
+                                    end: 226
+                                    line: 12
+                                    column: 14
+                          - Token:
+                              kind: Whitespace
+                              text: " "
+                              start: 226
+                              end: 227
+                              line: 12
+                              column: 15
+                          - Token:
+                              kind: Plus
+                              text: +
+                              start: 227
+                              end: 228
+                              line: 12
+                              column: 16
+                          - Token:
+                              kind: Whitespace
+                              text: " "
+                              start: 228
+                              end: 229
+                              line: 12
+                              column: 17
+                          - Tree:
+                              kind: Expression
+                              children:
+                                - Token:
+                                    kind: OpeningRoundBracket
+                                    text: (
+                                    start: 229
+                                    end: 230
+                                    line: 12
+                                    column: 18
+                                - Tree:
+                                    kind: SubqueryExpression
+                                    children:
+                                      - Tree:
+                                          kind: SelectStatement
+                                          children:
+                                            - Tree:
+                                                kind: SelectClause
+                                                children:
+                                                  - Token:
+                                                      kind: BareWord
+                                                      text: SELECT
+                                                      start: 230
+                                                      end: 236
+                                                      line: 12
+                                                      column: 19
+                                                  - Tree:
+                                                      kind: ColumnList
+                                                      children:
+                                                        - Token:
+                                                            kind: Whitespace
+                                                            text: " "
+                                                            start: 236
+                                                            end: 237
+                                                            line: 12
+                                                            column: 25
+                                                        - Tree:
+                                                            kind: NumberLiteral
+                                                            children:
+                                                              - Token:
+                                                                  kind: Number
+                                                                  text: "2"
+                                                                  start: 237
+                                                                  end: 238
+                                                                  line: 12
+                                                                  column: 26
+                                                        - Token:
+                                                            kind: Whitespace
+                                                            text: " "
+                                                            start: 238
+                                                            end: 239
+                                                            line: 12
+                                                            column: 27
+                                            - Tree:
+                                                kind: FromClause
+                                                children:
+                                                  - Token:
+                                                      kind: BareWord
+                                                      text: FROM
+                                                      start: 239
+                                                      end: 243
+                                                      line: 12
+                                                      column: 28
+                                                  - Tree:
+                                                      kind: TableIdentifier
+                                                      children:
+                                                        - Token:
+                                                            kind: Whitespace
+                                                            text: " "
+                                                            start: 243
+                                                            end: 244
+                                                            line: 12
+                                                            column: 32
+                                                        - Token:
+                                                            kind: BareWord
+                                                            text: system
+                                                            start: 244
+                                                            end: 250
+                                                            line: 12
+                                                            column: 33
+                                                        - Token:
+                                                            kind: Dot
+                                                            text: "."
+                                                            start: 250
+                                                            end: 251
+                                                            line: 12
+                                                            column: 39
+                                                        - Token:
+                                                            kind: QuotedIdentifier
+                                                            text: "\"numbers\""
+                                                            start: 251
+                                                            end: 260
+                                                            line: 12
+                                                            column: 40
+                                - Token:
+                                    kind: ClosingRoundBracket
+                                    text: )
+                                    start: 260
+                                    end: 261
+                                    line: 12
+                                    column: 49
+                          - Token:
+                              kind: Whitespace
+                              text: " "
+                              start: 261
+                              end: 262
+                              line: 12
+                              column: 50
+                    - Tree:
+                        kind: ColumnAlias
+                        children:
+                          - Token:
+                              kind: BareWord
+                              text: as
+                              start: 262
+                              end: 264
+                              line: 12
+                              column: 51
+                          - Token:
+                              kind: Whitespace
+                              text: " "
+                              start: 264
+                              end: 265
+                              line: 12
+                              column: 53
+                          - Token:
+                              kind: BareWord
+                              text: subquery_result
+                              start: 265
+                              end: 280
+                              line: 12
+                              column: 54
+                    - Token:
+                        kind: Comma
+                        text: ","
+                        start: 280
+                        end: 281
+                        line: 12
+                        column: 69
+                    - Token:
+                        kind: Whitespace
+                        text: "\n    "
+                        start: 281
+                        end: 286
+                        line: 12
+                        column: 70
+                    - Tree:
+                        kind: CastExpression
+                        children:
+                          - Tree:
+                              kind: ColumnReference
+                              children:
+                                - Token:
+                                    kind: BareWord
+                                    text: my_int
+                                    start: 286
+                                    end: 292
+                                    line: 13
+                                    column: 5
+                          - Token:
+                              kind: DoubleColon
+                              text: "::"
+                              start: 292
+                              end: 294
+                              line: 13
+                              column: 11
+                          - Tree:
+                              kind: DataType
+                              children:
+                                - Token:
+                                    kind: BareWord
+                                    text: Array
+                                    start: 294
+                                    end: 299
+                                    line: 13
+                                    column: 13
+                                - Tree:
+                                    kind: DataTypeParameters
+                                    children:
+                                      - Token:
+                                          kind: OpeningRoundBracket
+                                          text: (
+                                          start: 299
+                                          end: 300
+                                          line: 13
+                                          column: 18
+                                      - Tree:
+                                          kind: DataType
+                                          children:
+                                            - Token:
+                                                kind: BareWord
+                                                text: Tuple
+                                                start: 300
+                                                end: 305
+                                                line: 13
+                                                column: 19
+                                            - Tree:
+                                                kind: DataTypeParameters
+                                                children:
+                                                  - Token:
+                                                      kind: OpeningRoundBracket
+                                                      text: (
+                                                      start: 305
+                                                      end: 306
+                                                      line: 13
+                                                      column: 24
+                                                  - Tree:
+                                                      kind: DataType
+                                                      children:
+                                                        - Token:
+                                                            kind: BareWord
+                                                            text: Array
+                                                            start: 306
+                                                            end: 311
+                                                            line: 13
+                                                            column: 25
+                                                        - Tree:
+                                                            kind: DataTypeParameters
+                                                            children:
+                                                              - Token:
+                                                                  kind: OpeningRoundBracket
+                                                                  text: (
+                                                                  start: 311
+                                                                  end: 312
+                                                                  line: 13
+                                                                  column: 30
+                                                              - Tree:
+                                                                  kind: DataType
+                                                                  children:
+                                                                    - Token:
+                                                                        kind: BareWord
+                                                                        text: Int64
+                                                                        start: 312
+                                                                        end: 317
+                                                                        line: 13
+                                                                        column: 31
+                                                              - Token:
+                                                                  kind: ClosingRoundBracket
+                                                                  text: )
+                                                                  start: 317
+                                                                  end: 318
+                                                                  line: 13
+                                                                  column: 36
+                                                  - Token:
+                                                      kind: Comma
+                                                      text: ","
+                                                      start: 318
+                                                      end: 319
+                                                      line: 13
+                                                      column: 37
+                                                  - Tree:
+                                                      kind: DataType
+                                                      children:
+                                                        - Token:
+                                                            kind: Whitespace
+                                                            text: " "
+                                                            start: 319
+                                                            end: 320
+                                                            line: 13
+                                                            column: 38
+                                                        - Token:
+                                                            kind: BareWord
+                                                            text: String
+                                                            start: 320
+                                                            end: 326
+                                                            line: 13
+                                                            column: 39
+                                                  - Token:
+                                                      kind: ClosingRoundBracket
+                                                      text: )
+                                                      start: 326
+                                                      end: 327
+                                                      line: 13
+                                                      column: 45
+                                      - Token:
+                                          kind: ClosingRoundBracket
+                                          text: )
+                                          start: 327
+                                          end: 328
+                                          line: 13
+                                          column: 46
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 328
+                        end: 329
+                        line: 13
+                        column: 47
+                    - Tree:
+                        kind: ColumnAlias
+                        children:
+                          - Token:
+                              kind: BareWord
+                              text: casted_tuple
+                              start: 329
+                              end: 341
+                              line: 13
+                              column: 48
+                    - Token:
+                        kind: Comma
+                        text: ","
+                        start: 341
+                        end: 342
+                        line: 13
+                        column: 60
+                    - Token:
+                        kind: Whitespace
+                        text: "\n    "
+                        start: 342
+                        end: 347
+                        line: 13
+                        column: 61
+                    - Tree:
+                        kind: FunctionCall
+                        children:
+                          - Tree:
+                              kind: ColumnReference
+                              children:
+                                - Token:
+                                    kind: BareWord
+                                    text: arrayMap
+                                    start: 347
+                                    end: 355
+                                    line: 14
+                                    column: 5
+                          - Tree:
+                              kind: ExpressionList
+                              children:
+                                - Token:
+                                    kind: OpeningRoundBracket
+                                    text: (
+                                    start: 355
+                                    end: 356
+                                    line: 14
+                                    column: 13
+                                - Tree:
+                                    kind: LambdaExpression
+                                    children:
+                                      - Tree:
+                                          kind: TupleExpression
+                                          children:
+                                            - Token:
+                                                kind: OpeningRoundBracket
+                                                text: (
+                                                start: 356
+                                                end: 357
+                                                line: 14
+                                                column: 14
+                                            - Tree:
+                                                kind: ColumnReference
+                                                children:
+                                                  - Token:
+                                                      kind: BareWord
+                                                      text: x
+                                                      start: 357
+                                                      end: 358
+                                                      line: 14
+                                                      column: 15
+                                            - Token:
+                                                kind: Comma
+                                                text: ","
+                                                start: 358
+                                                end: 359
+                                                line: 14
+                                                column: 16
+                                            - Token:
+                                                kind: Whitespace
+                                                text: " "
+                                                start: 359
+                                                end: 360
+                                                line: 14
+                                                column: 17
+                                            - Tree:
+                                                kind: ColumnReference
+                                                children:
+                                                  - Token:
+                                                      kind: BareWord
+                                                      text: y
+                                                      start: 360
+                                                      end: 361
+                                                      line: 14
+                                                      column: 18
+                                            - Token:
+                                                kind: ClosingRoundBracket
+                                                text: )
+                                                start: 361
+                                                end: 362
+                                                line: 14
+                                                column: 19
+                                      - Token:
+                                          kind: Whitespace
+                                          text: " "
+                                          start: 362
+                                          end: 363
+                                          line: 14
+                                          column: 20
+                                      - Token:
+                                          kind: Arrow
+                                          text: "->"
+                                          start: 363
+                                          end: 365
+                                          line: 14
+                                          column: 21
+                                      - Token:
+                                          kind: Whitespace
+                                          text: " "
+                                          start: 365
+                                          end: 366
+                                          line: 14
+                                          column: 23
+                                      - Tree:
+                                          kind: BinaryExpression
+                                          children:
+                                            - Tree:
+                                                kind: ColumnReference
+                                                children:
+                                                  - Token:
+                                                      kind: BareWord
+                                                      text: x
+                                                      start: 366
+                                                      end: 367
+                                                      line: 14
+                                                      column: 24
+                                                  - Token:
+                                                      kind: Whitespace
+                                                      text: " "
+                                                      start: 367
+                                                      end: 368
+                                                      line: 14
+                                                      column: 25
+                                            - Token:
+                                                kind: Plus
+                                                text: +
+                                                start: 368
+                                                end: 369
+                                                line: 14
+                                                column: 26
+                                            - Token:
+                                                kind: Whitespace
+                                                text: " "
+                                                start: 369
+                                                end: 370
+                                                line: 14
+                                                column: 27
+                                            - Tree:
+                                                kind: NumberLiteral
+                                                children:
+                                                  - Token:
+                                                      kind: Number
+                                                      text: "1"
+                                                      start: 370
+                                                      end: 371
+                                                      line: 14
+                                                      column: 28
+                                - Token:
+                                    kind: Comma
+                                    text: ","
+                                    start: 371
+                                    end: 372
+                                    line: 14
+                                    column: 29
+                                - Tree:
+                                    kind: LambdaExpression
+                                    children:
+                                      - Token:
+                                          kind: Whitespace
+                                          text: " "
+                                          start: 372
+                                          end: 373
+                                          line: 14
+                                          column: 30
+                                      - Tree:
+                                          kind: TupleExpression
+                                          children:
+                                            - Token:
+                                                kind: OpeningRoundBracket
+                                                text: (
+                                                start: 373
+                                                end: 374
+                                                line: 14
+                                                column: 31
+                                            - Tree:
+                                                kind: ColumnReference
+                                                children:
+                                                  - Token:
+                                                      kind: BareWord
+                                                      text: u
+                                                      start: 374
+                                                      end: 375
+                                                      line: 14
+                                                      column: 32
+                                            - Token:
+                                                kind: Comma
+                                                text: ","
+                                                start: 375
+                                                end: 376
+                                                line: 14
+                                                column: 33
+                                            - Token:
+                                                kind: Whitespace
+                                                text: " "
+                                                start: 376
+                                                end: 377
+                                                line: 14
+                                                column: 34
+                                            - Tree:
+                                                kind: ColumnReference
+                                                children:
+                                                  - Token:
+                                                      kind: BareWord
+                                                      text: v
+                                                      start: 377
+                                                      end: 378
+                                                      line: 14
+                                                      column: 35
+                                            - Token:
+                                                kind: ClosingRoundBracket
+                                                text: )
+                                                start: 378
+                                                end: 379
+                                                line: 14
+                                                column: 36
+                                      - Token:
+                                          kind: Whitespace
+                                          text: " "
+                                          start: 379
+                                          end: 380
+                                          line: 14
+                                          column: 37
+                                      - Token:
+                                          kind: Arrow
+                                          text: "->"
+                                          start: 380
+                                          end: 382
+                                          line: 14
+                                          column: 38
+                                      - Token:
+                                          kind: Whitespace
+                                          text: " "
+                                          start: 382
+                                          end: 383
+                                          line: 14
+                                          column: 40
+                                      - Tree:
+                                          kind: BinaryExpression
+                                          children:
+                                            - Tree:
+                                                kind: ColumnReference
+                                                children:
+                                                  - Token:
+                                                      kind: BareWord
+                                                      text: v
+                                                      start: 383
+                                                      end: 384
+                                                      line: 14
+                                                      column: 41
+                                                  - Token:
+                                                      kind: Whitespace
+                                                      text: " "
+                                                      start: 384
+                                                      end: 385
+                                                      line: 14
+                                                      column: 42
+                                            - Token:
+                                                kind: Plus
+                                                text: +
+                                                start: 385
+                                                end: 386
+                                                line: 14
+                                                column: 43
+                                            - Token:
+                                                kind: Whitespace
+                                                text: " "
+                                                start: 386
+                                                end: 387
+                                                line: 14
+                                                column: 44
+                                            - Tree:
+                                                kind: NumberLiteral
+                                                children:
+                                                  - Token:
+                                                      kind: Number
+                                                      text: "1"
+                                                      start: 387
+                                                      end: 388
+                                                      line: 14
+                                                      column: 45
+                                - Token:
+                                    kind: Comma
+                                    text: ","
+                                    start: 388
+                                    end: 389
+                                    line: 14
+                                    column: 46
+                                - Tree:
+                                    kind: Expression
+                                    children:
+                                      - Token:
+                                          kind: Whitespace
+                                          text: " "
+                                          start: 389
+                                          end: 390
+                                          line: 14
+                                          column: 47
+                                      - Tree:
+                                          kind: ArrayExpression
+                                          children:
+                                            - Token:
+                                                kind: OpeningSquareBracket
+                                                text: "["
+                                                start: 390
+                                                end: 391
+                                                line: 14
+                                                column: 48
+                                            - Tree:
+                                                kind: NumberLiteral
+                                                children:
+                                                  - Token:
+                                                      kind: Number
+                                                      text: "6"
+                                                      start: 391
+                                                      end: 392
+                                                      line: 14
+                                                      column: 49
+                                            - Token:
+                                                kind: Comma
+                                                text: ","
+                                                start: 392
+                                                end: 393
+                                                line: 14
+                                                column: 50
+                                            - Token:
+                                                kind: Whitespace
+                                                text: " "
+                                                start: 393
+                                                end: 394
+                                                line: 14
+                                                column: 51
+                                            - Tree:
+                                                kind: NumberLiteral
+                                                children:
+                                                  - Token:
+                                                      kind: Number
+                                                      text: "7"
+                                                      start: 394
+                                                      end: 395
+                                                      line: 14
+                                                      column: 52
+                                            - Token:
+                                                kind: Comma
+                                                text: ","
+                                                start: 395
+                                                end: 396
+                                                line: 14
+                                                column: 53
+                                            - Token:
+                                                kind: Whitespace
+                                                text: " "
+                                                start: 396
+                                                end: 397
+                                                line: 14
+                                                column: 54
+                                            - Tree:
+                                                kind: NumberLiteral
+                                                children:
+                                                  - Token:
+                                                      kind: Number
+                                                      text: "8"
+                                                      start: 397
+                                                      end: 398
+                                                      line: 14
+                                                      column: 55
+                                            - Token:
+                                                kind: Comma
+                                                text: ","
+                                                start: 398
+                                                end: 399
+                                                line: 14
+                                                column: 56
+                                            - Token:
+                                                kind: Whitespace
+                                                text: " "
+                                                start: 399
+                                                end: 400
+                                                line: 14
+                                                column: 57
+                                            - Tree:
+                                                kind: NumberLiteral
+                                                children:
+                                                  - Token:
+                                                      kind: Number
+                                                      text: "9"
+                                                      start: 400
+                                                      end: 401
+                                                      line: 14
+                                                      column: 58
+                                            - Token:
+                                                kind: Comma
+                                                text: ","
+                                                start: 401
+                                                end: 402
+                                                line: 14
+                                                column: 59
+                                            - Token:
+                                                kind: Whitespace
+                                                text: " "
+                                                start: 402
+                                                end: 403
+                                                line: 14
+                                                column: 60
+                                            - Tree:
+                                                kind: Expression
+                                                children:
+                                                  - Token:
+                                                      kind: OpeningRoundBracket
+                                                      text: (
+                                                      start: 403
+                                                      end: 404
+                                                      line: 14
+                                                      column: 61
+                                                  - Tree:
+                                                      kind: NumberLiteral
+                                                      children:
+                                                        - Token:
+                                                            kind: Number
+                                                            text: "10"
+                                                            start: 404
+                                                            end: 406
+                                                            line: 14
+                                                            column: 62
+                                                  - Token:
+                                                      kind: ClosingRoundBracket
+                                                      text: )
+                                                      start: 406
+                                                      end: 407
+                                                      line: 14
+                                                      column: 64
+                                            - Token:
+                                                kind: Comma
+                                                text: ","
+                                                start: 407
+                                                end: 408
+                                                line: 14
+                                                column: 65
+                                            - Token:
+                                                kind: Whitespace
+                                                text: " "
+                                                start: 408
+                                                end: 409
+                                                line: 14
+                                                column: 66
+                                            - Tree:
+                                                kind: Expression
+                                                children:
+                                                  - Token:
+                                                      kind: OpeningRoundBracket
+                                                      text: (
+                                                      start: 409
+                                                      end: 410
+                                                      line: 14
+                                                      column: 67
+                                                  - Tree:
+                                                      kind: SubqueryExpression
+                                                      children:
+                                                        - Tree:
+                                                            kind: SelectStatement
+                                                            children:
+                                                              - Tree:
+                                                                  kind: SelectClause
+                                                                  children:
+                                                                    - Token:
+                                                                        kind: BareWord
+                                                                        text: SELECT
+                                                                        start: 410
+                                                                        end: 416
+                                                                        line: 14
+                                                                        column: 68
+                                                                    - Tree:
+                                                                        kind: ColumnList
+                                                                        children:
+                                                                          - Token:
+                                                                              kind: Whitespace
+                                                                              text: " "
+                                                                              start: 416
+                                                                              end: 417
+                                                                              line: 14
+                                                                              column: 74
+                                                                          - Tree:
+                                                                              kind: NumberLiteral
+                                                                              children:
+                                                                                - Token:
+                                                                                    kind: Number
+                                                                                    text: "1"
+                                                                                    start: 417
+                                                                                    end: 418
+                                                                                    line: 14
+                                                                                    column: 75
+                                                                          - Token:
+                                                                              kind: Whitespace
+                                                                              text: " "
+                                                                              start: 418
+                                                                              end: 419
+                                                                              line: 14
+                                                                              column: 76
+                                                              - Tree:
+                                                                  kind: FromClause
+                                                                  children:
+                                                                    - Token:
+                                                                        kind: BareWord
+                                                                        text: FROM
+                                                                        start: 419
+                                                                        end: 423
+                                                                        line: 14
+                                                                        column: 77
+                                                                    - Tree:
+                                                                        kind: TableIdentifier
+                                                                        children:
+                                                                          - Token:
+                                                                              kind: Whitespace
+                                                                              text: " "
+                                                                              start: 423
+                                                                              end: 424
+                                                                              line: 14
+                                                                              column: 81
+                                                                          - Token:
+                                                                              kind: BareWord
+                                                                              text: system
+                                                                              start: 424
+                                                                              end: 430
+                                                                              line: 14
+                                                                              column: 82
+                                                                          - Token:
+                                                                              kind: Dot
+                                                                              text: "."
+                                                                              start: 430
+                                                                              end: 431
+                                                                              line: 14
+                                                                              column: 88
+                                                                          - Token:
+                                                                              kind: BareWord
+                                                                              text: numbers
+                                                                              start: 431
+                                                                              end: 438
+                                                                              line: 14
+                                                                              column: 89
+                                                  - Token:
+                                                      kind: ClosingRoundBracket
+                                                      text: )
+                                                      start: 438
+                                                      end: 439
+                                                      line: 14
+                                                      column: 96
+                                            - Token:
+                                                kind: ClosingSquareBracket
+                                                text: "]"
+                                                start: 439
+                                                end: 440
+                                                line: 14
+                                                column: 97
+                                - Token:
+                                    kind: ClosingRoundBracket
+                                    text: )
+                                    start: 440
+                                    end: 441
+                                    line: 14
+                                    column: 98
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 441
+                        end: 442
+                        line: 14
+                        column: 99
+                    - Tree:
+                        kind: ColumnAlias
+                        children:
+                          - Token:
+                              kind: QuotedIdentifier
+                              text: "\"array thing\""
+                              start: 442
+                              end: 455
+                              line: 14
+                              column: 100
+                    - Token:
+                        kind: Whitespace
+                        text: "\n"
+                        start: 455
+                        end: 456
+                        line: 14
+                        column: 113
+        - Tree:
+            kind: FromClause
+            children:
+              - Token:
+                  kind: BareWord
+                  text: FROM
+                  start: 456
+                  end: 460
+                  line: 15
+                  column: 1
+              - Tree:
+                  kind: TableIdentifier
+                  children:
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 460
+                        end: 461
+                        line: 15
+                        column: 5
+                    - Token:
+                        kind: BareWord
+                        text: table
+                        start: 461
+                        end: 466
+                        line: 15
+                        column: 6
+                    - Token:
+                        kind: Whitespace
+                        text: "\n"
+                        start: 466
+                        end: 467
+                        line: 15
+                        column: 11
+        - Tree:
+            kind: OrderByClause
+            children:
+              - Token:
+                  kind: BareWord
+                  text: ORDER
+                  start: 467
+                  end: 472
+                  line: 16
+                  column: 1
+              - Token:
+                  kind: Whitespace
+                  text: " "
+                  start: 472
+                  end: 473
+                  line: 16
+                  column: 6
+              - Token:
+                  kind: BareWord
+                  text: BY
+                  start: 473
+                  end: 475
+                  line: 16
+                  column: 7
+              - Tree:
+                  kind: OrderByItem
+                  children:
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 475
+                        end: 476
+                        line: 16
+                        column: 9
+                    - Tree:
+                        kind: ColumnReference
+                        children:
+                          - Token:
+                              kind: BareWord
+                              text: b
+                              start: 476
+                              end: 477
+                              line: 16
+                              column: 10
+  - Token:
+      kind: Semicolon
+      text: ;
+      start: 477
+      end: 478
+      line: 16
+      column: 11
+  - Token:
+      kind: Whitespace
+      text: "\n\n"
+      start: 478
+      end: 480
+      line: 16
+      column: 12
+  - Tree:
+      kind: SelectStatement
+      children:
+        - Tree:
+            kind: SelectClause
+            children:
+              - Token:
+                  kind: BareWord
+                  text: SELECT
+                  start: 480
+                  end: 486
+                  line: 18
+                  column: 1
+              - Tree:
+                  kind: ColumnList
+                  children:
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 486
+                        end: 487
+                        line: 18
+                        column: 7
+                    - Tree:
+                        kind: ColumnReference
+                        children:
+                          - Token:
+                              kind: BareWord
+                              text: column_1
+                              start: 487
+                              end: 495
+                              line: 18
+                              column: 8
+  - Token:
+      kind: Semicolon
+      text: ;
+      start: 495
+      end: 496
+      line: 18
+      column: 16
+  - Token:
+      kind: Whitespace
+      text: "\n"
+      start: 496
+      end: 497
+      line: 18
+      column: 17
+  - Tree:
+      kind: SelectStatement
+      children:
+        - Tree:
+            kind: SelectClause
+            children:
+              - Token:
+                  kind: BareWord
+                  text: SELECT
+                  start: 497
+                  end: 503
+                  line: 19
+                  column: 1
+              - Tree:
+                  kind: ColumnList
+                  children:
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 503
+                        end: 504
+                        line: 19
+                        column: 7
+                    - Tree:
+                        kind: ColumnReference
+                        children:
+                          - Token:
+                              kind: BareWord
+                              text: column
+                              start: 504
+                              end: 510
+                              line: 19
+                              column: 8
+                    - Token:
+                        kind: Comma
+                        text: ","
+                        start: 510
+                        end: 511
+                        line: 19
+                        column: 14
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 511
+                        end: 512
+                        line: 19
+                        column: 15
+                    - Tree:
+                        kind: ColumnReference
+                        children:
+                          - Token:
+                              kind: QuotedIdentifier
+                              text: "\"quoted column\""
+                              start: 512
+                              end: 527
+                              line: 19
+                              column: 16
+                    - Token:
+                        kind: Comma
+                        text: ","
+                        start: 527
+                        end: 528
+                        line: 19
+                        column: 31
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 528
+                        end: 529
+                        line: 19
+                        column: 32
+                    - Tree:
+                        kind: StringLiteral
+                        children:
+                          - Token:
+                              kind: StringLiteral
+                              text: "'test'"
+                              start: 529
+                              end: 535
+                              line: 19
+                              column: 33
+                    - Token:
+                        kind: Comma
+                        text: ","
+                        start: 535
+                        end: 536
+                        line: 19
+                        column: 39
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 536
+                        end: 537
+                        line: 19
+                        column: 40
+                    - Tree:
+                        kind: NumberLiteral
+                        children:
+                          - Token:
+                              kind: Number
+                              text: "3.14"
+                              start: 537
+                              end: 541
+                              line: 19
+                              column: 41
+                    - Token:
+                        kind: Comma
+                        text: ","
+                        start: 541
+                        end: 542
+                        line: 19
+                        column: 45
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 542
+                        end: 543
+                        line: 19
+                        column: 46
+                    - Tree:
+                        kind: NumberLiteral
+                        children:
+                          - Token:
+                              kind: Number
+                              text: "123"
+                              start: 543
+                              end: 546
+                              line: 19
+                              column: 47
+  - Token:
+      kind: Semicolon
+      text: ;
+      start: 546
+      end: 547
+      line: 19
+      column: 50
+  - Token:
+      kind: Whitespace
+      text: "\n"
+      start: 547
+      end: 548
+      line: 19
+      column: 51
+  - Tree:
+      kind: SelectStatement
+      children:
+        - Tree:
+            kind: SelectClause
+            children:
+              - Token:
+                  kind: BareWord
+                  text: SELECT
+                  start: 548
+                  end: 554
+                  line: 20
+                  column: 1
+              - Tree:
+                  kind: ColumnList
+                  children:
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 554
+                        end: 555
+                        line: 20
+                        column: 7
+                    - Tree:
+                        kind: ColumnReference
+                        children:
+                          - Token:
+                              kind: BareWord
+                              text: column_3
+                              start: 555
+                              end: 563
+                              line: 20
+                              column: 8
+                          - Token:
+                              kind: Whitespace
+                              text: " "
+                              start: 563
+                              end: 564
+                              line: 20
+                              column: 16
+                    - Tree:
+                        kind: ColumnAlias
+                        children:
+                          - Token:
+                              kind: BareWord
+                              text: as
+                              start: 564
+                              end: 566
+                              line: 20
+                              column: 17
+                          - Token:
+                              kind: Whitespace
+                              text: " "
+                              start: 566
+                              end: 567
+                              line: 20
+                              column: 19
+                          - Token:
+                              kind: BareWord
+                              text: c3
+                              start: 567
+                              end: 569
+                              line: 20
+                              column: 20
+                    - Token:
+                        kind: Comma
+                        text: ","
+                        start: 569
+                        end: 570
+                        line: 20
+                        column: 22
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 570
+                        end: 571
+                        line: 20
+                        column: 23
+                    - Tree:
+                        kind: ColumnReference
+                        children:
+                          - Token:
+                              kind: BareWord
+                              text: json
+                              start: 571
+                              end: 575
+                              line: 20
+                              column: 24
+                          - Token:
+                              kind: Dot
+                              text: "."
+                              start: 575
+                              end: 576
+                              line: 20
+                              column: 28
+                          - Tree:
+                              kind: ColumnReference
+                              children:
+                                - Token:
+                                    kind: BareWord
+                                    text: nested
+                                    start: 576
+                                    end: 582
+                                    line: 20
+                                    column: 29
+                                - Token:
+                                    kind: Dot
+                                    text: "."
+                                    start: 582
+                                    end: 583
+                                    line: 20
+                                    column: 35
+                                - Tree:
+                                    kind: ColumnReference
+                                    children:
+                                      - Token:
+                                          kind: BareWord
+                                          text: path
+                                          start: 583
+                                          end: 587
+                                          line: 20
+                                          column: 36
+                                      - Token:
+                                          kind: Whitespace
+                                          text: " "
+                                          start: 587
+                                          end: 588
+                                          line: 20
+                                          column: 40
+                    - Tree:
+                        kind: ColumnAlias
+                        children:
+                          - Token:
+                              kind: QuotedIdentifier
+                              text: "\"jsonNestedPath\""
+                              start: 588
+                              end: 604
+                              line: 20
+                              column: 41
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 604
+                        end: 605
+                        line: 20
+                        column: 57
+        - Tree:
+            kind: FromClause
+            children:
+              - Token:
+                  kind: BareWord
+                  text: FROM
+                  start: 605
+                  end: 609
+                  line: 20
+                  column: 58
+              - Tree:
+                  kind: TableIdentifier
+                  children:
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 609
+                        end: 610
+                        line: 20
+                        column: 62
+                    - Token:
+                        kind: BareWord
+                        text: table3
+                        start: 610
+                        end: 616
+                        line: 20
+                        column: 63
+  - Token:
+      kind: Semicolon
+      text: ;
+      start: 616
+      end: 617
+      line: 20
+      column: 69
+  - Token:
+      kind: Whitespace
+      text: "\n"
+      start: 617
+      end: 618
+      line: 20
+      column: 70
+  - Tree:
+      kind: SelectStatement
+      children:
+        - Tree:
+            kind: FromClause
+            children:
+              - Token:
+                  kind: BareWord
+                  text: FROM
+                  start: 618
+                  end: 622
+                  line: 21
+                  column: 1
+              - Tree:
+                  kind: TableIdentifier
+                  children:
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 622
+                        end: 623
+                        line: 21
+                        column: 5
+                    - Token:
+                        kind: BareWord
+                        text: system
+                        start: 623
+                        end: 629
+                        line: 21
+                        column: 6
+                    - Token:
+                        kind: Dot
+                        text: "."
+                        start: 629
+                        end: 630
+                        line: 21
+                        column: 12
+                    - Token:
+                        kind: BareWord
+                        text: numbers
+                        start: 630
+                        end: 637
+                        line: 21
+                        column: 13
+        - Tree:
+            kind: SelectClause
+            children:
+              - Token:
+                  kind: Whitespace
+                  text: " "
+                  start: 637
+                  end: 638
+                  line: 21
+                  column: 20
+              - Token:
+                  kind: BareWord
+                  text: SELECT
+                  start: 638
+                  end: 644
+                  line: 21
+                  column: 21
+              - Tree:
+                  kind: ColumnList
+                  children:
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 644
+                        end: 645
+                        line: 21
+                        column: 27
+                    - Tree:
+                        kind: ColumnReference
+                        children:
+                          - Token:
+                              kind: BareWord
+                              text: number
+                              start: 645
+                              end: 651
+                              line: 21
+                              column: 28
+                          - Token:
+                              kind: Whitespace
+                              text: " "
+                              start: 651
+                              end: 652
+                              line: 21
+                              column: 34
+        - Tree:
+            kind: WhereClause
+            children:
+              - Token:
+                  kind: BareWord
+                  text: WHERE
+                  start: 652
+                  end: 657
+                  line: 21
+                  column: 35
+              - Token:
+                  kind: Whitespace
+                  text: " "
+                  start: 657
+                  end: 658
+                  line: 21
+                  column: 40
+              - Tree:
+                  kind: BinaryExpression
+                  children:
+                    - Tree:
+                        kind: BinaryExpression
+                        children:
+                          - Tree:
+                              kind: BinaryExpression
+                              children:
+                                - Tree:
+                                    kind: ColumnReference
+                                    children:
+                                      - Token:
+                                          kind: BareWord
+                                          text: number
+                                          start: 658
+                                          end: 664
+                                          line: 21
+                                          column: 41
+                                      - Token:
+                                          kind: Whitespace
+                                          text: " "
+                                          start: 664
+                                          end: 665
+                                          line: 21
+                                          column: 47
+                                - Token:
+                                    kind: Greater
+                                    text: ">"
+                                    start: 665
+                                    end: 666
+                                    line: 21
+                                    column: 48
+                                - Token:
+                                    kind: Whitespace
+                                    text: " "
+                                    start: 666
+                                    end: 667
+                                    line: 21
+                                    column: 49
+                                - Tree:
+                                    kind: NumberLiteral
+                                    children:
+                                      - Token:
+                                          kind: Number
+                                          text: "1"
+                                          start: 667
+                                          end: 668
+                                          line: 21
+                                          column: 50
+                                - Token:
+                                    kind: Whitespace
+                                    text: " "
+                                    start: 668
+                                    end: 669
+                                    line: 21
+                                    column: 51
+                          - Token:
+                              kind: BareWord
+                              text: OR
+                              start: 669
+                              end: 671
+                              line: 21
+                              column: 52
+                          - Token:
+                              kind: Whitespace
+                              text: " "
+                              start: 671
+                              end: 672
+                              line: 21
+                              column: 54
+                          - Tree:
+                              kind: BinaryExpression
+                              children:
+                                - Tree:
+                                    kind: ColumnReference
+                                    children:
+                                      - Token:
+                                          kind: BareWord
+                                          text: number
+                                          start: 672
+                                          end: 678
+                                          line: 21
+                                          column: 55
+                                      - Token:
+                                          kind: Whitespace
+                                          text: " "
+                                          start: 678
+                                          end: 679
+                                          line: 21
+                                          column: 61
+                                - Token:
+                                    kind: Less
+                                    text: "<"
+                                    start: 679
+                                    end: 680
+                                    line: 21
+                                    column: 62
+                                - Token:
+                                    kind: Whitespace
+                                    text: " "
+                                    start: 680
+                                    end: 681
+                                    line: 21
+                                    column: 63
+                                - Tree:
+                                    kind: NumberLiteral
+                                    children:
+                                      - Token:
+                                          kind: Number
+                                          text: "5"
+                                          start: 681
+                                          end: 682
+                                          line: 21
+                                          column: 64
+                                - Token:
+                                    kind: Whitespace
+                                    text: " "
+                                    start: 682
+                                    end: 683
+                                    line: 21
+                                    column: 65
+                    - Token:
+                        kind: BareWord
+                        text: AND
+                        start: 683
+                        end: 686
+                        line: 21
+                        column: 66
+                    - Token:
+                        kind: Whitespace
+                        text: " "
+                        start: 686
+                        end: 687
+                        line: 21
+                        column: 69
+                    - Tree:
+                        kind: BinaryExpression
+                        children:
+                          - Tree:
+                              kind: NumberLiteral
+                              children:
+                                - Token:
+                                    kind: Number
+                                    text: "1"
+                                    start: 687
+                                    end: 688
+                                    line: 21
+                                    column: 70
+                          - Token:
+                              kind: Equals
+                              text: "="
+                              start: 688
+                              end: 689
+                              line: 21
+                              column: 71
+                          - Tree:
+                              kind: NumberLiteral
+                              children:
+                                - Token:
+                                    kind: Number
+                                    text: "1"
+                                    start: 689
+                                    end: 690
+                                    line: 21
+                                    column: 72
+                          - Token:
+                              kind: Whitespace
+                              text: " "
+                              start: 690
+                              end: 691
+                              line: 21
+                              column: 73
+        - Tree:
+            kind: LimitClause
+            children:
+              - Token:
+                  kind: BareWord
+                  text: LIMIT
+                  start: 691
+                  end: 696
+                  line: 21
+                  column: 74
+              - Token:
+                  kind: Whitespace
+                  text: " "
+                  start: 696
+                  end: 697
+                  line: 21
+                  column: 79
+              - Tree:
+                  kind: NumberLiteral
+                  children:
+                    - Token:
+                        kind: Number
+                        text: "1"
+                        start: 697
+                        end: 698
+                        line: 21
+                        column: 80
+  - Token:
+      kind: Semicolon
+      text: ;
+      start: 698
+      end: 699
+      line: 21
+      column: 81

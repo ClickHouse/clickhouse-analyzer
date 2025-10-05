@@ -1,0 +1,5 @@
+---
+source: src/parser/parser.rs
+description: select/error.sql
+---
+parser is stuck
