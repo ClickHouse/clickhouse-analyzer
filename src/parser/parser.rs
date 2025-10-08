@@ -256,3 +256,42 @@ fn parse_sql(p: &mut Parser) {
 
     p.close(m, TreeKind::File);
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::parser::parse;
+    use rstest::rstest;
+
+    #[rstest]
+    fn test_parse(#[files("test/inputs/**/*.sql")] path: std::path::PathBuf) {
+        let inputs_dir = std::path::Path::new("test/inputs").canonicalize().unwrap();
+        let snapshots_dir = std::path::Path::new("test/snapshots")
+            .canonicalize()
+            .unwrap();
+
+        let path_str = path
+            .strip_prefix(inputs_dir)
+            .unwrap()
+            .to_str()
+            .expect("Failed to convert path to string");
+        let file_content =
+            std::fs::read_to_string(&path).expect(&format!("Failed to read file: {}", path_str));
+
+        // Try to parse the file content, catching any panics so that the panic message can be snapshotted
+        let parse_result = std::panic::catch_unwind(|| parse(&file_content));
+
+        // Compare the result with the snapshot
+        insta::with_settings!({
+            description => path_str,
+            snapshot_suffix => "parse",
+            snapshot_path => &snapshots_dir,
+            prepend_module_to_snapshot => false,
+            omit_expression => true,
+        }, {
+            match &parse_result {
+                Ok(tree) => insta::assert_yaml_snapshot!(path_str, tree),
+                Err(err) => insta::assert_yaml_snapshot!(path_str, err.downcast_ref::<&str>().unwrap().to_string()),
+            }
+        });
+    }
+}
