@@ -77,8 +77,9 @@ pub enum TreeKind {
     TupleExpression,    // (a, b, c)
     ArrayExpression,    // [a, b, c]
     MapExpression,      // {a:b, c:d}
-    SubqueryExpression, // (SELECT ...)
-    LambdaExpression,   // x -> expr
+    SubqueryExpression,  // (SELECT ...)
+    LambdaExpression,    // x -> expr
+    IntervalExpression,  // INTERVAL expr UNIT
 
     // Literals
     NumberLiteral,  // 123, 3.14

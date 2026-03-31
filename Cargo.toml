@@ -15,5 +15,3 @@ serde = { version = "1.0", features = ["derive"] }
 lto = true
 
 [dev-dependencies]
-insta = { version = "1.43.2", features = ["yaml"] }
-rstest = "0.26"

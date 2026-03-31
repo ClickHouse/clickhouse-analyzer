@@ -1,5 +1,5 @@
 use crate::lexer::token::TokenKind;
-use crate::parser::keyword::Keyword;
+use crate::parser::keyword::{IntervalUnit, Keyword};
 use crate::parser::parser::{MarkClosed, Parser};
 use crate::parser::parsers::column_type::parse_column_type;
 use crate::parser::parsers::select::{
@@ -87,7 +87,10 @@ fn expr_delimited(p: &mut Parser) -> Option<MarkClosed> {
         }
         TokenKind::BareWord | TokenKind::QuotedIdentifier => {
             let m = p.open();
-            if at_select_statement(p) {
+            if p.at_keyword(Keyword::Interval) {
+                parse_interval_expression(p);
+                p.close(m, TreeKind::IntervalExpression)
+            } else if at_select_statement(p) {
                 parse_select_statement(p);
                 p.close(m, TreeKind::SubqueryExpression)
             } else if !at_end_of_column_list(p) {
@@ -145,6 +148,22 @@ fn expr_delimited(p: &mut Parser) -> Option<MarkClosed> {
     }
 
     Some(result)
+}
+
+fn at_interval_unit(p: &mut Parser) -> bool {
+    p.nth(0) == TokenKind::BareWord && IntervalUnit::from_str(p.nth_text(0)).is_some()
+}
+
+/// Parses: INTERVAL expr UNIT
+/// e.g. INTERVAL 5 MINUTE, INTERVAL (1 + 2) DAY
+fn parse_interval_expression(p: &mut Parser) {
+    p.expect_keyword(Keyword::Interval);
+    parse_expression(p);
+    if at_interval_unit(p) {
+        p.advance();
+    } else {
+        p.advance_with_error("Expected interval unit (e.g. SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER, YEAR)");
+    }
 }
 
 fn arg_list(p: &mut Parser) {

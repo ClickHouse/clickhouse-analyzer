@@ -48,6 +48,7 @@ mod tests {
             ORDER BY b;
 
             SELECT column_1;
+            SELECT now() - INTERVAL 5 MINUTE;
             SELECT column, \"quoted column\", 'test', 3.14, 123;
             SELECT column_3 as c3, json.nested.path \"jsonNestedPath\" FROM table3;
             FROM system.numbers SELECT number WHERE number > 1 OR number < 5 AND 1=1 LIMIT 1;
