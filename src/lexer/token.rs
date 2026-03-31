@@ -1,8 +1,8 @@
 use serde::Serialize;
 use std::fmt;
 
-/// ClickHouse Tokens, same as the original
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[repr(u8)]
 pub enum TokenKind {
     // Base tokens
     Whitespace,
@@ -68,9 +68,6 @@ pub enum TokenKind {
     ErrorWrongNumber,
     ErrorMaxQuerySizeExceeded,
 
-    // Temporary hack for WHERE operators
-    And, // AND
-    Or,  // OR
 }
 
 impl fmt::Display for TokenKind {

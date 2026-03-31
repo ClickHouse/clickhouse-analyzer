@@ -1,69 +1,200 @@
+/// SQL keywords recognized by the parser.
+///
+/// The lexer emits all identifiers as `TokenKind::BareWord`. The parser uses
+/// `Parser::at_keyword()` with case-insensitive comparison to distinguish
+/// keywords from regular identifiers. This enum lists every keyword the
+/// parser currently needs to recognize.
 #[derive(Debug, Copy, Clone)]
+#[allow(dead_code)]
 pub enum Keyword {
-    With,
+    // Clauses
     Select,
     From,
+    Where,
     Order,
     By,
+    Group,
+    Having,
+    Limit,
+    Offset,
+    With,
     As,
-    Where,
+    On,
+    Using,
+    Between,
+    In,
+    Like,
+    Is,
+    Not,
+    Case,
+    When,
+    Then,
+    Else,
+    End,
+    Cast,
+    Distinct,
+    All,
+    Exists,
+
+    // Logical operators
     And,
     Or,
-    Limit,
+
+    // Joins
+    Join,
+    Inner,
+    Left,
+    Right,
+    Full,
+    Outer,
+    Cross,
+    Global,
+    Any,
+    Array,
+
+    // Set operations
+    Union,
+    Except,
+    Intersect,
+
+    // DML
+    Insert,
+    Into,
+    Values,
+    Delete,
+    Update,
+    Set,
+
+    // DDL
+    Create,
+    Alter,
+    Drop,
+    Detach,
+    Attach,
+    Rename,
+    Truncate,
+    Show,
+    Use,
+    Optimize,
+    System,
+
+    // Table keywords
+    Table,
+    View,
+    Database,
+    Dictionary,
+    Function,
+    Materialized,
+    Temporary,
+    If,
+
+    // Column keywords
+    Default,
+    Codec,
+    Ttl,
+    Comment,
+    Primary,
+    Key,
+
+    // ClickHouse-specific clauses
+    Prewhere,
+    Settings,
+    Format,
+    Sample,
+
+    // Literals
+    Null,
+    True,
+    False,
+
+    // Types / INTERVAL
     Interval,
 }
 
 impl Keyword {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Keyword::With => "WITH",
             Keyword::Select => "SELECT",
             Keyword::From => "FROM",
+            Keyword::Where => "WHERE",
             Keyword::Order => "ORDER",
             Keyword::By => "BY",
+            Keyword::Group => "GROUP",
+            Keyword::Having => "HAVING",
+            Keyword::Limit => "LIMIT",
+            Keyword::Offset => "OFFSET",
+            Keyword::With => "WITH",
             Keyword::As => "AS",
-            Keyword::Where => "WHERE",
+            Keyword::On => "ON",
+            Keyword::Using => "USING",
+            Keyword::Between => "BETWEEN",
+            Keyword::In => "IN",
+            Keyword::Like => "LIKE",
+            Keyword::Is => "IS",
+            Keyword::Not => "NOT",
+            Keyword::Case => "CASE",
+            Keyword::When => "WHEN",
+            Keyword::Then => "THEN",
+            Keyword::Else => "ELSE",
+            Keyword::End => "END",
+            Keyword::Cast => "CAST",
+            Keyword::Distinct => "DISTINCT",
+            Keyword::All => "ALL",
+            Keyword::Exists => "EXISTS",
             Keyword::And => "AND",
             Keyword::Or => "OR",
-            Keyword::Limit => "LIMIT",
+            Keyword::Join => "JOIN",
+            Keyword::Inner => "INNER",
+            Keyword::Left => "LEFT",
+            Keyword::Right => "RIGHT",
+            Keyword::Full => "FULL",
+            Keyword::Outer => "OUTER",
+            Keyword::Cross => "CROSS",
+            Keyword::Global => "GLOBAL",
+            Keyword::Any => "ANY",
+            Keyword::Array => "ARRAY",
+            Keyword::Union => "UNION",
+            Keyword::Except => "EXCEPT",
+            Keyword::Intersect => "INTERSECT",
+            Keyword::Insert => "INSERT",
+            Keyword::Into => "INTO",
+            Keyword::Values => "VALUES",
+            Keyword::Delete => "DELETE",
+            Keyword::Update => "UPDATE",
+            Keyword::Set => "SET",
+            Keyword::Create => "CREATE",
+            Keyword::Alter => "ALTER",
+            Keyword::Drop => "DROP",
+            Keyword::Detach => "DETACH",
+            Keyword::Attach => "ATTACH",
+            Keyword::Rename => "RENAME",
+            Keyword::Truncate => "TRUNCATE",
+            Keyword::Show => "SHOW",
+            Keyword::Use => "USE",
+            Keyword::Optimize => "OPTIMIZE",
+            Keyword::System => "SYSTEM",
+            Keyword::Table => "TABLE",
+            Keyword::View => "VIEW",
+            Keyword::Database => "DATABASE",
+            Keyword::Dictionary => "DICTIONARY",
+            Keyword::Function => "FUNCTION",
+            Keyword::Materialized => "MATERIALIZED",
+            Keyword::Temporary => "TEMPORARY",
+            Keyword::If => "IF",
+            Keyword::Default => "DEFAULT",
+            Keyword::Codec => "CODEC",
+            Keyword::Ttl => "TTL",
+            Keyword::Comment => "COMMENT",
+            Keyword::Primary => "PRIMARY",
+            Keyword::Key => "KEY",
+            Keyword::Prewhere => "PREWHERE",
+            Keyword::Settings => "SETTINGS",
+            Keyword::Format => "FORMAT",
+            Keyword::Sample => "SAMPLE",
+            Keyword::Null => "NULL",
+            Keyword::True => "TRUE",
+            Keyword::False => "FALSE",
             Keyword::Interval => "INTERVAL",
-        }
-    }
-}
-
-/// Interval unit keywords supported by ClickHouse.
-/// See: https://clickhouse.com/docs/en/sql-reference/data-types/special-data-types/interval
-#[derive(Debug, Copy, Clone)]
-pub enum IntervalUnit {
-    Nanosecond,
-    Microsecond,
-    Millisecond,
-    Second,
-    Minute,
-    Hour,
-    Day,
-    Week,
-    Month,
-    Quarter,
-    Year,
-}
-
-impl IntervalUnit {
-    /// Try to match a bareword string to an interval unit (case-insensitive).
-    pub fn from_str(s: &str) -> Option<IntervalUnit> {
-        match s.to_ascii_uppercase().as_str() {
-            "NANOSECOND" | "NANOSECONDS" | "NS" => Some(IntervalUnit::Nanosecond),
-            "MICROSECOND" | "MICROSECONDS" => Some(IntervalUnit::Microsecond),
-            "MILLISECOND" | "MILLISECONDS" | "MS" => Some(IntervalUnit::Millisecond),
-            "SECOND" | "SECONDS" | "SS" | "S" => Some(IntervalUnit::Second),
-            "MINUTE" | "MINUTES" | "MI" | "N" => Some(IntervalUnit::Minute),
-            "HOUR" | "HOURS" | "HH" | "H" => Some(IntervalUnit::Hour),
-            "DAY" | "DAYS" | "DD" | "D" => Some(IntervalUnit::Day),
-            "WEEK" | "WEEKS" | "WK" | "WW" => Some(IntervalUnit::Week),
-            "MONTH" | "MONTHS" | "MM" | "M" => Some(IntervalUnit::Month),
-            "QUARTER" | "QUARTERS" | "QQ" | "Q" => Some(IntervalUnit::Quarter),
-            "YEAR" | "YEARS" | "YYYY" | "YY" => Some(IntervalUnit::Year),
-            _ => None,
         }
     }
 }

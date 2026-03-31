@@ -1,24 +1,11 @@
 use crate::lexer::token::{Token, TokenKind};
-use crate::lexer::tokenizer::tokenize_with_whitespace;
+use crate::parser::event::Event;
 use crate::parser::keyword::Keyword;
-use crate::parser::parsers::select::{at_select_statement, parse_select_statement};
-use crate::parser::tree::{Child, Tree, TreeKind};
+use crate::parser::marker::{CompletedMarker, Marker};
+use crate::parser::syntax_kind::SyntaxKind;
+use crate::parser::syntax_tree::{SyntaxChild, SyntaxTree};
+use crate::parser::token_set::TokenSet;
 use std::cell::Cell;
-
-#[derive(Debug)]
-pub enum Event {
-    Open { kind: TreeKind },
-    Close,
-    Advance,
-}
-
-pub struct MarkOpened {
-    index: usize,
-}
-
-pub struct MarkClosed {
-    index: usize,
-}
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -37,7 +24,7 @@ impl Parser {
         }
     }
 
-    pub fn build_tree(self) -> Tree {
+    pub fn build_tree(self) -> SyntaxTree {
         let mut tokens = self.tokens.into_iter();
         let mut events = self.events;
 
@@ -45,17 +32,17 @@ impl Parser {
         let mut stack = Vec::new();
         for event in events {
             match event {
-                Event::Open { kind } => stack.push(Tree {
+                Event::Open { kind } => stack.push(SyntaxTree {
                     kind,
                     children: Vec::new(),
                 }),
                 Event::Close => {
                     let tree = stack.pop().unwrap();
-                    stack.last_mut().unwrap().children.push(Child::Tree(tree));
+                    stack.last_mut().unwrap().children.push(SyntaxChild::Tree(tree));
                 }
                 Event::Advance => {
                     let token = tokens.next().unwrap();
-                    stack.last_mut().unwrap().children.push(Child::Token(token));
+                    stack.last_mut().unwrap().children.push(SyntaxChild::Token(token));
                 }
             }
         }
@@ -66,31 +53,31 @@ impl Parser {
         tree
     }
 
-    pub fn open(&mut self) -> MarkOpened {
-        let mark = MarkOpened {
+    pub fn start(&mut self) -> Marker {
+        let mark = Marker {
             index: self.events.len(),
         };
         self.events.push(Event::Open {
-            kind: TreeKind::ErrorTree,
+            kind: SyntaxKind::Error,
         });
         mark
     }
 
-    pub fn open_before(&mut self, m: MarkClosed) -> MarkOpened {
-        let mark = MarkOpened { index: m.index };
+    pub fn precede(&mut self, m: CompletedMarker) -> Marker {
+        let mark = Marker { index: m.index };
         self.events.insert(
             m.index,
             Event::Open {
-                kind: TreeKind::ErrorTree,
+                kind: SyntaxKind::Error,
             },
         );
         mark
     }
 
-    pub fn close(&mut self, m: MarkOpened, kind: TreeKind) -> MarkClosed {
+    pub fn complete(&mut self, m: Marker, kind: SyntaxKind) -> CompletedMarker {
         self.events[m.index] = Event::Open { kind };
         self.events.push(Event::Close);
-        MarkClosed { index: m.index }
+        CompletedMarker { index: m.index }
     }
 
     pub fn skip_trivia(&mut self) {
@@ -103,32 +90,30 @@ impl Parser {
         assert!(!self.eof());
         self.fuel.set(256);
         self.events.push(Event::Advance);
-        println!("{}", self.nth_text_with_trivia(0));
         self.pos += 1;
     }
 
     pub fn recover_with_error(&mut self, error: &str) {
-        let m = self.open();
+        let m = self.start();
         // TODO: Error reporting.
         eprintln!("{error}");
-        self.close(m, TreeKind::ErrorTree);
+        self.complete(m, SyntaxKind::Error);
     }
 
     pub fn advance_with_error(&mut self, error: &str) {
-        let m = self.open();
+        let m = self.start();
         // TODO: Error reporting.
         eprintln!("{error}");
         if !self.eof() {
             self.advance();
         }
-        self.close(m, TreeKind::ErrorTree);
+        self.complete(m, SyntaxKind::Error);
     }
 
     pub fn eof(&self) -> bool {
         self.pos == self.tokens.len()
     }
 
-    // Handles semicolon and eof
     pub fn end_of_statement(&mut self) -> bool {
         self.at(TokenKind::ClosingRoundBracket) || self.at(TokenKind::Semicolon) || self.eof()
     }
@@ -160,6 +145,10 @@ impl Parser {
 
     pub fn at_with_trivia(&mut self, kind: TokenKind) -> bool {
         self.nth_with_trivia(0) == kind
+    }
+
+    pub fn at_set(&mut self, set: &TokenSet) -> bool {
+        set.contains(self.nth(0))
     }
 
     pub fn at_any(&mut self, kinds: &[TokenKind]) -> bool {
@@ -229,30 +218,4 @@ impl Parser {
         // TODO: Error reporting.
         eprintln!("expected {keyword:?}");
     }
-}
-
-pub fn parse(text: &str) -> Tree {
-    let tokens = tokenize_with_whitespace(text);
-    let mut p = Parser::new(tokens);
-    parse_sql(&mut p);
-    p.build_tree()
-}
-
-// Parse a SQL file (entry point)
-fn parse_sql(p: &mut Parser) {
-    let m = p.open();
-
-    while !p.eof() {
-        if at_select_statement(p) {
-            parse_select_statement(p);
-        }
-
-        if p.at(TokenKind::Semicolon) {
-            p.expect(TokenKind::Semicolon);
-        }
-    }
-
-    p.skip_trivia();
-
-    p.close(m, TreeKind::File);
 }

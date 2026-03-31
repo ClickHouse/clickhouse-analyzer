@@ -1,90 +1,4 @@
 use crate::lexer::token::{Token, TokenKind};
-use std::collections::HashMap;
-
-/// ClickHouse Keywords
-struct Keywords;
-
-impl Keywords {
-    pub fn get_map() -> HashMap<String, bool> {
-        let mut keywords = HashMap::new();
-
-        // Add ClickHouse keywords (case-insensitive)
-        // These will be recognized as BareWord but can be checked
-        // by the parser for keyword status
-        let keyword_list = [
-            "SELECT",
-            "FROM",
-            "WHERE",
-            "GROUP",
-            "BY",
-            "HAVING",
-            "ORDER",
-            "LIMIT",
-            "OFFSET",
-            "UNION",
-            "ALL",
-            "EXCEPT",
-            "INTERSECT",
-            "JOIN",
-            "ON",
-            "USING",
-            "PREWHERE",
-            "INNER",
-            "LEFT",
-            "RIGHT",
-            "FULL",
-            "OUTER",
-            "CROSS",
-            "GLOBAL",
-            "ANY",
-            "AS",
-            "DISTINCT",
-            "INTO",
-            "FORMAT",
-            "SETTINGS",
-            "INSERT",
-            "VALUES",
-            "DELETE",
-            "WITH",
-            "CREATE",
-            "ALTER",
-            "DROP",
-            "DETACH",
-            "ATTACH",
-            "USE",
-            "BETWEEN",
-            "LIKE",
-            "NOT",
-            "AND",
-            "OR",
-            "IN",
-            "ARRAY",
-            "TUPLE",
-            "MAP",
-            "IS",
-            "NULL",
-            "CAST",
-            "CASE",
-            "WHEN",
-            "THEN",
-            "ELSE",
-            "END",
-            "TRUE",
-            "FALSE",
-            "FUNCTION",
-            "TABLE",
-            "VIEW",
-            "DICTIONARY",
-            "DATABASE",
-        ];
-
-        for keyword in keyword_list.iter() {
-            keywords.insert(keyword.to_lowercase(), true);
-        }
-
-        keywords
-    }
-}
 
 /// Maximum query size (can be configured)
 const MAX_QUERY_SIZE: usize = 1_000_000; // 1MB
@@ -97,7 +11,6 @@ pub struct Tokenizer<'a> {
     start: usize,
     line: usize,
     column: usize,
-    keywords: HashMap<String, bool>,
     include_whitespace: bool,
 }
 
@@ -117,7 +30,6 @@ impl<'a> Tokenizer<'a> {
             start: 0,
             line: 1,
             column: 1,
-            keywords: Keywords::get_map(),
             include_whitespace: true, // Default to including whitespace
         }
     }
@@ -436,7 +348,7 @@ impl<'a> Tokenizer<'a> {
         }
 
         // Check if followed by identifier characters
-        if !self.is_at_end() && self.peek().map_or(false, |c| c.is_alphabetic() || c == '_') {
+        if !self.is_at_end() && self.peek().is_some_and(|c| c.is_alphabetic() || c == '_') {
             return self.read_identifier_starting_with_number();
         }
 
