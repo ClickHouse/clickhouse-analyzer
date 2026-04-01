@@ -1,4 +1,5 @@
 use crate::lexer::token::{Token, TokenKind};
+use crate::parser::diagnostic::{Parse, SyntaxError};
 use crate::parser::event::Event;
 use crate::parser::keyword::Keyword;
 use crate::parser::marker::{CompletedMarker, Marker};
@@ -12,6 +13,7 @@ pub struct Parser {
     pos: usize,
     fuel: Cell<u32>,
     events: Vec<Event>,
+    errors: Vec<SyntaxError>,
 }
 
 impl Parser {
@@ -21,10 +23,32 @@ impl Parser {
             pos: 0,
             fuel: Cell::new(256),
             events: Vec::new(),
+            errors: Vec::new(),
         }
     }
 
-    pub fn build_tree(self) -> SyntaxTree {
+    /// Returns the byte offset range of the current token,
+    /// or the end-of-input position if at EOF.
+    fn current_range(&self) -> (usize, usize) {
+        if let Some(token) = self.tokens.get(self.pos) {
+            (token.start, token.end)
+        } else if let Some(last) = self.tokens.last() {
+            (last.end, last.end)
+        } else {
+            (0, 0)
+        }
+    }
+
+    fn push_error(&mut self, message: impl Into<String>) {
+        let range = self.current_range();
+        self.errors.push(SyntaxError {
+            message: message.into(),
+            range,
+        });
+    }
+
+    pub fn build_tree(self) -> Parse {
+        let errors = self.errors;
         let mut tokens = self.tokens.into_iter();
         let mut events = self.events;
 
@@ -50,7 +74,7 @@ impl Parser {
         let tree = stack.pop().unwrap();
         assert!(stack.is_empty());
         assert!(tokens.next().is_none());
-        tree
+        Parse { tree, errors }
     }
 
     pub fn start(&mut self) -> Marker {
@@ -95,15 +119,13 @@ impl Parser {
 
     pub fn recover_with_error(&mut self, error: &str) {
         let m = self.start();
-        // TODO: Error reporting.
-        eprintln!("{error}");
+        self.push_error(error);
         self.complete(m, SyntaxKind::Error);
     }
 
     pub fn advance_with_error(&mut self, error: &str) {
         let m = self.start();
-        // TODO: Error reporting.
-        eprintln!("{error}");
+        self.push_error(error);
         if !self.eof() {
             self.advance();
         }
@@ -172,8 +194,7 @@ impl Parser {
         if self.eat(kind) {
             return;
         }
-        // TODO: Error reporting.
-        eprintln!("expected {kind:?}");
+        self.push_error(format!("expected {kind}"));
     }
 
     pub fn nth_text(&mut self, lookahead: usize) -> &str {
@@ -215,7 +236,6 @@ impl Parser {
         if self.eat_keyword(keyword) {
             return;
         }
-        // TODO: Error reporting.
-        eprintln!("expected {keyword:?}");
+        self.push_error(format!("expected {}", keyword.as_str()));
     }
 }

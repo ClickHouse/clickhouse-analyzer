@@ -15,10 +15,10 @@ pub fn parse_source(p: &mut Parser) {
     while !p.eof() {
         if at_select_statement(p) {
             parse_select_statement(p);
-        }
-
-        if p.at(TokenKind::Semicolon) {
-            p.expect(TokenKind::Semicolon);
+        } else if p.at(TokenKind::Semicolon) {
+            p.advance();
+        } else {
+            p.advance_with_error("Unexpected token");
         }
     }
 

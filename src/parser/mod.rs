@@ -1,3 +1,4 @@
+pub mod diagnostic;
 pub(crate) mod event;
 pub(crate) mod grammar;
 pub(crate) mod interval_unit;
@@ -10,12 +11,11 @@ pub mod syntax_tree;
 pub(crate) mod token_set;
 
 use crate::lexer::tokenizer::tokenize_with_whitespace;
-use crate::parser::grammar::parse_source;
-use crate::parser::syntax_tree::SyntaxTree;
+use crate::parser::diagnostic::Parse;
 
-pub fn parse(text: &str) -> SyntaxTree {
+pub fn parse(text: &str) -> Parse {
     let tokens = tokenize_with_whitespace(text);
     let mut p = parser::Parser::new(tokens);
-    parse_source(&mut p);
+    grammar::parse_source(&mut p);
     p.build_tree()
 }

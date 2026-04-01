@@ -244,9 +244,9 @@ mod tests {
     use expect_test::{expect, Expect};
 
     fn check(input: &str, expected: Expect) {
-        let tree = parse(input);
+        let result = parse(input);
         let mut buf = String::new();
-        tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0);
         expected.assert_eq(&buf);
     }
 

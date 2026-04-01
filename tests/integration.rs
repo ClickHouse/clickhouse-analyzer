@@ -27,9 +27,9 @@ fn test_full_parse() {
         FROM system.numbers SELECT number WHERE number > 1 OR number < 5 AND 1=1 LIMIT 1;
     ";
 
-    let cst = parse(sql);
+    let result = parse(sql);
     let mut buf = String::new();
-    cst.print(&mut buf, 0);
+    result.tree.print(&mut buf, 0);
     // Smoke test: tree should start with the root File node
     assert!(buf.starts_with("File\n"));
 }

@@ -31,12 +31,16 @@ pub fn parse_select_statement(p: &mut Parser) {
         }
     }
 
+    skip_to_clause_keyword(p);
+
     if p.at_keyword(Keyword::Where) {
         let m = p.start();
         p.expect_keyword(Keyword::Where);
         parse_expression(p);
         p.complete(m, SyntaxKind::WhereClause);
     }
+
+    skip_to_clause_keyword(p);
 
     if p.at_keyword(Keyword::Order) {
         let m = p.start();
@@ -47,6 +51,8 @@ pub fn parse_select_statement(p: &mut Parser) {
         p.complete(m2, SyntaxKind::OrderByItem);
         p.complete(m, SyntaxKind::OrderByClause);
     }
+
+    skip_to_clause_keyword(p);
 
     if p.at_keyword(Keyword::Limit) {
         let m = p.start();
@@ -61,6 +67,12 @@ pub fn parse_select_statement(p: &mut Parser) {
 /// True if the current position marks the end of a column list
 /// (i.e. we've hit a clause keyword or statement boundary).
 pub fn at_end_of_column_list(p: &mut Parser) -> bool {
+    at_clause_keyword(p)
+}
+
+/// True if the parser is positioned at a clause keyword that can appear
+/// inside a SELECT statement. Used for error recovery.
+fn at_clause_keyword(p: &mut Parser) -> bool {
     p.at_keyword(Keyword::Select)
         || p.at_keyword(Keyword::From)
         || p.at_keyword(Keyword::Where)
@@ -71,6 +83,14 @@ pub fn at_end_of_column_list(p: &mut Parser) -> bool {
 /// True if the parser is positioned at the start of a SELECT statement.
 pub fn at_select_statement(p: &mut Parser) -> bool {
     p.at_keyword(Keyword::With) || p.at_keyword(Keyword::Select) || p.at_keyword(Keyword::From)
+}
+
+/// Skips unexpected tokens until we reach a clause keyword or end of statement.
+/// Wraps each skipped token in an Error node.
+fn skip_to_clause_keyword(p: &mut Parser) {
+    while !p.eof() && !p.end_of_statement() && !at_clause_keyword(p) {
+        p.advance_with_error("Unexpected token");
+    }
 }
 
 /// Parses: WITH expr [, expr ...]
@@ -138,7 +158,9 @@ fn parse_from_clause(p: &mut Parser) {
 fn parse_table_reference(p: &mut Parser) {
     let m = p.start();
 
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier])
+        && !at_end_of_column_list(p)
+    {
         p.advance();
 
         if p.at(TokenKind::Dot) {
@@ -163,9 +185,9 @@ mod tests {
     use expect_test::{expect, Expect};
 
     fn check(input: &str, expected: Expect) {
-        let tree = parse(input);
+        let result = parse(input);
         let mut buf = String::new();
-        tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0);
         expected.assert_eq(&buf);
     }
 

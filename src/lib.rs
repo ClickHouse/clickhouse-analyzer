@@ -1,6 +1,7 @@
 mod lexer;
 mod parser;
 
+pub use parser::diagnostic::{Parse, SyntaxError};
 pub use parser::parse;
 pub use parser::syntax_kind::SyntaxKind;
 pub use parser::syntax_tree::{SyntaxChild, SyntaxTree};
@@ -16,8 +17,8 @@ pub fn main() -> Result<(), JsValue> {
 
 #[wasm_bindgen]
 pub fn get_tree(sql: &str) -> String {
-    let cst = parse(sql);
+    let result = parse(sql);
     let mut buf = String::new();
-    cst.print(&mut buf, 0);
+    result.tree.print(&mut buf, 0);
     buf
 }
