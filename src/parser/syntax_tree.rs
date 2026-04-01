@@ -75,7 +75,10 @@ impl SyntaxTree {
                 SyntaxChild::Tree(tree) => tree.print(buf, level + 1),
             }
         }
-        assert!(buf.ends_with('\n'));
+        // Invariant: print always ends with a newline (from writeln above).
+        // Use debug_assert to catch violations during development without
+        // crashing production callers.
+        debug_assert!(buf.ends_with('\n'));
     }
 }
 

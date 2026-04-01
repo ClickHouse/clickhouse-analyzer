@@ -17,7 +17,7 @@ pub fn parse_source(p: &mut Parser) {
             parse_select_statement(p);
         } else if p.at(TokenKind::Semicolon) {
             p.advance();
-        } else {
+        } else if !p.eof() {
             p.advance_with_error("Unexpected token");
         }
     }

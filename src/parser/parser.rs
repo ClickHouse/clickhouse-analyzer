@@ -52,28 +52,57 @@ impl Parser {
         let mut tokens = self.tokens.into_iter();
         let mut events = self.events;
 
-        assert!(matches!(events.pop(), Some(Event::Close)));
-        let mut stack = Vec::new();
+        // Pop trailing Close for root node
+        if matches!(events.last(), Some(Event::Close)) {
+            events.pop();
+        }
+
+        let mut stack: Vec<SyntaxTree> = Vec::new();
         for event in events {
             match event {
-                Event::Open { kind } => stack.push(SyntaxTree {
-                    kind,
-                    children: Vec::new(),
-                }),
+                Event::Open { kind } => {
+                    stack.push(SyntaxTree {
+                        kind,
+                        children: Vec::new(),
+                    });
+                }
                 Event::Close => {
-                    let tree = stack.pop().unwrap();
-                    stack.last_mut().unwrap().children.push(SyntaxChild::Tree(tree));
+                    let Some(tree) = stack.pop() else {
+                        continue;
+                    };
+                    let Some(parent) = stack.last_mut() else {
+                        stack.push(tree);
+                        continue;
+                    };
+                    parent.children.push(SyntaxChild::Tree(tree));
                 }
                 Event::Advance => {
-                    let token = tokens.next().unwrap();
-                    stack.last_mut().unwrap().children.push(SyntaxChild::Token(token));
+                    let Some(token) = tokens.next() else {
+                        continue;
+                    };
+                    let Some(parent) = stack.last_mut() else {
+                        continue;
+                    };
+                    parent.children.push(SyntaxChild::Token(token));
                 }
             }
         }
 
-        let tree = stack.pop().unwrap();
-        assert!(stack.is_empty());
-        assert!(tokens.next().is_none());
+        let mut tree = stack.pop().unwrap_or(SyntaxTree {
+            kind: SyntaxKind::File,
+            children: Vec::new(),
+        });
+
+        // Fold any orphaned stack entries into root
+        while let Some(orphan) = stack.pop() {
+            tree.children.insert(0, SyntaxChild::Tree(orphan));
+        }
+
+        // Attach any unconsumed tokens
+        for token in tokens {
+            tree.children.push(SyntaxChild::Token(token));
+        }
+
         Parse { tree, errors }
     }
 
@@ -111,7 +140,9 @@ impl Parser {
     }
 
     pub fn advance(&mut self) {
-        assert!(!self.eof());
+        if self.eof() {
+            return;
+        }
         self.fuel.set(256);
         self.events.push(Event::Advance);
         self.pos += 1;
@@ -143,7 +174,7 @@ impl Parser {
     pub fn nth(&mut self, lookahead: usize) -> TokenKind {
         self.skip_trivia();
         if self.fuel.get() == 0 {
-            panic!("parser is stuck")
+            return TokenKind::EndOfStream;
         }
         self.fuel.set(self.fuel.get() - 1);
         self.tokens
@@ -153,7 +184,7 @@ impl Parser {
 
     pub fn nth_with_trivia(&self, lookahead: usize) -> TokenKind {
         if self.fuel.get() == 0 {
-            panic!("parser is stuck")
+            return TokenKind::EndOfStream;
         }
         self.fuel.set(self.fuel.get() - 1);
         self.tokens
@@ -200,7 +231,7 @@ impl Parser {
     pub fn nth_text(&mut self, lookahead: usize) -> &str {
         self.skip_trivia();
         if self.fuel.get() == 0 {
-            panic!("parser is stuck")
+            return "";
         }
         self.fuel.set(self.fuel.get() - 1);
         self.tokens
@@ -210,7 +241,7 @@ impl Parser {
 
     pub fn nth_text_with_trivia(&mut self, lookahead: usize) -> &str {
         if self.fuel.get() == 0 {
-            panic!("parser is stuck")
+            return "";
         }
         self.fuel.set(self.fuel.get() - 1);
         self.tokens

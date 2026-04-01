@@ -1,6 +1,7 @@
 mod lexer;
 mod parser;
 
+pub use lexer::token::Token;
 pub use parser::diagnostic::{Parse, SyntaxError};
 pub use parser::parse;
 pub use parser::syntax_kind::SyntaxKind;

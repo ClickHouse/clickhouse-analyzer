@@ -145,31 +145,36 @@ fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
         TokenKind::OpeningRoundBracket => {
             let m = p.start();
             p.expect(TokenKind::OpeningRoundBracket);
-            parse_expression(p);
             let mut count = 0;
-            while p.at(TokenKind::Comma) && !p.eof() {
-                p.advance();
+            if !p.at(TokenKind::ClosingRoundBracket) {
                 parse_expression(p);
                 count += 1;
+                while p.at(TokenKind::Comma) && !p.eof() {
+                    p.advance();
+                    parse_expression(p);
+                    count += 1;
+                }
             }
 
             p.expect(TokenKind::ClosingRoundBracket);
-            if count > 0 {
+            if count > 1 {
                 p.complete(m, SyntaxKind::TupleExpression)
             } else {
                 p.complete(m, SyntaxKind::Expression)
             }
         }
-        // Array literal: [expr, expr, ...]
+        // Array literal: [expr, expr, ...] or []
         TokenKind::OpeningSquareBracket => {
             let m = p.start();
             p.expect(TokenKind::OpeningSquareBracket);
 
-            parse_expression(p);
-
-            while p.at(TokenKind::Comma) && !p.eof() {
-                p.advance();
+            if !p.at(TokenKind::ClosingSquareBracket) {
                 parse_expression(p);
+
+                while p.at(TokenKind::Comma) && !p.eof() {
+                    p.advance();
+                    parse_expression(p);
+                }
             }
 
             p.expect(TokenKind::ClosingSquareBracket);
@@ -201,7 +206,7 @@ fn parse_interval_expression(p: &mut Parser) {
     if at_interval_unit(p) {
         p.advance();
     } else {
-        p.advance_with_error("Expected interval unit (e.g. SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER, YEAR)");
+        p.recover_with_error("Expected interval unit (e.g. SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER, YEAR)");
     }
 }
 
