@@ -429,26 +429,40 @@ fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
             p.expect(TokenKind::ClosingSquareBracket);
             p.complete(m, SyntaxKind::ArrayExpression)
         }
-        // Map literal: {key: value, ...} or {}
+        // Query parameter: {name:Type} or Map literal: {key: value, ...} or {}
+        //
+        // Query parameters use bare identifier keys: {o:UInt32}, {ts:DateTime64(3)}
+        // Map literals use expression keys (typically strings): {'key': value}
+        // We distinguish by checking: { BareWord : ... means query parameter.
         TokenKind::OpeningCurlyBrace => {
-            let m = p.start();
-            p.expect(TokenKind::OpeningCurlyBrace);
-
-            if !p.at(TokenKind::ClosingCurlyBrace) {
-                parse_expression(p);
+            if p.nth(1) == TokenKind::BareWord && p.nth(2) == TokenKind::Colon {
+                let m = p.start();
+                p.expect(TokenKind::OpeningCurlyBrace);
+                p.advance(); // parameter name
                 p.expect(TokenKind::Colon);
-                parse_expression(p);
+                parse_column_type(p); // type (may be complex: DateTime64(3), Array(UInt32), etc.)
+                p.expect(TokenKind::ClosingCurlyBrace);
+                p.complete(m, SyntaxKind::QueryParameterExpression)
+            } else {
+                let m = p.start();
+                p.expect(TokenKind::OpeningCurlyBrace);
 
-                while p.at(TokenKind::Comma) && !p.eof() {
-                    p.advance();
+                if !p.at(TokenKind::ClosingCurlyBrace) {
                     parse_expression(p);
                     p.expect(TokenKind::Colon);
                     parse_expression(p);
-                }
-            }
 
-            p.expect(TokenKind::ClosingCurlyBrace);
-            p.complete(m, SyntaxKind::MapExpression)
+                    while p.at(TokenKind::Comma) && !p.eof() {
+                        p.advance();
+                        parse_expression(p);
+                        p.expect(TokenKind::Colon);
+                        parse_expression(p);
+                    }
+                }
+
+                p.expect(TokenKind::ClosingCurlyBrace);
+                p.complete(m, SyntaxKind::MapExpression)
+            }
         }
         _ => return None,
     };
@@ -1132,6 +1146,73 @@ mod tests {
                   ColumnList
                     MapExpression
                       '{'
+                      '}'
+        "#]]);
+    }
+
+    #[test]
+    fn query_parameter() {
+        check("SELECT {o:UInt32}", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    QueryParameterExpression
+                      '{'
+                      'o'
+                      ':'
+                      DataType
+                        'UInt32'
+                      '}'
+        "#]]);
+    }
+
+    #[test]
+    fn query_parameter_complex_type() {
+        check("SELECT {ts:DateTime64(3)}", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    QueryParameterExpression
+                      '{'
+                      'ts'
+                      ':'
+                      DataType
+                        'DateTime64'
+                        DataTypeParameters
+                          '('
+                          NumberLiteral
+                            '3'
+                          ')'
+                      '}'
+        "#]]);
+    }
+
+    #[test]
+    fn query_parameter_in_where() {
+        check("SELECT 1 WHERE x >= {o:UInt32}", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    NumberLiteral
+                      '1'
+                WhereClause
+                  'WHERE'
+                  BinaryExpression
+                    ColumnReference
+                      'x'
+                    '>='
+                    QueryParameterExpression
+                      '{'
+                      'o'
+                      ':'
+                      DataType
+                        'UInt32'
                       '}'
         "#]]);
     }

@@ -139,6 +139,7 @@ pub fn format_node(tree: &SyntaxTree, ctx: &mut FormatterContext) {
         SyntaxKind::ArrayExpression => format_bracket_list(tree, ctx),
         SyntaxKind::ArrayAccessExpression => format_inline_no_spaces(tree, ctx),
         SyntaxKind::MapExpression => format_brace_list(tree, ctx),
+        SyntaxKind::QueryParameterExpression => format_inline_no_spaces(tree, ctx),
         SyntaxKind::TableIdentifier => format_inline(tree, ctx),
         SyntaxKind::TableExpression => format_inline(tree, ctx),
         SyntaxKind::TableFunction => format_function_call(tree, ctx),

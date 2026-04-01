@@ -170,6 +170,7 @@ pub enum SyntaxKind {
     ArrayAccessExpression,
     DotAccessExpression,
     MapExpression,
+    QueryParameterExpression,
     SubqueryExpression,
     LambdaExpression,
     IntervalExpression,
