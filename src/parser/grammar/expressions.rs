@@ -7,6 +7,9 @@ use crate::parser::marker::CompletedMarker;
 use crate::parser::parser::Parser;
 use crate::parser::syntax_kind::SyntaxKind;
 
+/// Binding power for prefix unary minus, above all binary operators.
+const UNARY_PREFIX_BP: u8 = 7;
+
 /// Binding power levels for binary operators (higher = tighter).
 ///
 /// Modeled after ClickHouse's operator precedence:
@@ -106,7 +109,7 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
     if p.at(TokenKind::Minus) {
         let m = p.start();
         p.advance(); // consume -
-        parse_expression_rec(p, 7);
+        parse_expression_rec(p, UNARY_PREFIX_BP);
         let lhs = p.complete(m, SyntaxKind::UnaryExpression);
         parse_expression_postfix(p, lhs, min_bp);
         return;

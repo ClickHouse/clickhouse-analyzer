@@ -1,4 +1,4 @@
-use crate::lexer::token::TokenKind;
+use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
@@ -27,11 +27,11 @@ pub fn parse_delete_statement(p: &mut Parser) {
     }
 
     // Parse table identifier: [db.]table
-    parse_table_identifier(p);
+    common::parse_table_identifier(p);
 
     // Optional: ON CLUSTER cluster_name
     if p.at_keyword(Keyword::On) {
-        parse_on_cluster_clause(p);
+        common::parse_on_cluster(p);
     }
 
     // WHERE is required for ClickHouse lightweight deletes
@@ -45,47 +45,6 @@ pub fn parse_delete_statement(p: &mut Parser) {
     }
 
     p.complete(m, SyntaxKind::DeleteStatement);
-}
-
-/// Parse a table identifier: [db.]table
-fn parse_table_identifier(p: &mut Parser) {
-    let m = p.start();
-
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
-        p.advance();
-
-        // Handle optional database.table notation
-        if p.at(TokenKind::Dot) {
-            p.advance();
-
-            if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
-                p.advance();
-            } else {
-                p.advance_with_error("Expected table name after dot");
-            }
-        }
-    } else {
-        p.advance_with_error("Expected table name");
-    }
-
-    p.complete(m, SyntaxKind::TableIdentifier);
-}
-
-/// Parse ON CLUSTER clause.
-fn parse_on_cluster_clause(p: &mut Parser) {
-    let m = p.start();
-
-    p.expect_keyword(Keyword::On);
-    p.expect_keyword(Keyword::Cluster);
-
-    // Cluster name
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier, TokenKind::StringLiteral]) {
-        p.advance();
-    } else {
-        p.advance_with_error("Expected cluster name");
-    }
-
-    p.complete(m, SyntaxKind::OnClusterClause);
 }
 
 #[cfg(test)]

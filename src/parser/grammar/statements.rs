@@ -1,68 +1,9 @@
 use crate::lexer::token::TokenKind;
+use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
 use crate::parser::syntax_kind::SyntaxKind;
-
-// ---------------------------------------------------------------------------
-// Shared helpers
-// ---------------------------------------------------------------------------
-
-/// Parse optional IF EXISTS, wrapping in IfExistsClause.
-pub fn parse_if_exists(p: &mut Parser) {
-    if p.at_keyword(Keyword::If) {
-        let m = p.start();
-        p.expect_keyword(Keyword::If);
-        p.expect_keyword(Keyword::Exists);
-        p.complete(m, SyntaxKind::IfExistsClause);
-    }
-}
-
-/// Parse optional IF NOT EXISTS, wrapping in IfExistsClause (reused node kind).
-fn parse_if_not_exists(p: &mut Parser) {
-    if p.at_keyword(Keyword::If) {
-        let m = p.start();
-        p.expect_keyword(Keyword::If);
-        p.expect_keyword(Keyword::Not);
-        p.expect_keyword(Keyword::Exists);
-        p.complete(m, SyntaxKind::IfExistsClause);
-    }
-}
-
-/// Parse optional ON CLUSTER name, wrapping in OnClusterClause.
-pub fn parse_on_cluster(p: &mut Parser) {
-    if p.at_keyword(Keyword::On) {
-        let m = p.start();
-        p.expect_keyword(Keyword::On);
-        p.expect_keyword(Keyword::Cluster);
-        if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier, TokenKind::StringLiteral])
-        {
-            p.advance();
-        } else {
-            p.advance_with_error("Expected cluster name after ON CLUSTER");
-        }
-        p.complete(m, SyntaxKind::OnClusterClause);
-    }
-}
-
-/// Parse [db.]name, wrapping in TableIdentifier.
-pub fn parse_table_identifier(p: &mut Parser) {
-    let m = p.start();
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
-        p.advance();
-        if p.at(TokenKind::Dot) {
-            p.advance();
-            if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
-                p.advance();
-            } else {
-                p.advance_with_error("Expected name after dot");
-            }
-        }
-    } else {
-        p.recover_with_error("Expected identifier");
-    }
-    p.complete(m, SyntaxKind::TableIdentifier);
-}
 
 /// Parse optional PARTITION expr, wrapping in PartitionExpression.
 fn parse_partition(p: &mut Parser) {
@@ -86,7 +27,7 @@ pub fn parse_use_statement(p: &mut Parser) {
     let m = p.start();
     p.expect_keyword(Keyword::Use);
 
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+    if p.at_identifier() {
         p.advance();
     } else {
         p.recover_with_error("Expected database name after USE");
@@ -114,40 +55,10 @@ pub fn parse_set_statement(p: &mut Parser) {
         }
         first = false;
 
-        parse_setting_item(p);
+        common::parse_setting_item(p);
     }
 
     p.complete(m, SyntaxKind::SetStatement);
-}
-
-fn parse_setting_item(p: &mut Parser) {
-    let m = p.start();
-
-    // key
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
-        p.advance();
-    } else {
-        p.recover_with_error("Expected setting name");
-        p.complete(m, SyntaxKind::SettingItem);
-        return;
-    }
-
-    // =
-    p.expect(TokenKind::Equals);
-
-    // value
-    if p.at_any(&[
-        TokenKind::BareWord,
-        TokenKind::Number,
-        TokenKind::StringLiteral,
-        TokenKind::QuotedIdentifier,
-    ]) {
-        p.advance();
-    } else {
-        p.recover_with_error("Expected setting value");
-    }
-
-    p.complete(m, SyntaxKind::SettingItem);
 }
 
 // ---------------------------------------------------------------------------
@@ -180,12 +91,12 @@ pub fn parse_drop_statement(p: &mut Parser) {
     }
     // If none matched, that's ok -- DROP [IF EXISTS] name is valid shorthand
 
-    parse_if_exists(p);
+    common::parse_if_exists(p);
 
     // Parse the identifier
-    parse_table_identifier(p);
+    common::parse_table_identifier(p);
 
-    parse_on_cluster(p);
+    common::parse_on_cluster(p);
 
     // Optional PERMANENTLY
     let _ = p.eat_keyword(Keyword::Permanently);
@@ -211,11 +122,11 @@ pub fn parse_truncate_statement(p: &mut Parser) {
     // Optional TABLE keyword
     let _ = p.eat_keyword(Keyword::Table);
 
-    parse_if_exists(p);
+    common::parse_if_exists(p);
 
-    parse_table_identifier(p);
+    common::parse_table_identifier(p);
 
-    parse_on_cluster(p);
+    common::parse_on_cluster(p);
 
     // Optional SYNC
     let _ = p.eat_keyword(Keyword::Sync);
@@ -253,7 +164,7 @@ pub fn parse_rename_statement(p: &mut Parser) {
         }
     }
 
-    parse_on_cluster(p);
+    common::parse_on_cluster(p);
 
     p.complete(m, SyntaxKind::RenameStatement);
 }
@@ -261,7 +172,7 @@ pub fn parse_rename_statement(p: &mut Parser) {
 fn parse_rename_item(p: &mut Parser) {
     let m = p.start();
 
-    parse_table_identifier(p);
+    common::parse_table_identifier(p);
 
     if p.at_keyword(Keyword::To) {
         p.expect_keyword(Keyword::To);
@@ -269,7 +180,7 @@ fn parse_rename_item(p: &mut Parser) {
         p.recover_with_error("Expected TO in RENAME");
     }
 
-    parse_table_identifier(p);
+    common::parse_table_identifier(p);
 
     p.complete(m, SyntaxKind::RenameItem);
 }
@@ -300,7 +211,7 @@ pub fn parse_exists_statement(p: &mut Parser) {
         p.advance();
     }
 
-    parse_table_identifier(p);
+    common::parse_table_identifier(p);
 
     p.complete(m, SyntaxKind::ExistsStatement);
 }
@@ -318,7 +229,7 @@ pub fn parse_check_statement(p: &mut Parser) {
     p.expect_keyword(Keyword::Check);
     p.expect_keyword(Keyword::Table);
 
-    parse_table_identifier(p);
+    common::parse_table_identifier(p);
 
     parse_partition(p);
 
@@ -338,9 +249,9 @@ pub fn parse_optimize_statement(p: &mut Parser) {
     p.expect_keyword(Keyword::Optimize);
     p.expect_keyword(Keyword::Table);
 
-    parse_table_identifier(p);
+    common::parse_table_identifier(p);
 
-    parse_on_cluster(p);
+    common::parse_on_cluster(p);
 
     parse_partition(p);
 
@@ -416,7 +327,8 @@ mod tests {
                     SettingItem
                       'max_threads'
                       '='
-                      '4'
+                      NumberLiteral
+                        '4'
             "#]],
         );
     }
@@ -432,12 +344,14 @@ mod tests {
                     SettingItem
                       'max_threads'
                       '='
-                      '4'
+                      NumberLiteral
+                        '4'
                     ','
                     SettingItem
                       'max_memory_usage'
                       '='
-                      '1000000'
+                      NumberLiteral
+                        '1000000'
             "#]],
         );
     }
@@ -899,7 +813,8 @@ mod tests {
                     SettingItem
                       'log_comment'
                       '='
-                      ''my test''
+                      StringLiteral
+                        ''my test''
             "#]],
         );
     }

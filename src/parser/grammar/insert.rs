@@ -1,4 +1,5 @@
 use crate::lexer::token::TokenKind;
+use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::grammar::select::{at_select_statement, parse_select_statement};
 use crate::parser::keyword::Keyword;
@@ -22,7 +23,7 @@ pub fn parse_insert_statement(p: &mut Parser) {
     if p.eat_keyword(Keyword::Function) {
         parse_table_function(p);
     } else {
-        parse_table_identifier(p);
+        common::parse_table_identifier(p);
     }
 
     // Optional column list: (col1, col2, ...)
@@ -48,35 +49,11 @@ pub fn parse_insert_statement(p: &mut Parser) {
     p.complete(m, SyntaxKind::InsertStatement);
 }
 
-// Parse a table identifier: [db.]table
-fn parse_table_identifier(p: &mut Parser) {
-    let m = p.start();
-
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
-        p.advance();
-
-        // Handle optional database.table notation
-        if p.at(TokenKind::Dot) {
-            p.advance(); // Consume dot
-
-            if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
-                p.advance();
-            } else {
-                p.advance_with_error("Expected table name after dot");
-            }
-        }
-    } else {
-        p.advance_with_error("Expected table name");
-    }
-
-    p.complete(m, SyntaxKind::TableIdentifier);
-}
-
 // Parse a table function: func_name(args)
 fn parse_table_function(p: &mut Parser) {
     let m = p.start();
 
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+    if p.at_identifier() {
         p.advance();
     } else {
         p.advance_with_error("Expected function name");
@@ -112,7 +89,7 @@ fn parse_insert_columns(p: &mut Parser) {
         }
         first = false;
 
-        if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+        if p.at_identifier() {
             p.advance();
         } else {
             p.advance_with_error("Expected column name");
@@ -141,28 +118,10 @@ fn parse_settings_clause(p: &mut Parser) {
         }
         first = false;
 
-        parse_setting_item(p);
+        common::parse_setting_item(p);
     }
 
     p.complete(m, SyntaxKind::SettingsClause);
-}
-
-// Parse a single setting: key = value
-fn parse_setting_item(p: &mut Parser) {
-    let m = p.start();
-
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
-        p.advance();
-    } else {
-        p.advance_with_error("Expected setting name");
-    }
-
-    p.expect(TokenKind::Equals);
-
-    // Setting value is an expression
-    parse_expression(p);
-
-    p.complete(m, SyntaxKind::SettingItem);
 }
 
 // Parse VALUES (v1, v2), (v3, v4), ...
@@ -211,7 +170,7 @@ fn parse_format_clause(p: &mut Parser) {
 
     p.expect_keyword(Keyword::Format);
 
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+    if p.at_identifier() {
         p.advance();
     } else {
         p.advance_with_error("Expected format name");

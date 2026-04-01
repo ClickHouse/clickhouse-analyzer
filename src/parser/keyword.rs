@@ -175,8 +175,6 @@ pub enum Keyword {
     Processlist,
     Privileges,
     Grants,
-    Create_,  // "CREATE" in SHOW CREATE context - we reuse Create
-
     // SYSTEM commands
     Reload,
     Flush,
@@ -208,8 +206,6 @@ pub enum Keyword {
     Policy,
     Profile,
     Row,
-    None_,
-
     // KILL
     Kill,
     Query,
@@ -274,7 +270,6 @@ pub enum Keyword {
     Materialize,
     Setting,
     Reset,
-    Or_,
 }
 
 impl Keyword {
@@ -415,7 +410,6 @@ impl Keyword {
             Keyword::Processlist => "PROCESSLIST",
             Keyword::Privileges => "PRIVILEGES",
             Keyword::Grants => "GRANTS",
-            Keyword::Create_ => "CREATE",
             Keyword::Reload => "RELOAD",
             Keyword::Flush => "FLUSH",
             Keyword::Stop => "STOP",
@@ -444,7 +438,6 @@ impl Keyword {
             Keyword::Policy => "POLICY",
             Keyword::Profile => "PROFILE",
             Keyword::Row => "ROW",
-            Keyword::None_ => "NONE",
             Keyword::Kill => "KILL",
             Keyword::Query => "QUERY",
             Keyword::Mutation => "MUTATION",
@@ -494,7 +487,6 @@ impl Keyword {
             Keyword::Materialize => "MATERIALIZE",
             Keyword::Setting => "SETTING",
             Keyword::Reset => "RESET",
-            Keyword::Or_ => "OR",
         }
     }
 }

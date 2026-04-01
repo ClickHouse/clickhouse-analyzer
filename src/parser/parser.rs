@@ -8,6 +8,8 @@ use crate::parser::syntax_tree::{SyntaxChild, SyntaxTree};
 use crate::parser::token_set::TokenSet;
 use std::cell::Cell;
 
+const FUEL_LIMIT: u32 = 2048;
+
 pub struct Parser {
     tokens: Vec<Token>,
     pos: usize,
@@ -21,7 +23,7 @@ impl Parser {
         Parser {
             tokens,
             pos: 0,
-            fuel: Cell::new(2048),
+            fuel: Cell::new(FUEL_LIMIT),
             events: Vec::new(),
             errors: Vec::new(),
         }
@@ -156,7 +158,7 @@ impl Parser {
         if self.eof() {
             return;
         }
-        self.fuel.set(2048);
+        self.fuel.set(FUEL_LIMIT);
         self.events.push(Event::Advance);
         self.pos += 1;
     }
@@ -236,6 +238,10 @@ impl Parser {
 
     pub fn at_any(&mut self, kinds: &[TokenKind]) -> bool {
         kinds.contains(&self.nth(0))
+    }
+
+    pub fn at_identifier(&mut self) -> bool {
+        self.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier])
     }
 
     pub fn at_any_with_trivia(&mut self, kinds: &[TokenKind]) -> bool {

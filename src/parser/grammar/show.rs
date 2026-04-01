@@ -114,7 +114,7 @@ pub fn parse_describe_statement(p: &mut Parser) {
     p.eat_keyword(Keyword::Table);
 
     // Table identifier or table function
-    if p.at(TokenKind::BareWord) || p.at(TokenKind::QuotedIdentifier) {
+    if p.at_identifier() {
         parse_table_ref(p);
     } else if !p.eof() && !p.end_of_statement() {
         p.advance_with_error("Expected table name");
@@ -233,7 +233,7 @@ fn parse_show_create(p: &mut Parser) {
     }
 
     // Object name: [db.]name
-    if p.at(TokenKind::BareWord) || p.at(TokenKind::QuotedIdentifier) {
+    if p.at_identifier() {
         parse_table_ref(p);
     }
 
@@ -251,7 +251,7 @@ fn parse_show_columns(p: &mut Parser) {
 
     if p.at_keyword(Keyword::From) {
         p.advance(); // FROM
-        if p.at(TokenKind::BareWord) || p.at(TokenKind::QuotedIdentifier) {
+        if p.at_identifier() {
             parse_table_ref(p);
         } else {
             p.recover_with_error("Expected table name after FROM");
@@ -316,7 +316,7 @@ fn parse_show_grants(p: &mut Parser) {
 
     if p.at_keyword(Keyword::For) {
         p.advance(); // FOR
-        if p.at(TokenKind::BareWord) || p.at(TokenKind::QuotedIdentifier) {
+        if p.at_identifier() {
             p.advance(); // user name
         } else {
             p.recover_with_error("Expected user name after FOR");
@@ -380,7 +380,7 @@ fn parse_format_clause(p: &mut Parser) {
     let m = p.start();
     p.expect_keyword(Keyword::Format);
 
-    if p.at(TokenKind::BareWord) || p.at(TokenKind::QuotedIdentifier) {
+    if p.at_identifier() {
         p.advance();
     } else {
         p.recover_with_error("Expected format name after FORMAT");
@@ -394,7 +394,7 @@ fn parse_from_database(p: &mut Parser) {
     let m = p.start();
     p.expect_keyword(Keyword::From);
 
-    if p.at(TokenKind::BareWord) || p.at(TokenKind::QuotedIdentifier) {
+    if p.at_identifier() {
         p.advance();
     } else {
         p.recover_with_error("Expected database name after FROM");
@@ -421,7 +421,7 @@ fn parse_table_ref(p: &mut Parser) {
     // Check for db.table syntax
     if p.at(TokenKind::Dot) {
         p.advance(); // consume dot
-        if p.at(TokenKind::BareWord) || p.at(TokenKind::QuotedIdentifier) {
+        if p.at_identifier() {
             p.advance();
         } else {
             p.recover_with_error("Expected table name after dot");
@@ -466,7 +466,7 @@ fn parse_settings_list(p: &mut Parser) {
 
         let item_m = p.start();
         // key
-        if p.at(TokenKind::BareWord) || p.at(TokenKind::QuotedIdentifier) {
+        if p.at_identifier() {
             p.advance();
         } else {
             break;

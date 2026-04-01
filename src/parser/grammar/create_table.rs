@@ -1,4 +1,5 @@
 use crate::lexer::token::TokenKind;
+use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::grammar::select::{at_select_statement, parse_select_statement};
 use crate::parser::grammar::types::parse_column_type;
@@ -57,13 +58,13 @@ fn parse_create_table(p: &mut Parser) {
     p.expect_keyword(Keyword::Table);
 
     // IF NOT EXISTS
-    parse_if_not_exists(p);
+    common::parse_if_not_exists(p);
 
     // Table name: [db.]table
-    parse_table_identifier(p);
+    common::parse_table_identifier(p);
 
     // ON CLUSTER
-    parse_on_cluster(p);
+    common::parse_on_cluster(p);
 
     // UUID (optional, skip string literal)
     if p.at_keyword(Keyword::As) && !p.at(TokenKind::OpeningRoundBracket) {
@@ -106,17 +107,17 @@ fn parse_create_database(p: &mut Parser) {
     p.expect_keyword(Keyword::Database);
 
     // IF NOT EXISTS
-    parse_if_not_exists(p);
+    common::parse_if_not_exists(p);
 
     // Database name
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+    if p.at_identifier() {
         p.advance();
     } else {
         p.recover_with_error("Expected database name");
     }
 
     // ON CLUSTER
-    parse_on_cluster(p);
+    common::parse_on_cluster(p);
 
     // ENGINE = ...
     if p.at_keyword(Keyword::Engine) {
@@ -145,13 +146,13 @@ fn parse_create_view(p: &mut Parser) {
     p.expect_keyword(Keyword::View);
 
     // IF NOT EXISTS
-    parse_if_not_exists(p);
+    common::parse_if_not_exists(p);
 
     // View name: [db.]view
-    parse_table_identifier(p);
+    common::parse_table_identifier(p);
 
     // ON CLUSTER
-    parse_on_cluster(p);
+    common::parse_on_cluster(p);
 
     // AS SELECT
     if p.at_keyword(Keyword::As) {
@@ -171,18 +172,18 @@ fn parse_create_materialized_view(p: &mut Parser) {
     p.expect_keyword(Keyword::View);
 
     // IF NOT EXISTS
-    parse_if_not_exists(p);
+    common::parse_if_not_exists(p);
 
     // View name: [db.]view
-    parse_table_identifier(p);
+    common::parse_table_identifier(p);
 
     // ON CLUSTER
-    parse_on_cluster(p);
+    common::parse_on_cluster(p);
 
     // TO [db.]table
     if p.at_keyword(Keyword::To) {
         p.advance(); // TO
-        parse_table_identifier(p);
+        common::parse_table_identifier(p);
     }
 
     // Column definition list (optional)
@@ -218,10 +219,10 @@ fn parse_create_function(p: &mut Parser) {
     p.expect_keyword(Keyword::Function);
 
     // IF NOT EXISTS
-    parse_if_not_exists(p);
+    common::parse_if_not_exists(p);
 
     // Function name
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+    if p.at_identifier() {
         p.advance();
     } else {
         p.recover_with_error("Expected function name");
@@ -251,13 +252,13 @@ fn parse_create_dictionary(p: &mut Parser) {
     p.expect_keyword(Keyword::Dictionary);
 
     // IF NOT EXISTS
-    parse_if_not_exists(p);
+    common::parse_if_not_exists(p);
 
     // Dictionary name: [db.]dict
-    parse_table_identifier(p);
+    common::parse_table_identifier(p);
 
     // ON CLUSTER
-    parse_on_cluster(p);
+    common::parse_on_cluster(p);
 
     // Column definition list
     if p.at(TokenKind::OpeningRoundBracket) {
@@ -316,56 +317,6 @@ fn parse_parenthesized_content(p: &mut Parser) {
     }
 }
 
-/// Parse IF NOT EXISTS
-fn parse_if_not_exists(p: &mut Parser) {
-    if p.at_keyword(Keyword::If) {
-        let m = p.start();
-        p.advance(); // IF
-        p.expect_keyword(Keyword::Not);
-        p.expect_keyword(Keyword::Exists);
-        p.complete(m, SyntaxKind::IfNotExistsClause);
-    }
-}
-
-/// Parse ON CLUSTER cluster_name
-fn parse_on_cluster(p: &mut Parser) {
-    if p.at_keyword(Keyword::On) {
-        let m = p.start();
-        p.advance(); // ON
-        p.expect_keyword(Keyword::Cluster);
-        if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier, TokenKind::StringLiteral])
-        {
-            p.advance();
-        } else {
-            p.recover_with_error("Expected cluster name after ON CLUSTER");
-        }
-        p.complete(m, SyntaxKind::OnClusterClause);
-    }
-}
-
-/// Parse a table identifier: [db.]table
-fn parse_table_identifier(p: &mut Parser) {
-    let m = p.start();
-
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
-        p.advance();
-
-        // Handle db.table
-        if p.at(TokenKind::Dot) {
-            p.advance(); // .
-            if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
-                p.advance();
-            } else {
-                p.advance_with_error("Expected table name after dot");
-            }
-        }
-    } else {
-        p.recover_with_error("Expected table name");
-    }
-
-    p.complete(m, SyntaxKind::TableIdentifier);
-}
-
 /// Parse AS clause: AS SELECT ... or AS [db.]table
 fn parse_as_clause(p: &mut Parser) {
     let m = p.start();
@@ -378,8 +329,8 @@ fn parse_as_clause(p: &mut Parser) {
         p.advance(); // consume (
         parse_select_statement(p);
         p.expect(TokenKind::ClosingRoundBracket);
-    } else if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
-        parse_table_identifier(p);
+    } else if p.at_identifier() {
+        common::parse_table_identifier(p);
     } else {
         p.recover_with_error("Expected SELECT or table name after AS");
     }
@@ -426,7 +377,7 @@ fn parse_column_definition(p: &mut Parser) {
     let m = p.start();
 
     // Column name
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+    if p.at_identifier() {
         p.advance();
     } else {
         p.advance_with_error("Expected column name");
@@ -496,7 +447,7 @@ fn parse_column_definition(p: &mut Parser) {
 
 /// Check if current pos looks like it could be a column type
 fn at_column_type(p: &mut Parser) -> bool {
-    if !p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+    if !p.at_identifier() {
         return false;
     }
     // Not a column type if it's a known constraint keyword
@@ -523,7 +474,7 @@ fn at_column_constraint_start(p: &mut Parser) -> bool {
 /// Parse CODEC arguments (comma-separated identifiers with optional params)
 fn parse_codec_args(p: &mut Parser) {
     while !p.at(TokenKind::ClosingRoundBracket) && !p.eof() {
-        if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+        if p.at_identifier() {
             p.advance();
             // Optional parameters
             if p.at(TokenKind::OpeningRoundBracket) {
@@ -556,7 +507,7 @@ fn parse_index_definition(p: &mut Parser) {
     p.expect_keyword(Keyword::Index);
 
     // Index name
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+    if p.at_identifier() {
         p.advance();
     } else {
         p.recover_with_error("Expected index name");
@@ -568,7 +519,7 @@ fn parse_index_definition(p: &mut Parser) {
     // TYPE type_name
     if p.at_keyword(Keyword::Type) {
         p.advance(); // TYPE
-        if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+        if p.at_identifier() {
             p.advance();
             // Optional parameters
             if p.at(TokenKind::OpeningRoundBracket) {
@@ -604,7 +555,7 @@ fn parse_projection_definition(p: &mut Parser) {
     p.expect_keyword(Keyword::Projection);
 
     // Projection name
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+    if p.at_identifier() {
         p.advance();
     } else {
         p.recover_with_error("Expected projection name");
@@ -633,7 +584,7 @@ fn parse_constraint_definition(p: &mut Parser) {
     p.expect_keyword(Keyword::Constraint);
 
     // Constraint name
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+    if p.at_identifier() {
         p.advance();
     } else {
         p.recover_with_error("Expected constraint name");
@@ -658,7 +609,7 @@ fn parse_engine_clause(p: &mut Parser) {
     p.expect(TokenKind::Equals);
 
     // Engine name
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+    if p.at_identifier() {
         p.advance();
     } else {
         p.recover_with_error("Expected engine name");
@@ -759,16 +710,7 @@ fn parse_settings_clause(p: &mut Parser) {
         }
         first = false;
 
-        let m2 = p.start();
-        // key = value
-        if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
-            p.advance(); // key
-            p.expect(TokenKind::Equals);
-            parse_expression(p);
-        } else {
-            p.advance_with_error("Expected setting name");
-        }
-        p.complete(m2, SyntaxKind::SettingItem);
+        common::parse_setting_item(p);
     }
 
     p.complete(m, SyntaxKind::SettingsClause);

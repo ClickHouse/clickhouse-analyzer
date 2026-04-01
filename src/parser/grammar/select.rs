@@ -1,4 +1,5 @@
 use crate::lexer::token::TokenKind;
+use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
@@ -116,7 +117,7 @@ pub fn parse_select_statement(p: &mut Parser) {
     if p.at_keyword(Keyword::Format) {
         let m = p.start();
         p.expect_keyword(Keyword::Format);
-        if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+        if p.at_identifier() {
             p.advance();
         } else {
             p.recover_with_error("Expected format name after FORMAT");
@@ -304,7 +305,7 @@ fn parse_table_reference(p: &mut Parser) {
         return;
     }
 
-    if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier])
+    if p.at_identifier()
         && !at_end_of_column_list(p)
     {
         let m = p.start();
@@ -312,7 +313,7 @@ fn parse_table_reference(p: &mut Parser) {
 
         if p.at(TokenKind::Dot) {
             p.advance();
-            if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+            if p.at_identifier() {
                 p.advance();
             } else {
                 p.advance_with_error("Expected table name after dot");
@@ -368,7 +369,7 @@ fn parse_optional_table_alias(p: &mut Parser) {
     if p.at_keyword(Keyword::As) {
         let m = p.start();
         p.advance(); // consume AS
-        if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) && !at_clause_keyword(p) {
+        if p.at_identifier() && !at_clause_keyword(p) {
             p.advance();
         } else {
             p.recover_with_error("Expected table alias");
@@ -650,18 +651,7 @@ fn parse_settings_clause(p: &mut Parser) {
         }
         first = false;
 
-        let item_m = p.start();
-        // key
-        if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
-            p.advance();
-        } else {
-            p.advance_with_error("Expected setting name");
-        }
-        // =
-        p.expect(TokenKind::Equals);
-        // value
-        parse_expression(p);
-        p.complete(item_m, SyntaxKind::SettingItem);
+        common::parse_setting_item(p);
     }
 
     p.complete(m, SyntaxKind::SettingsClause);

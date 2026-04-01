@@ -1,4 +1,5 @@
 pub mod alter;
+pub mod common;
 pub mod create_table;
 pub mod delete;
 pub mod expressions;
