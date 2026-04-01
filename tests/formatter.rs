@@ -596,7 +596,7 @@ fn use_database() {
     check_format(
         "use mydb",
         expect![[r#"
-            USE MYDB
+            USE mydb
         "#]],
     );
 }

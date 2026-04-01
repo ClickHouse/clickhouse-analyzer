@@ -71,6 +71,7 @@ fn no_space_before(token: &Token) -> bool {
     )
 }
 
+
 /// Tokens after which no space should be emitted.
 fn no_space_after(kind: TokenKind) -> bool {
     matches!(
@@ -143,8 +144,8 @@ pub fn format_node(tree: &SyntaxTree, ctx: &mut FormatterContext) {
         SyntaxKind::TableFunction => format_function_call(tree, ctx),
         SyntaxKind::QualifiedName => format_inline_no_spaces(tree, ctx),
         SyntaxKind::ColumnReference => format_inline(tree, ctx),
-        SyntaxKind::DataType => format_inline(tree, ctx),
-        SyntaxKind::DataTypeParameters => format_inline(tree, ctx),
+        SyntaxKind::DataType => format_data_type(tree, ctx),
+        SyntaxKind::DataTypeParameters => format_data_type(tree, ctx),
         SyntaxKind::UsingList => format_inline(tree, ctx),
 
         // INSERT
@@ -160,10 +161,10 @@ pub fn format_node(tree: &SyntaxTree, ctx: &mut FormatterContext) {
         SyntaxKind::ColumnDefinitionList => format_column_def_list(tree, ctx),
         SyntaxKind::ColumnDefinition => format_inline(tree, ctx),
         SyntaxKind::ColumnDefault => format_inline(tree, ctx),
-        SyntaxKind::ColumnCodec => format_inline(tree, ctx),
+        SyntaxKind::ColumnCodec => format_inline_tight_parens(tree, ctx),
         SyntaxKind::ColumnTtl => format_inline(tree, ctx),
         SyntaxKind::ColumnComment => format_inline(tree, ctx),
-        SyntaxKind::EngineClause => format_simple_clause(tree, ctx),
+        SyntaxKind::EngineClause => format_engine_clause(tree, ctx),
         SyntaxKind::OrderByDefinition => format_simple_clause(tree, ctx),
         SyntaxKind::PartitionByDefinition => format_simple_clause(tree, ctx),
         SyntaxKind::PrimaryKeyDefinition => format_simple_clause(tree, ctx),
@@ -179,7 +180,7 @@ pub fn format_node(tree: &SyntaxTree, ctx: &mut FormatterContext) {
         SyntaxKind::MaterializedViewDefinition => format_create_statement(tree, ctx),
         SyntaxKind::DictionaryDefinition => format_create_statement(tree, ctx),
         SyntaxKind::FunctionDefinition => format_inline(tree, ctx),
-        SyntaxKind::IndexDefinition => format_inline(tree, ctx),
+        SyntaxKind::IndexDefinition => format_inline_tight_parens(tree, ctx),
         SyntaxKind::ProjectionDefinition => format_inline(tree, ctx),
         SyntaxKind::ConstraintDefinition => format_inline(tree, ctx),
 
@@ -374,13 +375,6 @@ fn format_simple_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
                 ctx.write_space();
                 ctx.write_token(&t.text);
-            }
-            SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
-                if need_sep {
-                    ctx.write_space();
-                }
-                ctx.write_keyword(&t.text);
-                need_sep = true;
             }
             SyntaxChild::Token(t) => {
                 if need_sep && !no_space_before(t) {
@@ -994,6 +988,112 @@ fn format_brace_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 }
 
 // ---------------------------------------------------------------------------
+// Data type formatting -- preserves original casing, tight parentheses
+// ---------------------------------------------------------------------------
+
+fn format_data_type(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    for child in &tree.children {
+        match child {
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Comma => {
+                ctx.write_token(",");
+                ctx.write_space();
+            }
+            SyntaxChild::Token(t) if t.kind == TokenKind::OpeningRoundBracket => {
+                ctx.write_token("(");
+            }
+            SyntaxChild::Token(t) if t.kind == TokenKind::ClosingRoundBracket => {
+                ctx.write_token(")");
+            }
+            SyntaxChild::Token(t) => {
+                // Type names are identifiers — preserve original casing
+                ctx.write_token(&t.text);
+            }
+            SyntaxChild::Tree(subtree) => {
+                // No space before nested type parameters
+                format_node(subtree, ctx);
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Inline formatting with tight parens -- no space before ( after identifiers
+// Used for CODEC(...), INDEX ... TYPE bloom_filter(...), etc.
+// ---------------------------------------------------------------------------
+
+fn format_inline_tight_parens(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    let mut prev_kind: Option<TokenKind> = None;
+    for child in &tree.children {
+        match child {
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
+                ctx.write_space();
+                ctx.write_token(&t.text);
+            }
+            SyntaxChild::Token(t) => {
+                let suppress_space = t.kind == TokenKind::OpeningRoundBracket
+                    && matches!(prev_kind, Some(TokenKind::BareWord | TokenKind::QuotedIdentifier));
+                if !no_space_before(t) && !suppress_space {
+                    if let Some(pk) = prev_kind {
+                        if !no_space_after(pk) {
+                            ctx.write_space();
+                        }
+                    }
+                }
+                emit_token(t, ctx);
+                prev_kind = Some(t.kind);
+            }
+            SyntaxChild::Tree(subtree) => {
+                if let Some(pk) = prev_kind {
+                    if !no_space_after(pk) {
+                        ctx.write_space();
+                    }
+                }
+                format_node(subtree, ctx);
+                prev_kind = Some(TokenKind::BareWord);
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Engine clause -- preserves engine name casing, tight parens for args
+// ---------------------------------------------------------------------------
+
+fn format_engine_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    let mut need_sep = false;
+    let mut prev_kind: Option<TokenKind> = None;
+    for child in &tree.children {
+        match child {
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
+                ctx.write_space();
+                ctx.write_token(&t.text);
+            }
+            SyntaxChild::Token(t) => {
+                let suppress_space = t.kind == TokenKind::OpeningRoundBracket
+                    && matches!(prev_kind, Some(TokenKind::BareWord | TokenKind::QuotedIdentifier));
+                if need_sep && !no_space_before(t) && !suppress_space {
+                    ctx.write_space();
+                }
+                emit_token(t, ctx);
+                prev_kind = Some(t.kind);
+                need_sep = !no_space_after(t.kind);
+            }
+            SyntaxChild::Tree(subtree) => {
+                if need_sep {
+                    ctx.write_space();
+                }
+                format_node(subtree, ctx);
+                prev_kind = None;
+                need_sep = true;
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Inline formatting -- tokens with single spaces between them
 // ---------------------------------------------------------------------------
 
@@ -1247,7 +1347,6 @@ fn format_column_def_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comma => {
                 ctx.write_token(",");
-                ctx.write_newline();
             }
             SyntaxChild::Token(t) => emit_token(t, ctx),
             SyntaxChild::Tree(subtree) => {
