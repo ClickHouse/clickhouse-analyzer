@@ -700,3 +700,195 @@ fn idempotent_delete() {
 fn idempotent_union() {
     check_idempotent("SELECT 1 UNION ALL SELECT 2");
 }
+
+// ---------------------------------------------------------------------------
+// FORMAT clause
+// ---------------------------------------------------------------------------
+
+#[test]
+fn format_clause_simple() {
+    check_format(
+        "select 1 format JSON",
+        expect![[r#"
+            SELECT
+                1
+            FORMAT JSON
+        "#]],
+    );
+}
+
+#[test]
+fn format_clause_after_settings() {
+    check_format(
+        "select 1 settings max_threads=4 format JSONEachRow",
+        expect![[r#"
+            SELECT
+                1
+            SETTINGS max_threads = 4
+            FORMAT JSONEachRow
+        "#]],
+    );
+}
+
+#[test]
+fn format_clause_with_full_query() {
+    check_format(
+        "select a from t where x > 1 order by a limit 10 format CSV",
+        expect![[r#"
+            SELECT
+                a
+            FROM t
+            WHERE x > 1
+            ORDER BY a
+            LIMIT 10
+            FORMAT CSV
+        "#]],
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Data type casing preservation
+// ---------------------------------------------------------------------------
+
+#[test]
+fn data_type_preserves_casing() {
+    check_format(
+        "SELECT x::Array(String)",
+        expect![[r#"
+            SELECT
+                x::Array(String)
+        "#]],
+    );
+}
+
+#[test]
+fn data_type_lowcardinality() {
+    check_format(
+        "SELECT x::LowCardinality(String)",
+        expect![[r#"
+            SELECT
+                x::LowCardinality(String)
+        "#]],
+    );
+}
+
+#[test]
+fn data_type_numeric_param() {
+    check_format(
+        "SELECT x::DateTime64(9)",
+        expect![[r#"
+            SELECT
+                x::DateTime64(9)
+        "#]],
+    );
+}
+
+#[test]
+fn data_type_map_nested() {
+    check_format(
+        "SELECT x::Map(LowCardinality(String), String)",
+        expect![[r#"
+            SELECT
+                x::Map(LowCardinality(String), String)
+        "#]],
+    );
+}
+
+// ---------------------------------------------------------------------------
+// CODEC / Engine / Index tight parens and casing
+// ---------------------------------------------------------------------------
+
+#[test]
+fn codec_tight_parens_and_casing() {
+    check_format(
+        "CREATE TABLE t (`ts` DateTime64(9) CODEC(Delta(8), ZSTD(1))) ENGINE = MergeTree() ORDER BY ts",
+        expect![[r#"
+            CREATE TABLE t
+            (
+                `ts` DateTime64(9) CODEC(Delta(8), ZSTD(1))
+            )
+            ENGINE = MergeTree()
+            ORDER BY ts
+        "#]],
+    );
+}
+
+#[test]
+fn engine_preserves_casing() {
+    check_format(
+        "CREATE TABLE t (id UInt64) ENGINE = SharedMergeTree('/path', '{replica}') ORDER BY id",
+        expect![[r#"
+            CREATE TABLE t
+            (
+                id UInt64
+            )
+            ENGINE = SharedMergeTree('/path', '{replica}')
+            ORDER BY id
+        "#]],
+    );
+}
+
+#[test]
+fn index_type_tight_parens() {
+    check_format(
+        "CREATE TABLE t (id UInt64, INDEX idx id TYPE bloom_filter(0.01) GRANULARITY 1) ENGINE = MergeTree() ORDER BY id",
+        expect![[r#"
+            CREATE TABLE t
+            (
+                id UInt64,
+                INDEX idx id TYPE bloom_filter(0.01) GRANULARITY 1
+            )
+            ENGINE = MergeTree()
+            ORDER BY id
+        "#]],
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Column definition list: no extra blank lines
+// ---------------------------------------------------------------------------
+
+#[test]
+fn column_def_list_no_extra_blanks() {
+    check_format(
+        "CREATE TABLE t (a UInt64, b String, c Float32) ENGINE = MergeTree() ORDER BY a",
+        expect![[r#"
+            CREATE TABLE t
+            (
+                a UInt64,
+                b String,
+                c Float32
+            )
+            ENGINE = MergeTree()
+            ORDER BY a
+        "#]],
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Idempotency for new features
+// ---------------------------------------------------------------------------
+
+#[test]
+fn idempotent_format_clause() {
+    check_idempotent("SELECT 1 FORMAT JSON");
+}
+
+#[test]
+fn idempotent_codec_types() {
+    check_idempotent("CREATE TABLE t (`ts` DateTime64(9) CODEC(Delta(8), ZSTD(1))) ENGINE = MergeTree() ORDER BY ts");
+}
+
+#[test]
+fn idempotent_complex_ddl() {
+    check_idempotent(
+        "CREATE TABLE t
+(
+    `col` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    INDEX idx mapKeys(col) TYPE bloom_filter(0.01) GRANULARITY 1
+)
+ENGINE = SharedMergeTree('/path', '{replica}')
+ORDER BY tuple()
+SETTINGS index_granularity = 8192",
+    );
+}

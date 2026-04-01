@@ -105,9 +105,23 @@ pub fn parse_select_statement(p: &mut Parser) {
 
     skip_to_clause_keyword(p);
 
-    // SETTINGS (always last)
+    // SETTINGS
     if p.at_keyword(Keyword::Settings) {
         parse_settings_clause(p);
+    }
+
+    skip_to_clause_keyword(p);
+
+    // FORMAT (always last)
+    if p.at_keyword(Keyword::Format) {
+        let m = p.start();
+        p.expect_keyword(Keyword::Format);
+        if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
+            p.advance();
+        } else {
+            p.recover_with_error("Expected format name after FORMAT");
+        }
+        p.complete(m, SyntaxKind::FormatClause);
     }
 
     let completed = p.complete(m, SyntaxKind::SelectStatement);
@@ -150,6 +164,7 @@ fn at_clause_keyword(p: &mut Parser) -> bool {
         || p.at_keyword(Keyword::Having)
         || p.at_keyword(Keyword::Prewhere)
         || p.at_keyword(Keyword::Settings)
+        || p.at_keyword(Keyword::Format)
         || p.at_keyword(Keyword::Union)
         || p.at_keyword(Keyword::Except)
         || p.at_keyword(Keyword::Intersect)
@@ -625,6 +640,7 @@ fn parse_settings_clause(p: &mut Parser) {
     while !p.eof() && !p.end_of_statement()
         && !p.at_keyword(Keyword::Select)
         && !p.at_keyword(Keyword::From)
+        && !p.at_keyword(Keyword::Format)
     {
         if !first {
             p.expect(TokenKind::Comma);
@@ -1636,6 +1652,103 @@ mod tests {
                       '.'
                       ColumnReference
                         'id'
+        "#]]);
+    }
+
+    #[test]
+    fn format_clause() {
+        check("SELECT 1 FORMAT JSON", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    NumberLiteral
+                      '1'
+                FormatClause
+                  'FORMAT'
+                  'JSON'
+        "#]]);
+    }
+
+    #[test]
+    fn format_clause_with_from() {
+        check("SELECT col FROM t FORMAT JSONEachRow", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnReference
+                      'col'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                FormatClause
+                  'FORMAT'
+                  'JSONEachRow'
+        "#]]);
+    }
+
+    #[test]
+    fn format_clause_after_settings() {
+        check("SELECT 1 SETTINGS max_threads=4 FORMAT CSV", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    NumberLiteral
+                      '1'
+                SettingsClause
+                  'SETTINGS'
+                  SettingItem
+                    'max_threads'
+                    '='
+                    NumberLiteral
+                      '4'
+                FormatClause
+                  'FORMAT'
+                  'CSV'
+        "#]]);
+    }
+
+    #[test]
+    fn format_clause_after_all_clauses() {
+        check("SELECT a FROM t WHERE x > 1 ORDER BY a LIMIT 10 FORMAT TabSeparated", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnReference
+                      'a'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                WhereClause
+                  'WHERE'
+                  BinaryExpression
+                    ColumnReference
+                      'x'
+                    '>'
+                    NumberLiteral
+                      '1'
+                OrderByClause
+                  'ORDER'
+                  'BY'
+                  OrderByItem
+                    ColumnReference
+                      'a'
+                LimitClause
+                  'LIMIT'
+                  NumberLiteral
+                    '10'
+                FormatClause
+                  'FORMAT'
+                  'TabSeparated'
         "#]]);
     }
 }
