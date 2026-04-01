@@ -74,8 +74,11 @@ pub enum SyntaxKind {
     UnaryExpression,
     BetweenExpression,
     InExpression,
+    IsNullExpression,
+    LikeExpression,
     TupleExpression,
     ArrayExpression,
+    ArrayAccessExpression,
     MapExpression,
     SubqueryExpression,
     LambdaExpression,
@@ -99,9 +102,15 @@ pub enum SyntaxKind {
     JoinType,
     JoinConstraint,
 
+    // CASE components
+    WhenClause,
+
     // Compound items
     OrderByItem,
+    SettingItem,
     WithExpressionItem,
+    TableAlias,
+    UsingList,
 
     // Data types
     DataType,

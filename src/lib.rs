@@ -1,6 +1,8 @@
+mod formatter;
 mod lexer;
 mod parser;
 
+pub use formatter::{format, FormatConfig};
 pub use lexer::token::Token;
 pub use parser::diagnostic::{Parse, SyntaxError};
 pub use parser::parse;
@@ -22,4 +24,10 @@ pub fn get_tree(sql: &str) -> String {
     let mut buf = String::new();
     result.tree.print(&mut buf, 0);
     buf
+}
+
+#[wasm_bindgen]
+pub fn format_sql(sql: &str) -> String {
+    let result = parse(sql);
+    format(&result.tree, &FormatConfig::default())
 }

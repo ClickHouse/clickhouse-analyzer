@@ -198,6 +198,12 @@ fn valid_sql_produces_no_errors() {
         "WITH a SELECT a",
         "SELECT []",
         "SELECT ()",
+        // Keywords used as function names (ambiguous with JOIN keywords)
+        "SELECT any(col) FROM t",
+        "SELECT all(col) FROM t",
+        "SELECT col_a a, any(col_b), any(col_c), count(*) d FROM t GROUP BY a ORDER BY d DESC LIMIT 10",
+        // ANY/ALL as actual join keywords should still work
+        "SELECT a FROM t ANY LEFT JOIN t2 ON t.a = t2.a",
     ];
     for input in &inputs {
         let result = parse(input);
@@ -473,7 +479,74 @@ fn completely_invalid_input() {
 }
 
 // ===========================================================================
-// 6. Full integration smoke test (preserved from original)
+// 6. Keywords as function names
+// ===========================================================================
+
+#[test]
+fn any_as_function_name() {
+    check(
+        "SELECT any(col) FROM t",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    FunctionCall
+                      ColumnReference
+                        'any'
+                      ExpressionList
+                        '('
+                        Expression
+                          ColumnReference
+                            'col'
+                        ')'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+        "#]],
+    );
+}
+
+#[test]
+fn keyword_functions_in_select_with_aliases() {
+    let sql = "SELECT col_a a, any(col_b), any(col_c), count(*) d FROM test_table GROUP BY a ORDER BY d DESC LIMIT 10";
+    let result = parse(sql);
+    assert!(
+        result.errors.is_empty(),
+        "Should have no errors for {:?}, got: {:?}",
+        sql,
+        result.errors
+    );
+}
+
+#[test]
+fn all_as_function_name() {
+    let sql = "SELECT all(col) FROM t";
+    let result = parse(sql);
+    assert!(
+        result.errors.is_empty(),
+        "Should have no errors for {:?}, got: {:?}",
+        sql,
+        result.errors
+    );
+}
+
+#[test]
+fn any_as_join_keyword() {
+    let sql = "SELECT a FROM t ANY LEFT JOIN t2 ON t.a = t2.a";
+    let result = parse(sql);
+    assert!(
+        result.errors.is_empty(),
+        "Should have no errors for {:?}, got: {:?}",
+        sql,
+        result.errors
+    );
+}
+
+// ===========================================================================
+// 7. Full integration smoke test (preserved from original)
 // ===========================================================================
 
 #[test]

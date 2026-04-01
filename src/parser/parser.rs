@@ -21,7 +21,7 @@ impl Parser {
         Parser {
             tokens,
             pos: 0,
-            fuel: Cell::new(256),
+            fuel: Cell::new(2048),
             events: Vec::new(),
             errors: Vec::new(),
         }
@@ -143,7 +143,7 @@ impl Parser {
         if self.eof() {
             return;
         }
-        self.fuel.set(256);
+        self.fuel.set(2048);
         self.events.push(Event::Advance);
         self.pos += 1;
     }
@@ -177,9 +177,26 @@ impl Parser {
             return TokenKind::EndOfStream;
         }
         self.fuel.set(self.fuel.get() - 1);
-        self.tokens
-            .get(self.pos + lookahead)
-            .map_or(TokenKind::EndOfStream, |it| it.kind)
+        if lookahead == 0 {
+            self.tokens
+                .get(self.pos)
+                .map_or(TokenKind::EndOfStream, |it| it.kind)
+        } else {
+            // Skip trivia tokens for lookahead > 0
+            let mut count = 0;
+            let mut i = self.pos + 1;
+            while i < self.tokens.len() {
+                let kind = self.tokens[i].kind;
+                if kind != TokenKind::Whitespace && kind != TokenKind::Comment {
+                    count += 1;
+                    if count == lookahead {
+                        return kind;
+                    }
+                }
+                i += 1;
+            }
+            TokenKind::EndOfStream
+        }
     }
 
     pub fn nth_with_trivia(&self, lookahead: usize) -> TokenKind {
@@ -234,9 +251,25 @@ impl Parser {
             return "";
         }
         self.fuel.set(self.fuel.get() - 1);
-        self.tokens
-            .get(self.pos + lookahead)
-            .map_or("", |it| it.text.as_str())
+        if lookahead == 0 {
+            self.tokens
+                .get(self.pos)
+                .map_or("", |it| it.text.as_str())
+        } else {
+            let mut count = 0;
+            let mut i = self.pos + 1;
+            while i < self.tokens.len() {
+                let kind = self.tokens[i].kind;
+                if kind != TokenKind::Whitespace && kind != TokenKind::Comment {
+                    count += 1;
+                    if count == lookahead {
+                        return self.tokens[i].text.as_str();
+                    }
+                }
+                i += 1;
+            }
+            ""
+        }
     }
 
     pub fn nth_text_with_trivia(&mut self, lookahead: usize) -> &str {
@@ -252,6 +285,12 @@ impl Parser {
     pub fn at_keyword(&mut self, keyword: Keyword) -> bool {
         self.nth(0) == TokenKind::BareWord
             && self.nth_text(0).eq_ignore_ascii_case(keyword.as_str())
+    }
+
+    /// True if the current (non-trivia) token is followed by '('.
+    /// Useful to disambiguate keywords that can also be function names.
+    pub fn at_followed_by_paren(&mut self) -> bool {
+        self.nth(1) == TokenKind::OpeningRoundBracket
     }
 
     pub fn eat_keyword(&mut self, keyword: Keyword) -> bool {
