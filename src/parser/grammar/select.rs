@@ -1268,14 +1268,12 @@ mod tests {
                     ColumnReference
                       't1'
                       '.'
-                      ColumnReference
-                        'id'
+                      'id'
                     '='
                     ColumnReference
                       't2'
                       '.'
-                      ColumnReference
-                        'id'
+                      'id'
         "#]]);
     }
 
@@ -1303,14 +1301,12 @@ mod tests {
                     ColumnReference
                       't1'
                       '.'
-                      ColumnReference
-                        'id'
+                      'id'
                     '='
                     ColumnReference
                       't2'
                       '.'
-                      ColumnReference
-                        'id'
+                      'id'
         "#]]);
     }
 
@@ -1389,14 +1385,12 @@ mod tests {
                     ColumnReference
                       't1'
                       '.'
-                      ColumnReference
-                        'id'
+                      'id'
                     '='
                     ColumnReference
                       't2'
                       '.'
-                      ColumnReference
-                        'id'
+                      'id'
         "#]]);
     }
 
@@ -1449,14 +1443,12 @@ mod tests {
                     ColumnReference
                       't1'
                       '.'
-                      ColumnReference
-                        'id'
+                      'id'
                     '='
                     ColumnReference
                       't2'
                       '.'
-                      ColumnReference
-                        'id'
+                      'id'
                 JoinClause
                   'JOIN'
                   TableIdentifier
@@ -1466,14 +1458,12 @@ mod tests {
                     ColumnReference
                       't2'
                       '.'
-                      ColumnReference
-                        'id'
+                      'id'
                     '='
                     ColumnReference
                       't3'
                       '.'
-                      ColumnReference
-                        'id'
+                      'id'
         "#]]);
     }
 
@@ -1575,14 +1565,12 @@ mod tests {
                     ColumnReference
                       'a'
                       '.'
-                      ColumnReference
-                        'id'
+                      'id'
                     '='
                     ColumnReference
                       'b'
                       '.'
-                      ColumnReference
-                        'id'
+                      'id'
         "#]]);
     }
 
@@ -1611,14 +1599,12 @@ mod tests {
                     ColumnReference
                       't1'
                       '.'
-                      ColumnReference
-                        'id'
+                      'id'
                     '='
                     ColumnReference
                       't2'
                       '.'
-                      ColumnReference
-                        'id'
+                      'id'
         "#]]);
     }
 
@@ -1647,14 +1633,12 @@ mod tests {
                     ColumnReference
                       't1'
                       '.'
-                      ColumnReference
-                        'id'
+                      'id'
                     '='
                     ColumnReference
                       't2'
                       '.'
-                      ColumnReference
-                        'id'
+                      'id'
         "#]]);
     }
 

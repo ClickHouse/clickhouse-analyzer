@@ -35,10 +35,20 @@ pub fn parse_column_type(p: &mut Parser) {
 }
 
 /// Parse a single type parameter: either a nested type (BareWord) or a literal/expression.
+///
+/// Handles named tuple fields: `Tuple(a String, b String)` where a BareWord
+/// field name precedes the type.  Disambiguated by checking whether two
+/// consecutive BareWords appear — if so the first is a field name.
 fn parse_type_parameter(p: &mut Parser) {
     if p.at(TokenKind::BareWord) {
-        // Nested type like Array(String), Nullable(UInt64)
-        parse_column_type(p);
+        if p.nth(1) == TokenKind::BareWord {
+            // Named field: `name Type` — consume the name, then parse the type.
+            p.advance(); // field name
+            parse_column_type(p);
+        } else {
+            // Nested type like Array(String), Nullable(UInt64)
+            parse_column_type(p);
+        }
     } else if !p.at(TokenKind::ClosingRoundBracket) && !p.eof() {
         // Numeric/string parameter like DateTime64(9), FixedString(100), Enum8('a' = 1)
         parse_expression(p);

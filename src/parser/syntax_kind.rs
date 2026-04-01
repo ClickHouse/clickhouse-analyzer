@@ -168,6 +168,7 @@ pub enum SyntaxKind {
     TupleExpression,
     ArrayExpression,
     ArrayAccessExpression,
+    DotAccessExpression,
     MapExpression,
     SubqueryExpression,
     LambdaExpression,

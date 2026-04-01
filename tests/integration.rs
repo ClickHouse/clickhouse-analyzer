@@ -660,3 +660,294 @@ fn test_full_parse() {
     let reconstructed = collect_text(&result.tree);
     assert_eq!(reconstructed, sql);
 }
+
+// ===========================================================================
+// Tuple element access via dot (e.g. expr.1, expr.2)
+// ===========================================================================
+
+#[test]
+fn tuple_dot_access_on_parenthesized_expr() {
+    check(
+        "SELECT (t).1",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    DotAccessExpression
+                      Expression
+                        '('
+                        ColumnReference
+                          't'
+                        ')'
+                      '.'
+                      '1'
+        "#]],
+    );
+}
+
+#[test]
+fn tuple_dot_access_with_alias_inside_parens() {
+    check(
+        "SELECT (func(a) AS t).1",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    DotAccessExpression
+                      Expression
+                        '('
+                        FunctionCall
+                          Identifier
+                            'func'
+                          ExpressionList
+                            '('
+                            Expression
+                              ColumnReference
+                                'a'
+                            ')'
+                        ColumnAlias
+                          'AS'
+                          't'
+                        ')'
+                      '.'
+                      '1'
+        "#]],
+    );
+}
+
+#[test]
+fn tuple_dot_access_in_binary_expr() {
+    // (expr AS alias).1 + offset
+    check_errors("SELECT (1 AS x).1 + 10", expect![[""]]);
+}
+
+#[test]
+fn tuple_dot_access_field_name() {
+    // Dot access with a named field instead of numeric index
+    check_errors("SELECT (row AS r).name", expect![[""]]);
+}
+
+#[test]
+fn dot_access_on_function_call() {
+    check(
+        "SELECT func(a, b).1",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    DotAccessExpression
+                      FunctionCall
+                        Identifier
+                          'func'
+                        ExpressionList
+                          '('
+                          Expression
+                            ColumnReference
+                              'a'
+                          ','
+                          Expression
+                            ColumnReference
+                              'b'
+                          ')'
+                      '.'
+                      '1'
+        "#]],
+    );
+}
+
+#[test]
+fn chained_dot_access() {
+    // (expr).field1.field2 — dot access chains
+    check_errors("SELECT (t).a.b", expect![[""]]);
+}
+
+#[test]
+fn multiple_aliased_exprs_in_tuple() {
+    // (expr AS a, expr AS b) — tuple with aliases
+    check_errors("SELECT (1 AS a, 2 AS b)", expect![[""]]);
+}
+
+#[test]
+fn expression_alias_in_with_clause() {
+    // WITH expr AS alias — standard WITH alias usage
+    check_errors("WITH 1 AS x SELECT x + 1", expect![[""]]);
+}
+
+#[test]
+fn named_tuple_cast_dot_access() {
+    // Cast to named Tuple then access field by name via dot
+    check(
+        "SELECT ('a', 'b')::Tuple(x String, y String).x",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    DotAccessExpression
+                      CastExpression
+                        TupleExpression
+                          '('
+                          StringLiteral
+                            ''a''
+                          ','
+                          StringLiteral
+                            ''b''
+                          ')'
+                        '::'
+                        DataType
+                          'Tuple'
+                          DataTypeParameters
+                            '('
+                            'x'
+                            DataType
+                              'String'
+                            ','
+                            'y'
+                            DataType
+                              'String'
+                            ')'
+                      '.'
+                      'x'
+        "#]],
+    );
+}
+
+// ===========================================================================
+// Parenthesized subquery in CREATE VIEW AS clause
+// ===========================================================================
+
+#[test]
+fn create_view_as_parenthesized_subquery() {
+    check(
+        "CREATE VIEW v AS (SELECT 1)",
+        expect![[r#"
+            File
+              CreateStatement
+                'CREATE'
+                ViewDefinition
+                  'VIEW'
+                  TableIdentifier
+                    'v'
+                  AsClause
+                    'AS'
+                    '('
+                    SelectStatement
+                      SelectClause
+                        'SELECT'
+                        ColumnList
+                          NumberLiteral
+                            '1'
+                    ')'
+        "#]],
+    );
+}
+
+#[test]
+fn create_view_as_parenthesized_subquery_complex() {
+    check_errors(
+        "CREATE VIEW IF NOT EXISTS db.v AS (SELECT a, b FROM t WHERE x > 1)",
+        expect![[""]],
+    );
+}
+
+// ===========================================================================
+// Modulo operator
+// ===========================================================================
+
+#[test]
+fn modulo_operator() {
+    check(
+        "SELECT a % 5",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    BinaryExpression
+                      ColumnReference
+                        'a'
+                      '%'
+                      NumberLiteral
+                        '5'
+        "#]],
+    );
+}
+
+#[test]
+fn modulo_precedence_same_as_multiply() {
+    // % binds at the same level as * and /
+    check_errors("SELECT a + b % c * d", expect![[""]]);
+}
+
+// ===========================================================================
+// Cast (::) on arbitrary expressions
+// ===========================================================================
+
+#[test]
+fn cast_on_function_call() {
+    check(
+        "SELECT func(x)::UInt32",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    CastExpression
+                      FunctionCall
+                        Identifier
+                          'func'
+                        ExpressionList
+                          '('
+                          Expression
+                            ColumnReference
+                              'x'
+                          ')'
+                      '::'
+                      DataType
+                        'UInt32'
+        "#]],
+    );
+}
+
+#[test]
+fn cast_then_dot_access() {
+    // Cast to named tuple type, then access field
+    check_errors("SELECT ('a', 'b')::Tuple(x String, y String).x", expect![[""]]);
+}
+
+#[test]
+fn cast_then_array_access() {
+    check_errors("SELECT func(x)::Array(UInt32)[0]", expect![[""]]);
+}
+
+#[test]
+fn cast_on_parenthesized_expr() {
+    check_errors("SELECT (a + b)::Float64", expect![[""]]);
+}
+
+// ===========================================================================
+// Full integration tests
+// ===========================================================================
+
+#[test]
+fn materialized_view_with_dot_access() {
+    // Full integration: MV with expression alias + tuple dot access
+    let sql = "\
+        CREATE MATERIALIZED VIEW db.mv TO db.target AS \
+        WITH func(col) AS t \
+        SELECT (arrayJoin(arr) AS item).1 AS idx, item.2 AS val \
+        FROM db.src";
+    let result = parse(sql);
+    assert!(result.errors.is_empty(), "errors: {:?}", result.errors);
+    let reconstructed = collect_text(&result.tree);
+    assert_eq!(reconstructed, sql);
+}

@@ -28,6 +28,7 @@ enum BinOp {
     Minus,
     Asterisk,
     Slash,
+    Percent,
 }
 
 impl BinOp {
@@ -45,6 +46,7 @@ impl BinOp {
             TokenKind::Minus => Some(BinOp::Minus),
             TokenKind::Asterisk => Some(BinOp::Asterisk),
             TokenKind::Slash => Some(BinOp::Slash),
+            TokenKind::Percent => Some(BinOp::Percent),
             TokenKind::Equals => Some(BinOp::Equals),
             TokenKind::NotEquals => Some(BinOp::NotEquals),
             TokenKind::Less => Some(BinOp::Less),
@@ -62,13 +64,29 @@ impl BinOp {
             BinOp::Equals | BinOp::NotEquals => 3,
             BinOp::Less | BinOp::Greater | BinOp::LessOrEquals | BinOp::GreaterOrEquals => 4,
             BinOp::Plus | BinOp::Minus => 5,
-            BinOp::Asterisk | BinOp::Slash => 6,
+            BinOp::Asterisk | BinOp::Slash | BinOp::Percent => 6,
         }
     }
 }
 
 pub fn parse_expression(p: &mut Parser) {
     parse_expression_rec(p, 0);
+}
+
+/// Consume an optional `AS alias` that appears inside parenthesized
+/// expressions (ClickHouse expression-level aliases).
+fn parse_expression_alias(p: &mut Parser) {
+    if p.at_keyword(Keyword::As)
+        && (p.nth(1) == TokenKind::BareWord || p.nth(1) == TokenKind::QuotedIdentifier)
+    {
+        let am = p.start();
+        p.eat_keyword(Keyword::As);
+        // Consume the alias identifier (skip trivia handled by eat/at)
+        if !p.eat(TokenKind::BareWord) {
+            p.eat(TokenKind::QuotedIdentifier);
+        }
+        p.complete(am, SyntaxKind::ColumnAlias);
+    }
 }
 
 fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
@@ -122,6 +140,28 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
             parse_expression(p);
             p.expect(TokenKind::ClosingSquareBracket);
             lhs = p.complete(m, SyntaxKind::ArrayAccessExpression);
+        } else if p.at(TokenKind::DoubleColon) {
+            // Cast: expr::Type
+            let m = p.precede(lhs);
+            p.advance(); // consume ::
+            parse_column_type(p);
+            lhs = p.complete(m, SyntaxKind::CastExpression);
+        } else if p.at(TokenKind::Dot) {
+            // Dot access (tuple element / field access).  The ColumnReference
+            // loop in expr_delimited already consumed contiguous identifier
+            // chains, so any dot we see here is either:
+            //   - after a non-identifier expression: func(x).1, (t).name
+            //   - a numeric index after an identifier chain: a.b.1
+            let m = p.precede(lhs);
+            p.advance(); // consume .
+            // RHS: identifier (field name) or number (tuple index)
+            if !p.eat(TokenKind::BareWord)
+                && !p.eat(TokenKind::QuotedIdentifier)
+                && !p.eat(TokenKind::Number)
+            {
+                p.advance_with_error("expected field name or tuple index after '.'");
+            }
+            lhs = p.complete(m, SyntaxKind::DotAccessExpression);
         } else {
             break;
         }
@@ -326,12 +366,20 @@ fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
                 p.complete(m, SyntaxKind::SubqueryExpression)
             }
             // Regular identifier / column reference
+            // Greedily eats contiguous identifier.identifier chains (db.table.col,
+            // json.path.field).  Stops when the segment after a dot is NOT an
+            // identifier — numeric tuple indices (a.1) are left for the
+            // DotAccessExpression postfix handler, matching ClickHouse semantics.
             else if !at_end_of_column_list(p) {
                 let m = p.start();
                 p.advance();
-                while p.at(TokenKind::Dot) && !p.eof() {
-                    p.advance();
-                    expr_delimited(p);
+                while p.at(TokenKind::Dot)
+                    && (p.nth(1) == TokenKind::BareWord
+                        || p.nth(1) == TokenKind::QuotedIdentifier)
+                    && !p.eof()
+                {
+                    p.advance(); // consume .
+                    p.advance(); // consume identifier
                 }
                 p.complete(m, SyntaxKind::ColumnReference)
             } else {
@@ -345,10 +393,14 @@ fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
             let mut count = 0;
             if !p.at(TokenKind::ClosingRoundBracket) {
                 parse_expression(p);
+                // ClickHouse allows expression aliases inside parens:
+                // (expr AS alias).field
+                parse_expression_alias(p);
                 count += 1;
                 while p.at(TokenKind::Comma) && !p.eof() {
                     p.advance();
                     parse_expression(p);
+                    parse_expression_alias(p);
                     count += 1;
                 }
             }
@@ -400,14 +452,6 @@ fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
         }
         _ => return None,
     };
-
-    // Postfix cast: expr::Type
-    if p.at(TokenKind::DoubleColon) {
-        let m = p.precede(result);
-        p.expect(TokenKind::DoubleColon);
-        parse_column_type(p);
-        return Some(p.complete(m, SyntaxKind::CastExpression));
-    }
 
     Some(result)
 }
@@ -704,11 +748,9 @@ mod tests {
                     ColumnReference
                       'json'
                       '.'
-                      ColumnReference
-                        'nested'
-                        '.'
-                        ColumnReference
-                          'path'
+                      'nested'
+                      '.'
+                      'path'
         "#]]);
     }
 
@@ -1253,8 +1295,7 @@ mod tests {
                       ColumnReference
                         'otel'
                         '.'
-                        ColumnReference
-                          'SpanAttributes'
+                        'SpanAttributes'
                       '['
                       StringLiteral
                         ''key''

@@ -373,6 +373,11 @@ fn parse_as_clause(p: &mut Parser) {
 
     if at_select_statement(p) {
         parse_select_statement(p);
+    } else if p.at(TokenKind::OpeningRoundBracket) {
+        // Parenthesized subquery: AS (SELECT ...)
+        p.advance(); // consume (
+        parse_select_statement(p);
+        p.expect(TokenKind::ClosingRoundBracket);
     } else if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
         parse_table_identifier(p);
     } else {
