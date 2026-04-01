@@ -498,6 +498,7 @@ fn at_group_by_terminator(p: &mut Parser) -> bool {
         || p.at_keyword(Keyword::Order)
         || p.at_keyword(Keyword::Limit)
         || p.at_keyword(Keyword::Settings)
+        || p.at_keyword(Keyword::Format)
         || p.at_keyword(Keyword::Select)
         || p.at_keyword(Keyword::From)
         || p.at_keyword(Keyword::Where)
@@ -553,6 +554,7 @@ fn parse_order_by_item(p: &mut Parser) {
 fn at_order_by_terminator(p: &mut Parser) -> bool {
     p.at_keyword(Keyword::Limit)
         || p.at_keyword(Keyword::Settings)
+        || p.at_keyword(Keyword::Format)
         || p.at_keyword(Keyword::Select)
         || p.at_keyword(Keyword::From)
         || p.at_keyword(Keyword::Where)
@@ -622,6 +624,7 @@ fn parse_limit_clause(p: &mut Parser) {
 fn at_limit_by_terminator(p: &mut Parser) -> bool {
     p.at_keyword(Keyword::Limit)
         || p.at_keyword(Keyword::Settings)
+        || p.at_keyword(Keyword::Format)
         || p.at_keyword(Keyword::Select)
         || p.at_keyword(Keyword::From)
         || p.at_keyword(Keyword::Where)
@@ -1749,6 +1752,128 @@ mod tests {
                 FormatClause
                   'FORMAT'
                   'TabSeparated'
+        "#]]);
+    }
+
+    #[test]
+    fn format_clause_after_order_by() {
+        check("SELECT col FROM t ORDER BY col FORMAT JSON", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnReference
+                      'col'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                OrderByClause
+                  'ORDER'
+                  'BY'
+                  OrderByItem
+                    ColumnReference
+                      'col'
+                FormatClause
+                  'FORMAT'
+                  'JSON'
+        "#]]);
+    }
+
+    #[test]
+    fn format_clause_after_group_by() {
+        check("SELECT col FROM t GROUP BY col FORMAT JSON", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnReference
+                      'col'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                GroupByClause
+                  'GROUP'
+                  'BY'
+                  ColumnReference
+                    'col'
+                FormatClause
+                  'FORMAT'
+                  'JSON'
+        "#]]);
+    }
+
+    #[test]
+    fn format_clause_after_limit_by() {
+        check("SELECT col FROM t LIMIT 10 BY col FORMAT JSON", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnReference
+                      'col'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                LimitByClause
+                  'LIMIT'
+                  NumberLiteral
+                    '10'
+                  'BY'
+                  ColumnReference
+                    'col'
+                FormatClause
+                  'FORMAT'
+                  'JSON'
+        "#]]);
+    }
+
+    #[test]
+    fn format_clause_after_having() {
+        check("SELECT col, count() FROM t GROUP BY col HAVING count() > 1 FORMAT CSV", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnReference
+                      'col'
+                    ','
+                    FunctionCall
+                      ColumnReference
+                        'count'
+                      ExpressionList
+                        '('
+                        ')'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                GroupByClause
+                  'GROUP'
+                  'BY'
+                  ColumnReference
+                    'col'
+                HavingClause
+                  'HAVING'
+                  BinaryExpression
+                    FunctionCall
+                      ColumnReference
+                        'count'
+                      ExpressionList
+                        '('
+                        ')'
+                    '>'
+                    NumberLiteral
+                      '1'
+                FormatClause
+                  'FORMAT'
+                  'CSV'
         "#]]);
     }
 }

@@ -875,6 +875,64 @@ fn idempotent_format_clause() {
 }
 
 #[test]
+fn format_clause_after_order_by() {
+    check_format(
+        "select col from t order by col format JSON",
+        expect![[r#"
+            SELECT
+                col
+            FROM t
+            ORDER BY col
+            FORMAT JSON
+        "#]],
+    );
+}
+
+#[test]
+fn format_clause_after_group_by() {
+    check_format(
+        "select col from t group by col format JSON",
+        expect![[r#"
+            SELECT
+                col
+            FROM t
+            GROUP BY col
+            FORMAT JSON
+        "#]],
+    );
+}
+
+#[test]
+fn format_clause_after_limit_by() {
+    check_format(
+        "select col from t limit 10 by col format JSON",
+        expect![[r#"
+            SELECT
+                col
+            FROM t
+            LIMIT 10 BY col
+            FORMAT JSON
+        "#]],
+    );
+}
+
+#[test]
+fn format_clause_after_having() {
+    check_format(
+        "select col, count() from t group by col having count() > 1 format CSV",
+        expect![[r#"
+            SELECT
+                col,
+                count()
+            FROM t
+            GROUP BY col
+            HAVING count() > 1
+            FORMAT CSV
+        "#]],
+    );
+}
+
+#[test]
 fn idempotent_codec_types() {
     check_idempotent("CREATE TABLE t (`ts` DateTime64(9) CODEC(Delta(8), ZSTD(1))) ENGINE = MergeTree() ORDER BY ts");
 }
