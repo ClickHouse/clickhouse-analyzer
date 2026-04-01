@@ -151,6 +151,7 @@ pub enum SyntaxKind {
     // =======================================================================
     Expression,
     Asterisk,
+    Identifier,
     ColumnReference,
     ColumnAlias,
     QualifiedName,

@@ -888,7 +888,7 @@ mod tests {
                       'a'
                     ','
                     FunctionCall
-                      ColumnReference
+                      Identifier
                         'count'
                       ExpressionList
                         '('
@@ -981,7 +981,7 @@ mod tests {
                   'HAVING'
                   BinaryExpression
                     FunctionCall
-                      ColumnReference
+                      Identifier
                         'count'
                       ExpressionList
                         '('
@@ -1845,7 +1845,7 @@ mod tests {
                       'col'
                     ','
                     FunctionCall
-                      ColumnReference
+                      Identifier
                         'count'
                       ExpressionList
                         '('
@@ -1863,7 +1863,7 @@ mod tests {
                   'HAVING'
                   BinaryExpression
                     FunctionCall
-                      ColumnReference
+                      Identifier
                         'count'
                       ExpressionList
                         '('

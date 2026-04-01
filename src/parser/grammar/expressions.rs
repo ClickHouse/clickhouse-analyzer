@@ -102,8 +102,19 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
     // Postfix operators that chain: function calls `f(x)` and array access `a[k]`
     loop {
         if p.at(TokenKind::OpeningRoundBracket) {
+            // The LHS is a function name, not a column reference.
+            // Change ColumnReference → Identifier so the tree is semantically accurate.
+            if p.kind_of(lhs) == SyntaxKind::ColumnReference {
+                p.change_kind(lhs, SyntaxKind::Identifier);
+            }
             let m = p.precede(lhs);
             arg_list(p);
+            // Parametric functions like quantile(0.5)(x) have two argument
+            // lists.  Keep consuming `(...)` groups as siblings inside the
+            // same FunctionCall node instead of nesting.
+            while p.at(TokenKind::OpeningRoundBracket) {
+                arg_list(p);
+            }
             lhs = p.complete(m, SyntaxKind::FunctionCall);
         } else if p.at(TokenKind::OpeningSquareBracket) {
             let m = p.precede(lhs);
@@ -521,7 +532,7 @@ mod tests {
                   'SELECT'
                   ColumnList
                     FunctionCall
-                      ColumnReference
+                      Identifier
                         'now'
                       ExpressionList
                         '('
@@ -538,15 +549,14 @@ mod tests {
                   'SELECT'
                   ColumnList
                     FunctionCall
-                      FunctionCall
-                        ColumnReference
-                          'quantile'
-                        ExpressionList
-                          '('
-                          Expression
-                            NumberLiteral
-                              '0.9'
-                          ')'
+                      Identifier
+                        'quantile'
+                      ExpressionList
+                        '('
+                        Expression
+                          NumberLiteral
+                            '0.9'
+                        ')'
                       ExpressionList
                         '('
                         Expression
@@ -620,7 +630,7 @@ mod tests {
                   'SELECT'
                   ColumnList
                     FunctionCall
-                      ColumnReference
+                      Identifier
                         'arrayMap'
                       ExpressionList
                         '('
@@ -1158,7 +1168,7 @@ mod tests {
                   ColumnList
                     ArrayAccessExpression
                       FunctionCall
-                        ColumnReference
+                        Identifier
                           'splitByChar'
                         ExpressionList
                           '('

@@ -127,6 +127,19 @@ impl Parser {
         mark
     }
 
+    /// Retroactively change the SyntaxKind of an already-completed node.
+    pub fn change_kind(&mut self, m: CompletedMarker, kind: SyntaxKind) {
+        self.events[m.index] = Event::Open { kind };
+    }
+
+    /// Returns the SyntaxKind of an already-completed node.
+    pub fn kind_of(&self, m: CompletedMarker) -> SyntaxKind {
+        match &self.events[m.index] {
+            Event::Open { kind } => *kind,
+            _ => SyntaxKind::Error,
+        }
+    }
+
     pub fn complete(&mut self, m: Marker, kind: SyntaxKind) -> CompletedMarker {
         self.events[m.index] = Event::Open { kind };
         self.events.push(Event::Close);

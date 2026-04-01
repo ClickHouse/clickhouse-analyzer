@@ -217,6 +217,9 @@ fn parse_create_function(p: &mut Parser) {
 
     p.expect_keyword(Keyword::Function);
 
+    // IF NOT EXISTS
+    parse_if_not_exists(p);
+
     // Function name
     if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier]) {
         p.advance();
@@ -913,6 +916,30 @@ mod tests {
         let mut buf = String::new();
         result.tree.print(&mut buf, 0);
         assert!(buf.contains("FunctionDefinition"));
+        assert!(buf.contains("LambdaExpression"));
+    }
+
+    #[test]
+    fn test_create_function_if_not_exists() {
+        let result = parse("CREATE FUNCTION IF NOT EXISTS myFunc AS (x) -> x + 1");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0);
+        assert!(buf.contains("FunctionDefinition"));
+        assert!(buf.contains("IfNotExistsClause"));
+        assert!(buf.contains("LambdaExpression"));
+    }
+
+    #[test]
+    fn test_create_function_multi_arg_lambda() {
+        let result = parse("CREATE FUNCTION IF NOT EXISTS testfn AS (param_a) -> bitAnd(param_a, 123)");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0);
+        assert!(buf.contains("FunctionDefinition"));
+        assert!(buf.contains("IfNotExistsClause"));
+        assert!(buf.contains("LambdaExpression"));
+        assert!(buf.contains("FunctionCall"));
     }
 
     #[test]

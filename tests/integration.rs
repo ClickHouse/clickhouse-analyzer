@@ -568,7 +568,7 @@ fn any_as_function_name() {
                   'SELECT'
                   ColumnList
                     FunctionCall
-                      ColumnReference
+                      Identifier
                         'any'
                       ExpressionList
                         '('

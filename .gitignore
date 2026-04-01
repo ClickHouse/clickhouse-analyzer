@@ -1,5 +1,5 @@
 /target
 .idea/
 CLAUDE.md
-test.sql
-test2.sql
+*.sql
+*.log

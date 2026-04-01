@@ -217,6 +217,9 @@ pub fn parse_truncate_statement(p: &mut Parser) {
 
     parse_on_cluster(p);
 
+    // Optional SYNC
+    let _ = p.eat_keyword(Keyword::Sync);
+
     p.complete(m, SyntaxKind::TruncateStatement);
 }
 
@@ -615,6 +618,24 @@ mod tests {
                       'ON'
                       'CLUSTER'
                       'mycluster'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_truncate_sync() {
+        check(
+            "TRUNCATE TABLE default.records SYNC",
+            expect![[r#"
+                File
+                  TruncateStatement
+                    'TRUNCATE'
+                    'TABLE'
+                    TableIdentifier
+                      'default'
+                      '.'
+                      'records'
+                    'SYNC'
             "#]],
         );
     }
