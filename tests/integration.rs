@@ -123,6 +123,25 @@ fn tree_covers_all_input_bytes() {
         "/* block comment */",
         "SELECT 'hello world'",
         "SELECT \"quoted_id\"",
+        // New statement types
+        "INSERT INTO t VALUES (1, 2, 3)",
+        "INSERT INTO t (a, b) SELECT 1, 2",
+        "CREATE TABLE t (a Int32) ENGINE = MergeTree() ORDER BY a",
+        "DROP TABLE IF EXISTS db.t ON CLUSTER c PERMANENTLY",
+        "ALTER TABLE t ADD COLUMN c Int32, DROP COLUMN d",
+        "DELETE FROM t WHERE x > 5",
+        "EXPLAIN AST SELECT 1",
+        "DESCRIBE TABLE db.t FORMAT JSON",
+        "SHOW TABLES FROM mydb LIKE '%t%' LIMIT 10",
+        "USE mydb",
+        "SET max_threads = 4",
+        "TRUNCATE TABLE IF EXISTS t",
+        "RENAME TABLE old TO new",
+        "EXISTS TABLE db.t",
+        "CHECK TABLE t",
+        "OPTIMIZE TABLE t FINAL DEDUPLICATE",
+        "SELECT 1 UNION ALL SELECT 2",
+        "SELECT a FROM t EXCEPT SELECT b FROM u",
     ];
     for input in &inputs {
         let result = parse(input);
@@ -204,6 +223,62 @@ fn valid_sql_produces_no_errors() {
         "SELECT col_a a, any(col_b), any(col_c), count(*) d FROM t GROUP BY a ORDER BY d DESC LIMIT 10",
         // ANY/ALL as actual join keywords should still work
         "SELECT a FROM t ANY LEFT JOIN t2 ON t.a = t2.a",
+        // INSERT
+        "INSERT INTO t VALUES (1, 2, 3)",
+        "INSERT INTO t (a, b) VALUES (1, 2)",
+        "INSERT INTO db.t VALUES (1)",
+        "INSERT INTO t SELECT 1, 2",
+        "INSERT INTO t FORMAT JSONEachRow",
+        "INSERT INTO TABLE t VALUES (1)",
+        // CREATE TABLE
+        "CREATE TABLE t (a Int32, b String) ENGINE = MergeTree() ORDER BY a",
+        "CREATE TABLE IF NOT EXISTS db.t (a Int32) ENGINE = MergeTree() ORDER BY a",
+        "CREATE TEMPORARY TABLE tmp (a Int32) ENGINE = Memory",
+        "CREATE DATABASE IF NOT EXISTS mydb",
+        "CREATE VIEW v AS SELECT 1",
+        "CREATE MATERIALIZED VIEW mv TO dest AS SELECT 1 FROM t",
+        "CREATE FUNCTION f AS (x) -> x + 1",
+        // DROP / TRUNCATE / RENAME
+        "DROP TABLE t",
+        "DROP TABLE IF EXISTS db.t",
+        "DROP DATABASE IF EXISTS mydb",
+        "TRUNCATE TABLE t",
+        "RENAME TABLE old TO new",
+        "RENAME TABLE db.a TO db.b, db.c TO db.d",
+        // USE / SET
+        "USE mydb",
+        "SET max_threads = 4",
+        "SET max_threads = 4, max_memory_usage = 1000000",
+        // EXISTS / CHECK / OPTIMIZE
+        "EXISTS TABLE t",
+        "EXISTS DATABASE mydb",
+        "CHECK TABLE t",
+        "OPTIMIZE TABLE t FINAL",
+        "OPTIMIZE TABLE t PARTITION 202301 FINAL DEDUPLICATE",
+        // ALTER
+        "ALTER TABLE t ADD COLUMN c Int32",
+        "ALTER TABLE t DROP COLUMN c",
+        "ALTER TABLE t MODIFY COLUMN c String",
+        "ALTER TABLE t DELETE WHERE x > 5",
+        "ALTER TABLE t UPDATE x = 1 WHERE y > 0",
+        // DELETE
+        "DELETE FROM t WHERE x > 5",
+        "DELETE FROM db.t WHERE x = 1",
+        // EXPLAIN / DESCRIBE / SHOW
+        "EXPLAIN AST SELECT 1",
+        "EXPLAIN PLAN SELECT 1 FROM t",
+        "DESCRIBE TABLE t",
+        "DESC t",
+        "SHOW TABLES",
+        "SHOW TABLES FROM mydb LIKE '%t%'",
+        "SHOW DATABASES",
+        "SHOW CREATE TABLE t",
+        "SHOW PROCESSLIST",
+        // UNION / EXCEPT / INTERSECT
+        "SELECT 1 UNION ALL SELECT 2",
+        "SELECT 1 EXCEPT SELECT 2",
+        "SELECT 1 INTERSECT SELECT 2",
+        "SELECT a FROM t UNION ALL SELECT b FROM u UNION ALL SELECT c FROM v",
     ];
     for input in &inputs {
         let result = parse(input);

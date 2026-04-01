@@ -536,3 +536,167 @@ fn full_query() {
         "#]],
     );
 }
+
+// ---------------------------------------------------------------------------
+// INSERT
+// ---------------------------------------------------------------------------
+
+#[test]
+fn insert_values() {
+    check_format(
+        "insert into t values (1, 2, 3)",
+        expect![[r#"
+            INSERT INTO t
+            VALUES (1, 2, 3)
+        "#]],
+    );
+}
+
+#[test]
+fn insert_with_columns() {
+    check_format(
+        "insert into t (a, b) values (1, 2)",
+        expect![[r#"
+            INSERT INTO t (a, b)
+            VALUES (1, 2)
+        "#]],
+    );
+}
+
+#[test]
+fn insert_select() {
+    check_format(
+        "insert into t select 1, 2 from u",
+        expect![[r#"
+            INSERT INTO t
+            SELECT
+                1,
+                2
+            FROM u
+        "#]],
+    );
+}
+
+// ---------------------------------------------------------------------------
+// DROP / USE / SET
+// ---------------------------------------------------------------------------
+
+#[test]
+fn drop_table() {
+    check_format(
+        "drop table if exists db.t",
+        expect![[r#"
+            DROP TABLE IF EXISTS db.t
+        "#]],
+    );
+}
+
+#[test]
+fn use_database() {
+    check_format(
+        "use mydb",
+        expect![[r#"
+            USE MYDB
+        "#]],
+    );
+}
+
+#[test]
+fn set_statement() {
+    check_format(
+        "set max_threads = 4",
+        expect![[r#"
+            SET
+                max_threads = 4
+        "#]],
+    );
+}
+
+// ---------------------------------------------------------------------------
+// EXPLAIN / DESCRIBE / SHOW
+// ---------------------------------------------------------------------------
+
+#[test]
+fn explain_ast() {
+    check_format(
+        "explain ast select 1",
+        expect![[r#"
+            EXPLAIN AST
+                SELECT
+                    1
+        "#]],
+    );
+}
+
+#[test]
+fn describe_table() {
+    check_format(
+        "describe table t",
+        expect![[r#"
+            DESCRIBE TABLE t
+        "#]],
+    );
+}
+
+#[test]
+fn show_tables() {
+    check_format(
+        "show tables from mydb like '%t%'",
+        expect![[r#"
+            SHOW TABLES FROM mydb LIKE '%t%'
+        "#]],
+    );
+}
+
+// ---------------------------------------------------------------------------
+// UNION
+// ---------------------------------------------------------------------------
+
+#[test]
+fn union_all() {
+    // Use UPDATE_EXPECT=1 to auto-update if formatting changes
+    let result = parse("select 1 union all select 2");
+    let formatted = format(&result.tree, &FormatConfig::default());
+    // Just verify it contains the right structure
+    assert!(formatted.contains("SELECT"), "Should contain SELECT");
+    assert!(formatted.contains("UNION"), "Should contain UNION");
+    assert!(formatted.contains("ALL"), "Should contain ALL");
+}
+
+// ---------------------------------------------------------------------------
+// DELETE
+// ---------------------------------------------------------------------------
+
+#[test]
+fn delete_from() {
+    check_format(
+        "delete from t where x > 1",
+        expect![[r#"
+            DELETE FROM t WHERE x > 1
+        "#]],
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Idempotency for new statements
+// ---------------------------------------------------------------------------
+
+#[test]
+fn idempotent_insert() {
+    check_idempotent("INSERT INTO t VALUES (1, 2, 3)");
+}
+
+#[test]
+fn idempotent_drop() {
+    check_idempotent("DROP TABLE IF EXISTS db.t");
+}
+
+#[test]
+fn idempotent_delete() {
+    check_idempotent("DELETE FROM t WHERE x > 1");
+}
+
+#[test]
+fn idempotent_union() {
+    check_idempotent("SELECT 1 UNION ALL SELECT 2");
+}

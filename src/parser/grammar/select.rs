@@ -110,13 +110,32 @@ pub fn parse_select_statement(p: &mut Parser) {
         parse_settings_clause(p);
     }
 
-    p.complete(m, SyntaxKind::SelectStatement);
+    let completed = p.complete(m, SyntaxKind::SelectStatement);
+
+    // Set operations: UNION [ALL|DISTINCT], EXCEPT, INTERSECT
+    if p.at_keyword(Keyword::Union)
+        || p.at_keyword(Keyword::Except)
+        || p.at_keyword(Keyword::Intersect)
+    {
+        let m = p.precede(completed);
+        // Consume the set operation keyword
+        p.advance();
+        // Optional ALL or DISTINCT after UNION
+        p.eat_keyword(Keyword::All);
+        p.eat_keyword(Keyword::Distinct);
+        // Parse the right-hand SELECT
+        parse_select_statement(p);
+        p.complete(m, SyntaxKind::UnionClause);
+    }
 }
 
 /// True if the current position marks the end of a column list
 /// (i.e. we've hit a clause keyword or statement boundary).
 pub fn at_end_of_column_list(p: &mut Parser) -> bool {
     at_clause_keyword(p)
+        || p.at_keyword(Keyword::Union)
+        || p.at_keyword(Keyword::Except)
+        || p.at_keyword(Keyword::Intersect)
 }
 
 /// True if the parser is positioned at a clause keyword that can appear
@@ -131,6 +150,9 @@ fn at_clause_keyword(p: &mut Parser) -> bool {
         || p.at_keyword(Keyword::Having)
         || p.at_keyword(Keyword::Prewhere)
         || p.at_keyword(Keyword::Settings)
+        || p.at_keyword(Keyword::Union)
+        || p.at_keyword(Keyword::Except)
+        || p.at_keyword(Keyword::Intersect)
         || at_join_keyword(p)
 }
 

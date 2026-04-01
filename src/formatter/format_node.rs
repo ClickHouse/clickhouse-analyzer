@@ -10,17 +10,36 @@ use crate::parser::syntax_tree::{SyntaxChild, SyntaxTree};
 /// All keyword uppercase forms for matching BareWord tokens.
 const KEYWORDS: &[&str] = &[
     "SELECT", "FROM", "WHERE", "ORDER", "BY", "GROUP", "HAVING", "LIMIT",
-    "OFFSET", "WITH", "AS", "ON", "USING", "BETWEEN", "IN", "LIKE", "IS",
-    "NOT", "CASE", "WHEN", "THEN", "ELSE", "END", "CAST", "DISTINCT", "ALL",
-    "EXISTS", "AND", "OR", "JOIN", "INNER", "LEFT", "RIGHT", "FULL", "OUTER",
-    "CROSS", "GLOBAL", "ANY", "SEMI", "ANTI", "ASOF", "NATURAL", "ARRAY",
-    "FINAL", "ASC", "DESC", "NULLS", "FIRST", "LAST", "TOTALS", "ROLLUP",
-    "CUBE", "UNION", "EXCEPT", "INTERSECT", "INSERT", "INTO", "VALUES",
-    "DELETE", "UPDATE", "SET", "CREATE", "ALTER", "DROP", "DETACH", "ATTACH",
-    "RENAME", "TRUNCATE", "SHOW", "USE", "OPTIMIZE", "SYSTEM", "TABLE",
-    "VIEW", "DATABASE", "DICTIONARY", "FUNCTION", "MATERIALIZED", "TEMPORARY",
-    "IF", "DEFAULT", "CODEC", "TTL", "COMMENT", "PRIMARY", "KEY", "PREWHERE",
-    "SETTINGS", "FORMAT", "SAMPLE", "NULL", "TRUE", "FALSE", "INTERVAL",
+    "OFFSET", "WITH", "AS", "ON", "USING", "BETWEEN", "IN", "LIKE", "ILIKE",
+    "IS", "NOT", "CASE", "WHEN", "THEN", "ELSE", "END", "CAST", "DISTINCT",
+    "ALL", "EXISTS", "AND", "OR", "JOIN", "INNER", "LEFT", "RIGHT", "FULL",
+    "OUTER", "CROSS", "GLOBAL", "ANY", "SEMI", "ANTI", "ASOF", "NATURAL",
+    "ARRAY", "FINAL", "ASC", "DESC", "NULLS", "FIRST", "LAST", "TOTALS",
+    "ROLLUP", "CUBE", "UNION", "EXCEPT", "INTERSECT", "INSERT", "INTO",
+    "VALUES", "DELETE", "UPDATE", "SET", "CREATE", "ALTER", "DROP", "DETACH",
+    "ATTACH", "RENAME", "TRUNCATE", "SHOW", "USE", "OPTIMIZE", "SYSTEM",
+    "EXCHANGE", "UNDROP", "TABLE", "VIEW", "DATABASE", "DICTIONARY",
+    "FUNCTION", "MATERIALIZED", "TEMPORARY", "IF", "REPLACE", "LIVE",
+    "DEFAULT", "CODEC", "TTL", "COMMENT", "PRIMARY", "KEY", "ALIAS",
+    "EPHEMERAL", "PREWHERE", "SETTINGS", "FORMAT", "SAMPLE", "NULL", "TRUE",
+    "FALSE", "INTERVAL", "ENGINE", "PARTITION", "CLUSTER", "TO", "POPULATE",
+    "EMPTY", "PERMANENTLY", "AFTER", "COLUMN", "INDEX", "PROJECTION",
+    "CONSTRAINT", "ADD", "MODIFY", "CLEAR", "MOVE", "GRANULARITY", "TYPE",
+    "DEDUPLICATE", "EXPLAIN", "DESCRIBE", "AST", "PLAN", "PIPELINE",
+    "ESTIMATE", "TABLES", "DATABASES", "COLUMNS", "DICTIONARIES",
+    "FUNCTIONS", "PROCESSLIST", "PRIVILEGES", "GRANTS", "RELOAD", "FLUSH",
+    "STOP", "START", "MERGES", "REPLICA", "REPLICAS", "DISTRIBUTED",
+    "SENDING", "FETCHES", "MOVES", "LOGS", "CACHE", "DNS", "MARK",
+    "UNCOMPRESSED", "COMPILED", "MODELS", "DISKS", "GRANT", "REVOKE",
+    "USER", "ROLE", "QUOTA", "POLICY", "PROFILE", "ROW", "NONE", "KILL",
+    "QUERY", "MUTATION", "SYNC", "ASYNC", "TEST", "CHECK", "BEGIN", "COMMIT",
+    "ROLLBACK", "TRANSACTION", "BACKUP", "RESTORE", "LOCAL", "FREEZE",
+    "UNFREEZE", "FETCH", "APPLY", "DELETED", "SOURCE", "LAYOUT", "LIFETIME",
+    "RANGE", "HASHED", "FLAT", "COMPLEX", "DIRECT", "INJECTIVE",
+    "HIERARCHICAL", "WINDOW", "OVER", "ROWS", "GROUPS", "UNBOUNDED",
+    "PRECEDING", "FOLLOWING", "CURRENT", "DIV", "MOD", "DESC",
+    "SYNTAX", "TREE", "OVERRIDE", "ENGINES", "FOR", "PART",
+    "MATERIALIZE", "SETTING", "RESET", "ILIKE",
 ];
 
 fn is_keyword(text: &str) -> bool {
@@ -127,6 +146,100 @@ pub fn format_node(tree: &SyntaxTree, ctx: &mut FormatterContext) {
         SyntaxKind::DataType => format_inline(tree, ctx),
         SyntaxKind::DataTypeParameters => format_inline(tree, ctx),
         SyntaxKind::UsingList => format_inline(tree, ctx),
+
+        // INSERT
+        SyntaxKind::InsertStatement => format_insert_statement(tree, ctx),
+        SyntaxKind::InsertColumnsClause => format_inline_comma_list(tree, ctx),
+        SyntaxKind::InsertValuesClause => format_values_clause(tree, ctx),
+        SyntaxKind::ValueRow => format_paren_list(tree, ctx),
+        SyntaxKind::InsertFormatClause => format_simple_clause(tree, ctx),
+        SyntaxKind::FormatClause => format_simple_clause(tree, ctx),
+
+        // CREATE / DDL
+        SyntaxKind::CreateStatement => format_create_statement(tree, ctx),
+        SyntaxKind::ColumnDefinitionList => format_column_def_list(tree, ctx),
+        SyntaxKind::ColumnDefinition => format_inline(tree, ctx),
+        SyntaxKind::ColumnDefault => format_inline(tree, ctx),
+        SyntaxKind::ColumnCodec => format_inline(tree, ctx),
+        SyntaxKind::ColumnTtl => format_inline(tree, ctx),
+        SyntaxKind::ColumnComment => format_inline(tree, ctx),
+        SyntaxKind::EngineClause => format_simple_clause(tree, ctx),
+        SyntaxKind::OrderByDefinition => format_simple_clause(tree, ctx),
+        SyntaxKind::PartitionByDefinition => format_simple_clause(tree, ctx),
+        SyntaxKind::PrimaryKeyDefinition => format_simple_clause(tree, ctx),
+        SyntaxKind::SampleByDefinition => format_simple_clause(tree, ctx),
+        SyntaxKind::TtlDefinition => format_simple_clause(tree, ctx),
+        SyntaxKind::OnClusterClause => format_inline(tree, ctx),
+        SyntaxKind::IfNotExistsClause => format_inline(tree, ctx),
+        SyntaxKind::IfExistsClause => format_inline(tree, ctx),
+        SyntaxKind::AsClause => format_simple_clause(tree, ctx),
+        SyntaxKind::TableDefinition => format_create_statement(tree, ctx),
+        SyntaxKind::DatabaseDefinition => format_create_statement(tree, ctx),
+        SyntaxKind::ViewDefinition => format_create_statement(tree, ctx),
+        SyntaxKind::MaterializedViewDefinition => format_create_statement(tree, ctx),
+        SyntaxKind::DictionaryDefinition => format_create_statement(tree, ctx),
+        SyntaxKind::FunctionDefinition => format_inline(tree, ctx),
+        SyntaxKind::IndexDefinition => format_inline(tree, ctx),
+        SyntaxKind::ProjectionDefinition => format_inline(tree, ctx),
+        SyntaxKind::ConstraintDefinition => format_inline(tree, ctx),
+
+        // ALTER
+        SyntaxKind::AlterStatement => format_alter_statement(tree, ctx),
+        SyntaxKind::AlterCommandList => format_alter_command_list(tree, ctx),
+        SyntaxKind::AlterAddColumn
+        | SyntaxKind::AlterDropColumn
+        | SyntaxKind::AlterModifyColumn
+        | SyntaxKind::AlterRenameColumn
+        | SyntaxKind::AlterClearColumn
+        | SyntaxKind::AlterCommentColumn
+        | SyntaxKind::AlterAddIndex
+        | SyntaxKind::AlterDropIndex
+        | SyntaxKind::AlterClearIndex
+        | SyntaxKind::AlterMaterializeIndex
+        | SyntaxKind::AlterAddProjection
+        | SyntaxKind::AlterDropProjection
+        | SyntaxKind::AlterAddConstraint
+        | SyntaxKind::AlterDropConstraint
+        | SyntaxKind::AlterModifyOrderBy
+        | SyntaxKind::AlterModifyTtl
+        | SyntaxKind::AlterModifySetting
+        | SyntaxKind::AlterResetSetting
+        | SyntaxKind::AlterDropPartition
+        | SyntaxKind::AlterAttachPartition
+        | SyntaxKind::AlterDetachPartition
+        | SyntaxKind::AlterFreezePartition
+        | SyntaxKind::AlterDeleteWhere
+        | SyntaxKind::AlterUpdateWhere => format_inline(tree, ctx),
+
+        // UNION
+        SyntaxKind::UnionClause => format_union_clause(tree, ctx),
+
+        // Simple DDL
+        SyntaxKind::UseStatement
+        | SyntaxKind::DropStatement
+        | SyntaxKind::TruncateStatement
+        | SyntaxKind::ExistsStatement
+        | SyntaxKind::CheckStatement
+        | SyntaxKind::RenameStatement
+        | SyntaxKind::OptimizeStatement
+        | SyntaxKind::DeleteStatement => format_simple_clause(tree, ctx),
+        SyntaxKind::SetStatement => format_set_statement(tree, ctx),
+        SyntaxKind::RenameItem => format_inline(tree, ctx),
+        SyntaxKind::IdentifierList => format_inline_comma_list(tree, ctx),
+        SyntaxKind::PartitionExpression => format_inline(tree, ctx),
+        SyntaxKind::Assignment => format_inline(tree, ctx),
+        SyntaxKind::AssignmentList => format_inline_comma_list(tree, ctx),
+        SyntaxKind::SetClause => format_inline(tree, ctx),
+
+        // EXPLAIN / DESCRIBE / SHOW
+        SyntaxKind::ExplainStatement => format_explain_statement(tree, ctx),
+        SyntaxKind::DescribeStatement => format_simple_clause(tree, ctx),
+        SyntaxKind::ShowStatement => format_simple_clause(tree, ctx),
+        SyntaxKind::ExplainKind => format_inline(tree, ctx),
+        SyntaxKind::ShowTarget => format_inline(tree, ctx),
+        SyntaxKind::LikeClause => format_inline(tree, ctx),
+        SyntaxKind::FromDatabaseClause => format_inline(tree, ctx),
+
         _ => format_passthrough(tree, ctx),
     }
 }
@@ -993,4 +1106,312 @@ fn count_list_items(tree: &SyntaxTree) -> usize {
         .iter()
         .filter(|c| matches!(c, SyntaxChild::Tree(_)))
         .count()
+}
+
+// ---------------------------------------------------------------------------
+// INSERT statement
+// ---------------------------------------------------------------------------
+
+fn format_insert_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    let mut first_clause = true;
+    for child in &tree.children {
+        match child {
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
+                ctx.write_space();
+                ctx.write_token(&t.text);
+            }
+            SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
+                if !first_clause {
+                    ctx.write_space();
+                }
+                ctx.write_keyword(&t.text);
+                first_clause = false;
+            }
+            SyntaxChild::Token(t) => {
+                if !first_clause && !no_space_before(t) {
+                    ctx.write_space();
+                }
+                emit_token(t, ctx);
+                first_clause = false;
+            }
+            SyntaxChild::Tree(subtree) => {
+                match subtree.kind {
+                    SyntaxKind::InsertValuesClause => {
+                        ctx.write_newline();
+                        format_node(subtree, ctx);
+                    }
+                    SyntaxKind::SelectStatement => {
+                        ctx.write_newline();
+                        format_node(subtree, ctx);
+                    }
+                    SyntaxKind::SettingsClause => {
+                        ctx.write_newline();
+                        format_node(subtree, ctx);
+                    }
+                    _ => {
+                        ctx.write_space();
+                        format_node(subtree, ctx);
+                    }
+                }
+                first_clause = false;
+            }
+        }
+    }
+}
+
+fn format_values_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    let mut need_sep = false;
+    for child in &tree.children {
+        match child {
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
+                ctx.write_keyword(&t.text);
+                need_sep = true;
+            }
+            SyntaxChild::Token(t) if t.kind == TokenKind::Comma => {
+                ctx.write_token(",");
+                need_sep = true;
+            }
+            SyntaxChild::Token(t) => emit_token(t, ctx),
+            SyntaxChild::Tree(subtree) => {
+                if need_sep {
+                    ctx.write_space();
+                }
+                format_node(subtree, ctx);
+                need_sep = true;
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CREATE statement -- clause per line
+// ---------------------------------------------------------------------------
+
+fn format_create_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    let mut first_clause = true;
+    for child in &tree.children {
+        match child {
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
+                ctx.write_space();
+                ctx.write_token(&t.text);
+            }
+            SyntaxChild::Token(t) => {
+                if !first_clause && !no_space_before(t) {
+                    ctx.write_space();
+                }
+                emit_token(t, ctx);
+                first_clause = false;
+            }
+            SyntaxChild::Tree(subtree) => {
+                match subtree.kind {
+                    SyntaxKind::ColumnDefinitionList
+                    | SyntaxKind::EngineClause
+                    | SyntaxKind::OrderByDefinition
+                    | SyntaxKind::PartitionByDefinition
+                    | SyntaxKind::PrimaryKeyDefinition
+                    | SyntaxKind::SampleByDefinition
+                    | SyntaxKind::TtlDefinition
+                    | SyntaxKind::SettingsClause
+                    | SyntaxKind::AsClause => {
+                        ctx.write_newline();
+                        format_node(subtree, ctx);
+                    }
+                    _ => {
+                        if !first_clause {
+                            ctx.write_space();
+                        }
+                        format_node(subtree, ctx);
+                    }
+                }
+                first_clause = false;
+            }
+        }
+    }
+}
+
+fn format_column_def_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    for child in &tree.children {
+        match child {
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::OpeningRoundBracket => {
+                ctx.write_token("(");
+                ctx.indent();
+            }
+            SyntaxChild::Token(t) if t.kind == TokenKind::ClosingRoundBracket => {
+                ctx.dedent();
+                ctx.write_newline();
+                ctx.write_token(")");
+            }
+            SyntaxChild::Token(t) if t.kind == TokenKind::Comma => {
+                ctx.write_token(",");
+                ctx.write_newline();
+            }
+            SyntaxChild::Token(t) => emit_token(t, ctx),
+            SyntaxChild::Tree(subtree) => {
+                ctx.write_newline();
+                format_node(subtree, ctx);
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ALTER statement
+// ---------------------------------------------------------------------------
+
+fn format_alter_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    let mut need_sep = false;
+    for child in &tree.children {
+        match child {
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
+                if need_sep {
+                    ctx.write_space();
+                }
+                ctx.write_keyword(&t.text);
+                need_sep = true;
+            }
+            SyntaxChild::Token(t) => {
+                if need_sep && !no_space_before(t) {
+                    ctx.write_space();
+                }
+                emit_token(t, ctx);
+                need_sep = !no_space_after(t.kind);
+            }
+            SyntaxChild::Tree(subtree) => {
+                match subtree.kind {
+                    SyntaxKind::AlterCommandList => {
+                        ctx.write_newline();
+                        ctx.indent();
+                        format_node(subtree, ctx);
+                        ctx.dedent();
+                    }
+                    _ => {
+                        if need_sep {
+                            ctx.write_space();
+                        }
+                        format_node(subtree, ctx);
+                        need_sep = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn format_alter_command_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    let mut after_comma = false;
+    for child in &tree.children {
+        match child {
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Comma => {
+                ctx.write_token(",");
+                ctx.write_newline();
+                after_comma = true;
+            }
+            SyntaxChild::Token(t) => emit_token(t, ctx),
+            SyntaxChild::Tree(subtree) => {
+                after_comma = false;
+                format_node(subtree, ctx);
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SET statement
+// ---------------------------------------------------------------------------
+
+fn format_set_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    for child in &tree.children {
+        match child {
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
+                ctx.write_keyword(&t.text);
+                ctx.write_newline();
+                ctx.indent();
+            }
+            SyntaxChild::Token(t) if t.kind == TokenKind::Comma => {
+                ctx.write_token(",");
+                ctx.write_newline();
+            }
+            SyntaxChild::Token(t) => emit_token(t, ctx),
+            SyntaxChild::Tree(subtree) => {
+                format_node(subtree, ctx);
+            }
+        }
+    }
+    ctx.dedent();
+}
+
+// ---------------------------------------------------------------------------
+// UNION clause
+// ---------------------------------------------------------------------------
+
+fn format_union_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    let mut after_first_select = false;
+    for child in &tree.children {
+        match child {
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
+                if after_first_select {
+                    // This is the UNION/EXCEPT/INTERSECT keyword or ALL/DISTINCT
+                    ctx.write_space();
+                    ctx.write_keyword(&t.text);
+                } else {
+                    ctx.write_keyword(&t.text);
+                    ctx.write_space();
+                }
+            }
+            SyntaxChild::Token(t) => emit_token(t, ctx),
+            SyntaxChild::Tree(subtree) if subtree.kind == SyntaxKind::SelectStatement
+                || subtree.kind == SyntaxKind::UnionClause => {
+                if after_first_select {
+                    ctx.write_newline();
+                }
+                format_node(subtree, ctx);
+                after_first_select = true;
+            }
+            SyntaxChild::Tree(subtree) => {
+                format_node(subtree, ctx);
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// EXPLAIN statement
+// ---------------------------------------------------------------------------
+
+fn format_explain_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    let mut had_kind = false;
+    for child in &tree.children {
+        match child {
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
+                ctx.write_keyword(&t.text);
+                ctx.write_space();
+            }
+            SyntaxChild::Token(t) => emit_token(t, ctx),
+            SyntaxChild::Tree(subtree) if subtree.kind == SyntaxKind::ExplainKind => {
+                format_node(subtree, ctx);
+                had_kind = true;
+            }
+            SyntaxChild::Tree(subtree) if subtree.kind == SyntaxKind::SelectStatement
+                || subtree.kind == SyntaxKind::ShowStatement
+                || subtree.kind == SyntaxKind::DescribeStatement => {
+                ctx.write_newline();
+                ctx.indent();
+                format_node(subtree, ctx);
+                ctx.dedent();
+            }
+            SyntaxChild::Tree(subtree) => {
+                ctx.write_space();
+                format_node(subtree, ctx);
+            }
+        }
+    }
 }
