@@ -42,6 +42,9 @@ pub enum SyntaxKind {
     UndropStatement,
     BackupStatement,
     RestoreStatement,
+    BeginStatement,
+    CommitStatement,
+    RollbackStatement,
 
     // =======================================================================
     // SELECT clauses
@@ -65,6 +68,7 @@ pub enum SyntaxKind {
     WindowDefinition,
     WindowFrame,
     WindowSpec,
+    QualifyClause,
     SampleClause,
     WithFillClause,
 
@@ -214,6 +218,7 @@ pub enum SyntaxKind {
     TernaryExpression,
     QualifiedAsterisk,
     NullsModifier,
+    FilterClause,
     ColumnTransformer,
     GroupingSetsClause,
     GroupingSet,

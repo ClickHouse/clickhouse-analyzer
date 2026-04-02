@@ -297,6 +297,18 @@ pub enum Keyword {
     // PARTITION ID
     Id,
 
+    // LIMIT modifiers
+    Ties,
+
+    // QUALIFY clause
+    Qualify,
+
+    // FILTER clause
+    Filter,
+
+    // OPTIMIZE modifiers
+    Cleanup,
+
     // Missing keywords for specific parsers
     Syntax,
     Tree,
@@ -535,6 +547,9 @@ impl Keyword {
             Keyword::Grouping => "GROUPING",
             Keyword::Sets => "SETS",
             Keyword::Id => "ID",
+            Keyword::Ties => "TIES",
+            Keyword::Qualify => "QUALIFY",
+            Keyword::Filter => "FILTER",
             Keyword::Syntax => "SYNTAX",
             Keyword::Tree => "TREE",
             Keyword::Override => "OVERRIDE",
@@ -545,6 +560,7 @@ impl Keyword {
             Keyword::Setting => "SETTING",
             Keyword::Reset => "RESET",
             Keyword::Option => "OPTION",
+            Keyword::Cleanup => "CLEANUP",
         }
     }
 }

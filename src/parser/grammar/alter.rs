@@ -755,8 +755,16 @@ fn parse_column_definition(p: &mut Parser) {
         p.recover_with_error("Expected column name");
     }
 
-    // column type
-    parse_column_type(p);
+    // column type — optional for MODIFY COLUMN (you can write
+    // `MODIFY COLUMN c COMMENT 'x'` without specifying a type).
+    // Only parse a type if the current token is NOT a known column modifier.
+    if !at_column_modifier(p)
+        && !p.at(SyntaxKind::Comma)
+        && !p.eof()
+        && !p.end_of_statement()
+    {
+        parse_column_type(p);
+    }
 
     // Optional DEFAULT|MATERIALIZED|ALIAS expr
     if p.at_keyword(Keyword::Default)
@@ -796,6 +804,19 @@ fn parse_column_definition(p: &mut Parser) {
     }
 
     p.complete(m, SyntaxKind::ColumnDefinition);
+}
+
+/// True if the parser is at a column modifier keyword (DEFAULT, MATERIALIZED,
+/// ALIAS, CODEC, TTL, COMMENT, EPHEMERAL). Used to detect the boundary between
+/// the optional column type and the column modifiers in MODIFY COLUMN.
+fn at_column_modifier(p: &mut Parser) -> bool {
+    p.at_keyword(Keyword::Default)
+        || p.at_keyword(Keyword::Materialized)
+        || p.at_keyword(Keyword::Alias)
+        || p.at_keyword(Keyword::Codec)
+        || p.at_keyword(Keyword::Ttl)
+        || p.at_keyword(Keyword::Comment)
+        || p.at_keyword(Keyword::Ephemeral)
 }
 
 /// Parses trailing SETTINGS clause: SETTINGS key = value [, key = value ...]

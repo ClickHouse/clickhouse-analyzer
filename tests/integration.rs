@@ -508,6 +508,41 @@ fn valid_sql_produces_no_errors() {
         // "SELECT * REPLACE(id + 1 AS id) FROM t", // TODO: REPLACE column transformer not yet supported
         "SELECT columns_transformers.* APPLY(avg) FROM t",
         "SELECT * EXCEPT(id) APPLY(toString) FROM t",
+        // ALTER TABLE comma-separated MODIFY COLUMN with COMMENT
+        "ALTER TABLE t MODIFY COLUMN first_column COMMENT 'comment 1', MODIFY COLUMN second_column COMMENT 'comment 2'",
+        "ALTER TABLE t MODIFY COLUMN c1 String DEFAULT 'x', MODIFY COLUMN c2 Int32",
+        "ALTER TABLE t MODIFY COLUMN c1 COMMENT 'x'",
+        // ORDER BY expression AS alias
+        "SELECT a, b FROM t ORDER BY a + b AS total DESC",
+        "SELECT Title FROM t ORDER BY ngramSearchUTF8(Title, Title) AS distance, Title",
+        // LIMIT ... WITH TIES
+        "SELECT a FROM t ORDER BY a LIMIT 1 WITH TIES",
+        "SELECT * FROM t ORDER BY x LIMIT 5 WITH TIES",
+        // GROUP BY ALL
+        "SELECT substring(a, 1, 3), count(b) FROM t GROUP BY ALL",
+        "SELECT a, sum(b) FROM t GROUP BY ALL",
+        // FILTER(WHERE ...) on aggregate functions
+        "SELECT sum(number) FILTER(WHERE number % 2 == 0) FROM numbers(100)",
+        "SELECT count(*) FILTER(WHERE x > 0) FROM t",
+        // QUALIFY clause
+        "SELECT number, COUNT() OVER (PARTITION BY number % 3) AS partition_count FROM numbers(10) QUALIFY partition_count = 4",
+        "SELECT * FROM t QUALIFY row_number() OVER (ORDER BY x) = 1",
+        // BEGIN TRANSACTION / COMMIT / ROLLBACK
+        "BEGIN TRANSACTION",
+        "COMMIT",
+        "ROLLBACK",
+        // APPLY without parens (bare function name)
+        "SELECT alias_value.* APPLY toString FROM test_table",
+        "SELECT a.* APPLY(toDate) APPLY(any) FROM t",
+        // DESCRIBE with subquery containing column transformers
+        "DESCRIBE (SELECT value AS alias_value, alias_value.* APPLY toString FROM test_table)",
+        // Dictionary STRUCTURE clause with nested parens
+        "CREATE DICTIONARY dict (a String, b Decimal(18, 8)) PRIMARY KEY a SOURCE(CLICKHOUSE(TABLE '' STRUCTURE (a String b Decimal(18, 8)))) LIFETIME(MIN 0 MAX 0) LAYOUT(FLAT())",
+        // EXCEPT as set operation after SETTINGS
+        "SELECT a, count(b) FROM t GROUP BY a ORDER BY a SETTINGS min_hit_rate = 1.0 EXCEPT SELECT a, count(b) FROM t2 GROUP BY a",
+        // Backtick columns in ENGINE arguments
+        "CREATE TABLE t (a String, b Int64) ENGINE = Join(ANY, LEFT, `a`, `b`)",
+        "CREATE TABLE t (TOPIC String) ENGINE = Join(ANY, LEFT, `TOPIC`)",
     ];
     for input in &inputs {
         let result = parse(input);
@@ -2831,5 +2866,310 @@ fn with_recursive_cte() {
                   TableIdentifier
                     'x'
         "#]],
+    );
+}
+
+// ====================================================================
+// ALTER TABLE MODIFY COLUMN with COMMENT
+// ====================================================================
+
+#[test]
+fn alter_modify_column_comment_comma_separated() {
+    check(
+        "ALTER TABLE t MODIFY COLUMN c1 COMMENT 'x', MODIFY COLUMN c2 COMMENT 'y'",
+        expect![[r#"
+            File
+              AlterStatement
+                'ALTER'
+                'TABLE'
+                TableIdentifier
+                  't'
+                AlterCommandList
+                  AlterModifyColumn
+                    'MODIFY'
+                    'COLUMN'
+                    ColumnDefinition
+                      'c1'
+                      'COMMENT'
+                      ''x''
+                  ','
+                  AlterModifyColumn
+                    'MODIFY'
+                    'COLUMN'
+                    ColumnDefinition
+                      'c2'
+                      'COMMENT'
+                      ''y''
+        "#]],
+    );
+}
+
+// ====================================================================
+// ORDER BY expression AS alias
+// ====================================================================
+
+#[test]
+fn order_by_as_alias() {
+    check(
+        "SELECT a FROM t ORDER BY a + b AS total DESC",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnReference
+                      'a'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                OrderByClause
+                  'ORDER'
+                  'BY'
+                  OrderByItem
+                    BinaryExpression
+                      ColumnReference
+                        'a'
+                      '+'
+                      ColumnReference
+                        'b'
+                    ColumnAlias
+                      'AS'
+                      'total'
+                    'DESC'
+        "#]],
+    );
+}
+
+// ====================================================================
+// LIMIT WITH TIES
+// ====================================================================
+
+#[test]
+fn limit_with_ties() {
+    check(
+        "SELECT a FROM t ORDER BY a LIMIT 1 WITH TIES",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnReference
+                      'a'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                OrderByClause
+                  'ORDER'
+                  'BY'
+                  OrderByItem
+                    ColumnReference
+                      'a'
+                LimitClause
+                  'LIMIT'
+                  NumberLiteral
+                    '1'
+                  'WITH'
+                  'TIES'
+        "#]],
+    );
+}
+
+// ====================================================================
+// GROUP BY ALL
+// ====================================================================
+
+#[test]
+fn group_by_all() {
+    check(
+        "SELECT a, sum(b) FROM t GROUP BY ALL",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnReference
+                      'a'
+                    ','
+                    FunctionCall
+                      Identifier
+                        'sum'
+                      ExpressionList
+                        '('
+                        Expression
+                          ColumnReference
+                            'b'
+                        ')'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                GroupByClause
+                  'GROUP'
+                  'BY'
+                  ColumnReference
+                    'ALL'
+        "#]],
+    );
+}
+
+// ====================================================================
+// FILTER(WHERE ...) on aggregate functions
+// ====================================================================
+
+#[test]
+fn aggregate_filter_clause() {
+    check(
+        "SELECT count(*) FILTER(WHERE x > 0) FROM t",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    FilterClause
+                      FunctionCall
+                        Identifier
+                          'count'
+                        ExpressionList
+                          '('
+                          Expression
+                            Asterisk
+                              '*'
+                          ')'
+                      'FILTER'
+                      '('
+                      'WHERE'
+                      BinaryExpression
+                        ColumnReference
+                          'x'
+                        '>'
+                        NumberLiteral
+                          '0'
+                      ')'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+        "#]],
+    );
+}
+
+// ====================================================================
+// QUALIFY clause
+// ====================================================================
+
+#[test]
+fn qualify_clause() {
+    check(
+        "SELECT * FROM t QUALIFY row_number() OVER (ORDER BY x) = 1",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    Asterisk
+                      '*'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                QualifyClause
+                  'QUALIFY'
+                  BinaryExpression
+                    WindowExpression
+                      FunctionCall
+                        Identifier
+                          'row_number'
+                        ExpressionList
+                          '('
+                          ')'
+                      'OVER'
+                      WindowSpec
+                        '('
+                        'ORDER'
+                        'BY'
+                        ColumnReference
+                          'x'
+                        ')'
+                    '='
+                    NumberLiteral
+                      '1'
+        "#]],
+    );
+}
+
+#[test]
+fn begin_transaction_statement() {
+    check(
+        "BEGIN TRANSACTION",
+        expect![[r#"
+            File
+              BeginStatement
+                'BEGIN'
+                'TRANSACTION'
+        "#]],
+    );
+}
+
+#[test]
+fn commit_stmt() {
+    check(
+        "COMMIT",
+        expect![[r#"
+            File
+              CommitStatement
+                'COMMIT'
+        "#]],
+    );
+}
+
+#[test]
+fn rollback_stmt() {
+    check(
+        "ROLLBACK",
+        expect![[r#"
+            File
+              RollbackStatement
+                'ROLLBACK'
+        "#]],
+    );
+}
+
+#[test]
+fn system_drop_query_condition_cache_test() {
+    check_errors("SYSTEM DROP QUERY CONDITION CACHE", expect![[""]]);
+}
+
+#[test]
+fn system_drop_format_schema_cache_for_protobuf_test() {
+    check_errors("SYSTEM DROP FORMAT SCHEMA CACHE FOR Protobuf", expect![[""]]);
+}
+
+#[test]
+fn system_stop_replication_queues_test() {
+    check_errors("SYSTEM STOP REPLICATION QUEUES wikistat2", expect![[""]]);
+}
+
+#[test]
+fn optimize_table_final_cleanup_test() {
+    check_errors("OPTIMIZE TABLE test FINAL CLEANUP", expect![[""]]);
+}
+
+#[test]
+fn empty_array_subscript_test() {
+    check_errors("SELECT json.a.r[] FROM t", expect![[""]]);
+}
+
+#[test]
+fn with_totals_in_subquery_test() {
+    check_errors(
+        "SELECT sum(s) FROM (SELECT sum(number) as s FROM numbers(5) WITH TOTALS)",
+        expect![[""]],
     );
 }

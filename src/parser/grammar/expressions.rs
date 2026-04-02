@@ -150,6 +150,16 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
                     lhs = p.complete(m, SyntaxKind::NullsModifier);
                 }
             }
+            // FILTER(WHERE expr) — SQL standard aggregate filter clause
+            if p.at_keyword(Keyword::Filter) && p.at_followed_by_paren() {
+                let m = p.precede(lhs);
+                p.advance(); // consume FILTER
+                p.expect(SyntaxKind::OpeningRoundBracket);
+                p.expect_keyword(Keyword::Where);
+                parse_expression(p);
+                p.expect(SyntaxKind::ClosingRoundBracket);
+                lhs = p.complete(m, SyntaxKind::FilterClause);
+            }
             // Window function: func(...) OVER (...)  or  func(...) OVER name
             if p.at_keyword(Keyword::Over) {
                 let m = p.precede(lhs);
@@ -167,7 +177,10 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
         } else if p.at(SyntaxKind::OpeningSquareBracket) {
             let m = p.precede(lhs);
             p.advance(); // consume [
-            parse_expression(p);
+            // Allow empty brackets: json.path[]
+            if !p.at(SyntaxKind::ClosingSquareBracket) {
+                parse_expression(p);
+            }
             p.expect(SyntaxKind::ClosingSquareBracket);
             lhs = p.complete(m, SyntaxKind::ArrayAccessExpression);
         } else if p.at(SyntaxKind::DoubleColon) {
@@ -214,13 +227,24 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
             && (p.at_keyword(Keyword::Apply)
                 || p.at_keyword(Keyword::Except)
                 || p.at_keyword(Keyword::Replace))
-            && p.nth(1) == SyntaxKind::OpeningRoundBracket
+            && (p.nth(1) == SyntaxKind::OpeningRoundBracket
+                // APPLY can also be followed by a bare function name without parens:
+                // e.g. `* APPLY toString`, `alias_value.* APPLY toString`
+                || (p.at_keyword(Keyword::Apply) && (p.nth(1) == SyntaxKind::BareWord || p.nth(1) == SyntaxKind::QuotedIdentifier)))
         {
             // Column transformers: * APPLY(func), * EXCEPT(col), * REPLACE(expr AS name)
             // Can chain: * EXCEPT(id) APPLY(toString)
+            // APPLY also supports bare form: * APPLY func
             let m = p.precede(lhs);
             p.advance(); // consume APPLY/EXCEPT/REPLACE
-            parse_column_transformer_args(p);
+            if p.at(SyntaxKind::OpeningRoundBracket) {
+                parse_column_transformer_args(p);
+            } else {
+                // Bare function name form: APPLY func
+                let args = p.start();
+                parse_expression(p);
+                p.complete(args, SyntaxKind::ExpressionList);
+            }
             lhs = p.complete(m, SyntaxKind::ColumnTransformer);
         } else {
             break;

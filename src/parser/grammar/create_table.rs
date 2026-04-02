@@ -410,14 +410,20 @@ fn parse_dictionary_range(p: &mut Parser) {
 /// Each pair is: bareword followed by a literal (string, number, or bareword).
 /// e.g. HOST 'localhost' PORT 9000 TABLE 'source_table'
 /// or: MIN 300 MAX 600
+/// A key can also be followed by a parenthesized block (e.g. STRUCTURE (...))
+/// which may contain nested parens for types like Decimal(18, 8).
 fn parse_key_value_pairs(p: &mut Parser) {
     while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
         if p.at_identifier() {
             let kv = p.start();
             p.advance(); // key
-            // value: string, number, or bareword
+            // value: string, number, bareword, or parenthesized block
             if p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::Number) {
                 p.advance();
+            } else if p.at(SyntaxKind::OpeningRoundBracket) {
+                // Parenthesized value block, e.g. STRUCTURE (a String, b Decimal(18, 8))
+                // Consume everything between matching parens, handling nesting.
+                consume_balanced_parens(p);
             } else if p.at_identifier()
                 && !p.at(SyntaxKind::ClosingRoundBracket)
             {
@@ -431,6 +437,26 @@ fn parse_key_value_pairs(p: &mut Parser) {
             p.advance_with_error("Expected key-value pair in dictionary clause");
         }
     }
+}
+
+/// Consume a balanced parenthesized block, including nested parens.
+/// Advances from the opening `(` through and including the matching `)`.
+fn consume_balanced_parens(p: &mut Parser) {
+    assert!(p.at(SyntaxKind::OpeningRoundBracket));
+    p.advance(); // consume (
+    let mut depth = 1u32;
+    while depth > 0 && !p.eof() {
+        if p.at(SyntaxKind::OpeningRoundBracket) {
+            depth += 1;
+        } else if p.at(SyntaxKind::ClosingRoundBracket) {
+            depth -= 1;
+            if depth == 0 {
+                break;
+            }
+        }
+        p.advance();
+    }
+    p.expect(SyntaxKind::ClosingRoundBracket);
 }
 
 /// Parse AS clause: AS SELECT ... or AS [db.]table
@@ -1326,5 +1352,27 @@ mod tests {
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("IfNotExistsClause"));
         assert!(buf.contains("QueryParameterExpression"));
+    }
+
+    #[test]
+    fn test_dictionary_structure_nested_parens() {
+        let result = parse("CREATE DICTIONARY dict (a String, b Decimal(18, 8)) PRIMARY KEY a SOURCE(CLICKHOUSE(TABLE '' STRUCTURE (a String b Decimal(18, 8)))) LIFETIME(MIN 0 MAX 0) LAYOUT(FLAT())");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0, &result.source);
+        assert!(buf.contains("DictionarySource"));
+        assert!(buf.contains("DictionarySourceType"));
+        assert!(buf.contains("DictionaryKeyValue"));
+    }
+
+    #[test]
+    fn test_engine_backtick_args() {
+        let result = parse("CREATE TABLE t (a String, b Int64) ENGINE = Join(ANY, LEFT, `a`, `b`)");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0, &result.source);
+        assert!(buf.contains("EngineClause"));
+        assert!(buf.contains("'`a`'"));
+        assert!(buf.contains("'`b`'"));
     }
 }

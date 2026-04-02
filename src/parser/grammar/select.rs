@@ -71,6 +71,17 @@ pub fn parse_select_statement(p: &mut Parser) {
         parse_group_by_clause(p);
     }
 
+    // WITH TOTALS can appear even without an explicit GROUP BY clause
+    // (ClickHouse supports implicit grouping with WITH TOTALS).
+    // If GROUP BY already consumed WITH TOTALS, this won't match.
+    // Must be checked before skip_to_clause_keyword since WITH is not a clause keyword.
+    if p.at_keyword(Keyword::With) && p.nth_text(1).eq_ignore_ascii_case("TOTALS") {
+        let m = p.start();
+        p.expect_keyword(Keyword::With);
+        p.expect_keyword(Keyword::Totals);
+        p.complete(m, SyntaxKind::WithTotalsClause);
+    }
+
     skip_to_clause_keyword(p);
 
     // HAVING
@@ -86,6 +97,16 @@ pub fn parse_select_statement(p: &mut Parser) {
     // WINDOW (named window definitions)
     if p.at_keyword(Keyword::Window) {
         parse_window_clause(p);
+    }
+
+    skip_to_clause_keyword(p);
+
+    // QUALIFY — filters on window function results, like HAVING for GROUP BY
+    if p.at_keyword(Keyword::Qualify) {
+        let m = p.start();
+        p.expect_keyword(Keyword::Qualify);
+        parse_expression(p);
+        p.complete(m, SyntaxKind::QualifyClause);
     }
 
     skip_to_clause_keyword(p);
@@ -169,7 +190,7 @@ const SELECT_CLAUSE_KEYWORDS: &[Keyword] = &[
     Keyword::Select, Keyword::From, Keyword::Where, Keyword::Order,
     Keyword::Limit, Keyword::Group, Keyword::Having, Keyword::Prewhere,
     Keyword::Settings, Keyword::Format, Keyword::Union, Keyword::Except,
-    Keyword::Intersect, Keyword::Window, Keyword::Sample,
+    Keyword::Intersect, Keyword::Window, Keyword::Sample, Keyword::Qualify,
 ];
 
 /// True if the parser is positioned at a clause keyword that can appear
@@ -182,6 +203,10 @@ fn at_clause_keyword(p: &mut Parser) -> bool {
     // When followed by '(', it's a function call, not a clause.
     if p.at_keyword(Keyword::Format) && p.at_followed_by_paren() {
         return false;
+    }
+    // WITH TOTALS can appear as a standalone clause (even without GROUP BY)
+    if p.at_keyword(Keyword::With) && p.nth_text(1).eq_ignore_ascii_case("TOTALS") {
+        return true;
     }
     common::at_any_keyword(p, SELECT_CLAUSE_KEYWORDS) || at_join_keyword(p)
 }
@@ -199,9 +224,12 @@ fn at_join_keyword(p: &mut Parser) -> bool {
         || p.at_keyword(Keyword::Natural);
 
     // These keywords can also be function names or identifiers; only treat them
-    // as join keywords when NOT followed by '(' (function call) or '.' (column ref).
+    // as join keywords when NOT followed by '(' (function call), '.' (column ref),
+    // ')' (inside parenthesized args like APPLY(any)), or ',' (inside arg lists).
     let at_ambiguous = !p.at_followed_by_paren()
         && p.nth(1) != SyntaxKind::Dot
+        && p.nth(1) != SyntaxKind::ClosingRoundBracket
+        && p.nth(1) != SyntaxKind::Comma
         && (p.at_keyword(Keyword::Left)
             || p.at_keyword(Keyword::Right)
             || p.at_keyword(Keyword::Full)
@@ -622,8 +650,14 @@ fn parse_group_by_clause(p: &mut Parser) {
     p.expect_keyword(Keyword::Group);
     p.expect_keyword(Keyword::By);
 
+    // GROUP BY ALL — ClickHouse extension, like ORDER BY ALL.
+    // ALL followed by `(` is the all() function, not the ALL keyword.
+    if p.at_keyword(Keyword::All) && !p.at_followed_by_paren() {
+        let cm = p.start();
+        p.advance();
+        p.complete(cm, SyntaxKind::ColumnReference);
     // GROUPING SETS ((...), (...), ...)
-    if p.at_keyword(Keyword::Grouping) {
+    } else if p.at_keyword(Keyword::Grouping) {
         parse_grouping_sets(p);
     } else {
         let mut first = true;
@@ -699,6 +733,7 @@ fn at_group_by_terminator(p: &mut Parser) -> bool {
         || p.at_keyword(Keyword::Prewhere)
         || p.at_keyword(Keyword::With)
         || p.at_keyword(Keyword::Window)
+        || p.at_keyword(Keyword::Qualify)
         || at_join_keyword(p)
 }
 
@@ -785,6 +820,20 @@ fn parse_order_by_item(p: &mut Parser) {
         p.complete(cm, SyntaxKind::ColumnReference);
     } else {
         parse_expression(p);
+    }
+
+    // Optional alias: AS identifier
+    // ClickHouse allows aliases in ORDER BY items: ORDER BY expr AS alias
+    // Must check before ASC/DESC since AS is unambiguous here.
+    if p.at_keyword(Keyword::As) {
+        let am = p.start();
+        p.advance(); // consume AS
+        if p.at_identifier() && !at_order_by_terminator(p) {
+            p.advance();
+        } else {
+            p.recover_with_error("Expected alias after AS");
+        }
+        p.complete(am, SyntaxKind::ColumnAlias);
     }
 
     // ASC or DESC
@@ -908,8 +957,18 @@ fn parse_limit_or_limit_by(p: &mut Parser) {
         // LIMIT m, n syntax (offset, count)
         p.advance(); // consume comma
         parse_expression(p);
+        // WITH TIES
+        if p.at_keyword(Keyword::With) && p.nth_keyword(1, Keyword::Ties) {
+            p.advance(); // consume WITH
+            p.expect_keyword(Keyword::Ties); // consume TIES (skips trivia)
+        }
         p.complete(m, SyntaxKind::LimitClause);
     } else {
+        // WITH TIES — consume both tokens if present
+        if p.at_keyword(Keyword::With) && p.nth_keyword(1, Keyword::Ties) {
+            p.advance(); // consume WITH
+            p.expect_keyword(Keyword::Ties); // consume TIES (skips trivia)
+        }
         // Plain LIMIT
         p.complete(m, SyntaxKind::LimitClause);
     }
@@ -927,6 +986,12 @@ fn parse_limit_clause(p: &mut Parser) {
     } else if p.at(SyntaxKind::Comma) {
         p.advance();
         parse_expression(p);
+    }
+
+    // WITH TIES
+    if p.at_keyword(Keyword::With) && p.nth_keyword(1, Keyword::Ties) {
+        p.advance(); // consume WITH
+        p.expect_keyword(Keyword::Ties); // consume TIES (skips trivia)
     }
 
     p.complete(m, SyntaxKind::LimitClause);
@@ -951,16 +1016,27 @@ fn parse_settings_clause(p: &mut Parser) {
     p.expect_keyword(Keyword::Settings);
 
     let mut first = true;
-    while !p.eof() && !p.end_of_statement()
+    while !p.eof()
+        && !p.end_of_statement()
         && !p.at_keyword(Keyword::Select)
         && !p.at_keyword(Keyword::From)
         && !p.at_keyword(Keyword::Format)
+        // Set operation keywords terminate SETTINGS
+        && !p.at_keyword(Keyword::Union)
+        && !p.at_keyword(Keyword::Except)
+        && !p.at_keyword(Keyword::Intersect)
     {
         if !first {
-            p.expect(SyntaxKind::Comma);
+            if !p.at(SyntaxKind::Comma) {
+                break;
+            }
+            p.advance(); // comma
         }
         first = false;
 
+        if !p.at_identifier() {
+            break;
+        }
         common::parse_setting_item(p);
     }
 
@@ -2480,4 +2556,73 @@ mod tests {
                         '1'
         "#]]);
     }
+
+    #[test]
+    fn limit_with_ties() {
+        check("SELECT a FROM t LIMIT 1 WITH TIES", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnReference
+                      'a'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                LimitClause
+                  'LIMIT'
+                  NumberLiteral
+                    '1'
+                  'WITH'
+                  'TIES'
+        "#]]);
+    }
+
+    #[test]
+    fn except_set_operation_after_settings() {
+        let result = parse("SELECT a FROM t SETTINGS min_hit_rate = 1.0 EXCEPT SELECT a FROM t2");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0, &result.source);
+        assert!(buf.contains("UnionClause"), "tree should contain set operation: {}", buf);
+        assert!(buf.contains("SettingsClause"), "tree should contain SETTINGS: {}", buf);
+    }
+
+    #[test]
+    fn apply_bare_function_name() {
+        check("SELECT a.* APPLY toString FROM t", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnTransformer
+                      QualifiedAsterisk
+                        ColumnReference
+                          'a'
+                        '.'
+                        '*'
+                      'APPLY'
+                      ExpressionList
+                        ColumnReference
+                          'toString'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+        "#]]);
+    }
+
+    #[test]
+    fn apply_chained() {
+        let result = parse("SELECT a.* APPLY(toDate) APPLY(any) FROM t");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0, &result.source);
+        // Two nested ColumnTransformer nodes
+        assert!(buf.matches("ColumnTransformer").count() >= 2, "should have chained transformers: {}", buf);
+    }
+
 }

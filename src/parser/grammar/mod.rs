@@ -78,6 +78,12 @@ pub fn parse_source(p: &mut Parser) {
             parse_system_statement(p);
         } else if at_kill_statement(p) {
             parse_kill_statement(p);
+        } else if at_begin_statement(p) {
+            parse_begin_statement(p);
+        } else if at_commit_statement(p) {
+            parse_commit_statement(p);
+        } else if at_rollback_statement(p) {
+            parse_rollback_statement(p);
         } else if at_select_statement(p) {
             parse_select_statement(p);
         } else if p.at(SyntaxKind::Semicolon) {

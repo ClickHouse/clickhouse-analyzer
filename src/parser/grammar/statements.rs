@@ -321,8 +321,10 @@ pub fn parse_optimize_statement(p: &mut Parser) {
 
     parse_partition(p);
 
-    // Optional FINAL
-    let _ = p.eat_keyword(Keyword::Final);
+    // Optional FINAL [CLEANUP]
+    if p.eat_keyword(Keyword::Final) {
+        let _ = p.eat_keyword(Keyword::Cleanup);
+    }
 
     // Optional DEDUPLICATE [BY expr, ...]
     if p.at_keyword(Keyword::Deduplicate) {
@@ -735,7 +737,13 @@ pub fn parse_system_statement(p: &mut Parser) {
     let m = p.start();
     p.expect_keyword(Keyword::System);
 
-    // Start SystemCommand node — consume subcommand keyword tokens
+    // Start SystemCommand node — consume subcommand keyword tokens.
+    //
+    // Strategy: first consume the action keyword (DROP/RELOAD/FLUSH/STOP/
+    // START/SYNC), then greedily consume all following barewords that are
+    // part of the subcommand name. We stop when we see something that
+    // looks like a table identifier (a bareword followed by a dot or end
+    // of statement) or a FOR keyword, or end of statement.
     let cmd = p.start();
 
     // Track whether this is a FLUSH LOGS or SYNC REPLICA command
@@ -744,40 +752,46 @@ pub fn parse_system_statement(p: &mut Parser) {
     let mut prev_was_flush = false;
     let mut prev_was_sync = false;
 
-    // Consume known subcommand keywords until we hit a table identifier,
-    // semicolon, or EOF. We don't validate every combination — just
-    // consume bareword keywords that are part of SYSTEM subcommands.
+    // First, consume the action keyword
+    let has_action = p.at_keyword(Keyword::Reload)
+        || p.at_keyword(Keyword::Drop)
+        || p.at_keyword(Keyword::Flush)
+        || p.at_keyword(Keyword::Stop)
+        || p.at_keyword(Keyword::Start)
+        || p.at_keyword(Keyword::Sync);
+
+    if has_action {
+        prev_was_flush = p.at_keyword(Keyword::Flush);
+        prev_was_sync = p.at_keyword(Keyword::Sync);
+        p.advance();
+    }
+
+    // Now greedily consume subsequent barewords as part of the command name.
+    // We stop when we see:
+    //   - end of statement
+    //   - FOR keyword (used in "SYSTEM DROP FORMAT SCHEMA CACHE FOR Protobuf")
+    //   - a bareword followed by a dot (table identifier like db.table)
+    //   - a bareword that looks like it's the table argument (i.e., the next
+    //     token after it is end-of-statement, comma, or semicolon — but only
+    //     after we've consumed at least one subcommand word after the action)
+    let mut subcommand_word_count = 0;
     loop {
         if p.end_of_statement() {
             break;
         }
 
-        // Check if this is a known system subcommand keyword
-        let is_subcommand_kw = p.at_keyword(Keyword::Reload)
-            || p.at_keyword(Keyword::Drop)
-            || p.at_keyword(Keyword::Flush)
-            || p.at_keyword(Keyword::Stop)
-            || p.at_keyword(Keyword::Start)
-            || p.at_keyword(Keyword::Sync)
-            || p.at_keyword(Keyword::Dns)
-            || p.at_keyword(Keyword::Cache)
-            || p.at_keyword(Keyword::Mark)
-            || p.at_keyword(Keyword::Uncompressed)
-            || p.at_keyword(Keyword::Compiled)
-            || p.at_keyword(Keyword::Logs)
-            || p.at_keyword(Keyword::Distributed)
-            || p.at_keyword(Keyword::Merges)
-            || p.at_keyword(Keyword::Sends)
-            || p.at_keyword(Keyword::Replicated)
-            || p.at_keyword(Keyword::Fetches)
-            || p.at_keyword(Keyword::Moves)
-            || p.at_keyword(Keyword::Replica)
-            || p.at_keyword(Keyword::Dictionaries)
-            || p.at_keyword(Keyword::Dictionary)
-            || p.at_keyword(Keyword::Config)
-            || p.at_keyword(Keyword::Functions);
+        // FOR keyword terminates the command name
+        if p.at_keyword(Keyword::For) {
+            break;
+        }
 
-        if !is_subcommand_kw {
+        // If not a bareword, stop
+        if !p.at(SyntaxKind::BareWord) {
+            break;
+        }
+
+        // If this bareword is followed by a dot, it's a table identifier
+        if p.nth(1) == SyntaxKind::Dot {
             break;
         }
 
@@ -791,10 +805,63 @@ pub fn parse_system_statement(p: &mut Parser) {
         prev_was_flush = p.at_keyword(Keyword::Flush);
         prev_was_sync = p.at_keyword(Keyword::Sync);
 
+        // After consuming at least one subcommand word, if the next bareword
+        // is followed by end-of-statement or comma, AND we already have a
+        // recognized terminal keyword (like CACHE, LOGS, etc.), we should
+        // check if this word IS the terminal keyword. If it's a known
+        // terminal keyword, consume it. Otherwise it's likely a table name.
+        let is_known_terminal = p.at_keyword(Keyword::Cache)
+            || p.at_keyword(Keyword::Logs)
+            || p.at_keyword(Keyword::Dictionaries)
+            || p.at_keyword(Keyword::Dictionary)
+            || p.at_keyword(Keyword::Config)
+            || p.at_keyword(Keyword::Functions)
+            || p.at_keyword(Keyword::Replica)
+            || p.at_keyword(Keyword::Replicas);
+
+        // Recognize words that form SYSTEM subcommand names. We use a
+        // text-level check for words that are not yet first-class Keywords
+        // (e.g. CONDITION, SCHEMA, REPLICATION, QUEUES).
+        let text_upper: String = p.nth_text(0).to_ascii_uppercase();
+        let is_text_system_word = matches!(
+            text_upper.as_str(),
+            "CONDITION" | "SCHEMA" | "REPLICATION" | "QUEUES"
+        );
+
+        let is_known_modifier = is_text_system_word
+            || p.at_keyword(Keyword::Dns)
+            || p.at_keyword(Keyword::Mark)
+            || p.at_keyword(Keyword::Uncompressed)
+            || p.at_keyword(Keyword::Compiled)
+            || p.at_keyword(Keyword::Distributed)
+            || p.at_keyword(Keyword::Merges)
+            || p.at_keyword(Keyword::Sends)
+            || p.at_keyword(Keyword::Replicated)
+            || p.at_keyword(Keyword::Fetches)
+            || p.at_keyword(Keyword::Moves)
+            || p.at_keyword(Keyword::Query)
+            || p.at_keyword(Keyword::Format)
+            || p.at_keyword(Keyword::Drop);
+
+        if !is_known_terminal && !is_known_modifier && subcommand_word_count > 0 {
+            // This bareword is not a recognized system subcommand keyword
+            // and we already have subcommand words — treat it as a table name
+            break;
+        }
+
         p.advance();
+        subcommand_word_count += 1;
     }
 
     p.complete(cmd, SyntaxKind::SystemCommand);
+
+    // Handle FOR keyword (e.g., SYSTEM DROP FORMAT SCHEMA CACHE FOR Protobuf)
+    if p.at_keyword(Keyword::For) {
+        p.advance(); // FOR
+        if p.at_identifier() {
+            p.advance(); // protocol name (Protobuf, HDFS, etc.)
+        }
+    }
 
     if is_flush_logs {
         // FLUSH LOGS can have comma-separated log target list: query_log, trace_log
@@ -863,6 +930,42 @@ pub fn parse_kill_statement(p: &mut Parser) {
         || p.eat_keyword(Keyword::Test);
 
     p.complete(m, SyntaxKind::KillStatement);
+}
+
+// ---------------------------------------------------------------------------
+// BEGIN TRANSACTION / COMMIT / ROLLBACK
+// ---------------------------------------------------------------------------
+
+pub fn at_begin_statement(p: &mut Parser) -> bool {
+    p.at_keyword(Keyword::Begin)
+}
+
+pub fn parse_begin_statement(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Begin);
+    // Optional TRANSACTION keyword
+    let _ = p.eat_keyword(Keyword::Transaction);
+    p.complete(m, SyntaxKind::BeginStatement);
+}
+
+pub fn at_commit_statement(p: &mut Parser) -> bool {
+    p.at_keyword(Keyword::Commit)
+}
+
+pub fn parse_commit_statement(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Commit);
+    p.complete(m, SyntaxKind::CommitStatement);
+}
+
+pub fn at_rollback_statement(p: &mut Parser) -> bool {
+    p.at_keyword(Keyword::Rollback)
+}
+
+pub fn parse_rollback_statement(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Rollback);
+    p.complete(m, SyntaxKind::RollbackStatement);
 }
 
 #[cfg(test)]
