@@ -3,6 +3,9 @@ mod formatter;
 mod lexer;
 mod parser;
 
+#[cfg(feature = "lsp")]
+pub mod lsp;
+
 pub use diagnostics::{enrich_diagnostics, Diagnostic, RelatedSpan, Severity, Suggestion};
 pub use formatter::{format, FormatConfig};
 pub use lexer::token::Token;
@@ -41,6 +44,34 @@ mod wasm {
     pub fn get_diagnostics(sql: &str) -> String {
         let result = parse(sql);
         let diagnostics = diagnostics::enrich_diagnostics(&result, sql);
-        serde_json::to_string(&diagnostics).unwrap_or_default()
+        match serde_json::to_string(&diagnostics) {
+            Ok(json) => json,
+            Err(e) => format!("{{\"error\":\"serialization failed: {}\"}}", e),
+        }
+    }
+
+    /// Parse SQL and return the full CST as JSON.
+    ///
+    /// Returns a JSON object: `{ tree: SyntaxTree, errors: SyntaxError[], source: string }`
+    /// where SyntaxTree nodes have `{ kind: string, start: number, end: number, children: SyntaxChild[] }`
+    /// and SyntaxChild is either `{ Token: { kind, start, end } }` or `{ Tree: { ... } }`.
+    #[wasm_bindgen]
+    pub fn parse_sql(sql: &str) -> String {
+        let result = parse(sql);
+        match serde_json::to_string(&ParseResult {
+            tree: &result.tree,
+            errors: &result.errors,
+            source: &result.source,
+        }) {
+            Ok(json) => json,
+            Err(e) => format!("{{\"error\":\"serialization failed: {}\"}}", e),
+        }
+    }
+
+    #[derive(serde::Serialize)]
+    struct ParseResult<'a> {
+        tree: &'a SyntaxTree,
+        errors: &'a [SyntaxError],
+        source: &'a str,
     }
 }

@@ -9,16 +9,25 @@ crate-type = ["cdylib", "rlib"]
 [features]
 wasm = ["dep:wasm-bindgen", "dep:console_error_panic_hook", "serde"]
 serde = ["dep:serde", "dep:serde_json"]
+lsp = ["dep:tower-lsp", "dep:tokio", "dep:phf"]
 
 [dependencies]
 wasm-bindgen = { version = "0.2.100", optional = true }
 console_error_panic_hook = { version = "0.1.7", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
+tower-lsp = { version = "0.20", optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std"], optional = true }
+phf = { version = "0.11", features = ["macros"], optional = true }
 
 [[bin]]
 name = "clickhouse-analyzer"
 path = "src/bin/clickhouse-analyzer.rs"
+
+[[bin]]
+name = "clickhouse-lsp"
+path = "src/bin/clickhouse-lsp.rs"
+required-features = ["lsp"]
 
 [profile.release]
 lto = true

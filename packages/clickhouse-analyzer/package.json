@@ -1,0 +1,43 @@
+{
+    "name": "@clickhouse/analyzer",
+    "version": "0.1.0",
+    "description": "ClickHouse SQL Analyzer",
+    "homepage": "https://clickhouse.com",
+    "license": "Apache-2.0",
+    "private": true,
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./wasm": "./pkg/clickhouse_analyzer_bg.wasm"
+    },
+    "files": [
+        "dist/",
+        "pkg/clickhouse_analyzer_bg.wasm",
+        "pkg/clickhouse_analyzer.js",
+        "pkg/clickhouse_analyzer.d.ts"
+    ],
+    "scripts": {
+        "build:wasm": "wasm-pack build ../../ --target web --features wasm,serde && rm -rf pkg && mv ../../pkg pkg",
+        "build:ts": "tsc",
+        "build": "npm run build:wasm && npm run build:ts",
+        "build:test": "tsc -p tsconfig.test.json",
+        "test": "npm run build:test && node --test dist-test/test.js",
+        "clean": "rm -rf dist dist-test pkg"
+    },
+    "keywords": [
+        "clickhouse",
+        "sql",
+        "parser",
+        "wasm",
+        "syntax-tree"
+    ],
+    "devDependencies": {
+        "@types/node": "^25.5.0",
+        "typescript": "^5.4.0"
+    }
+}

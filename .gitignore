@@ -1,6 +1,21 @@
-/target
+# Rust
+target/
+
+# IDE
 .idea/
+
+# Node / TypeScript build output
+node_modules/
+dist/
+dist-test/
+out/
+pkg/
+
+# VS Code extension
+.vscode-test/
+
+# Project files
 CLAUDE.md
-*.sql
-*.log
 .claude/worktrees/
+*.log
+*.sql

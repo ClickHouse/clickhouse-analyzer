@@ -4,6 +4,7 @@
 /// line/column resolution is the caller's responsibility (LSP, CLI, etc.) and is
 /// trivially computed from the byte offset + source text.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct SyntaxError {
     pub message: String,
     pub range: (usize, usize),

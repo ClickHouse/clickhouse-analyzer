@@ -296,7 +296,7 @@ impl Parser {
     }
 
     pub fn eof(&self) -> bool {
-        self.pos == self.tokens.len()
+        self.pos == self.tokens.len() || self.fuel.get() == 0
     }
 
     pub fn end_of_statement(&mut self) -> bool {

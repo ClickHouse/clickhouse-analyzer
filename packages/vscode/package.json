@@ -1,0 +1,51 @@
+{
+  "name": "@clickhouse/analyzer-vscode",
+  "displayName": "ClickHouse Analyzer",
+  "description": "ClickHouse SQL Analyzer",
+  "version": "0.1.0",
+  "publisher": "ClickHouse",
+  "homepage": "https://clickhouse.com",
+  "license": "Apache-2.0",
+  "private": true,
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": ["Programming Languages", "Linters", "Formatters"],
+  "activationEvents": [
+    "onLanguage:sql",
+    "onLanguage:clickhouse"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "clickhouse",
+        "aliases": ["ClickHouse SQL", "clickhouse"],
+        "extensions": [".clickhouse", ".ch.sql"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "configuration": {
+      "title": "ClickHouse Analyzer",
+      "properties": {
+        "clickhouse-analyzer.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the clickhouse-lsp binary. If empty, searches $PATH."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "watch": "tsc -watch -p ."
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.75.0",
+    "typescript": "^5.0.0"
+  }
+}
