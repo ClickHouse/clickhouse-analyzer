@@ -28,6 +28,8 @@ pub fn parse_use_statement(p: &mut Parser) {
 
     if p.at_identifier() {
         p.advance();
+    } else if common::at_query_parameter(p) {
+        common::parse_query_parameter(p);
     } else {
         p.recover_with_error("Expected database name after USE");
     }
@@ -71,6 +73,68 @@ pub fn at_drop_statement(p: &mut Parser) -> bool {
 pub fn parse_drop_statement(p: &mut Parser) {
     let m = p.start();
     p.expect_keyword(Keyword::Drop);
+
+    // Check for access control entities: DROP USER/ROLE/QUOTA/ROW POLICY/SETTINGS PROFILE
+    if p.at_keyword(Keyword::User)
+        || p.at_keyword(Keyword::Role)
+        || p.at_keyword(Keyword::Quota)
+        || p.at_keyword(Keyword::Row)
+        || p.at_keyword(Keyword::Policy)
+        || p.at_keyword(Keyword::Profile)
+    {
+        let inner = p.start();
+        // Consume keyword(s) for the entity type
+        if p.at_keyword(Keyword::Row) {
+            p.advance(); // ROW
+        }
+        p.advance(); // USER / ROLE / QUOTA / POLICY / PROFILE
+
+        common::parse_if_exists(p);
+
+        // Parse comma-separated name list
+        if p.at_identifier() || p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::QuotedIdentifier) {
+            p.advance();
+            while p.at(SyntaxKind::Comma) {
+                p.advance(); // comma
+                if p.at_identifier() || p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::QuotedIdentifier) {
+                    p.advance();
+                }
+            }
+        }
+
+        // Consume remaining body (e.g. ON table for ROW POLICY)
+        while !p.eof() && !p.end_of_statement() {
+            p.advance();
+        }
+        p.complete(inner, SyntaxKind::DropAccessEntityStatement);
+        p.complete(m, SyntaxKind::DropStatement);
+        return;
+    }
+
+    // Handle DROP SETTINGS PROFILE
+    if p.at_keyword(Keyword::Settings) {
+        let inner = p.start();
+        p.advance(); // SETTINGS
+        if p.at_keyword(Keyword::Profile) {
+            p.advance(); // PROFILE
+        }
+        common::parse_if_exists(p);
+        if p.at_identifier() || p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::QuotedIdentifier) {
+            p.advance();
+            while p.at(SyntaxKind::Comma) {
+                p.advance();
+                if p.at_identifier() || p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::QuotedIdentifier) {
+                    p.advance();
+                }
+            }
+        }
+        while !p.eof() && !p.end_of_statement() {
+            p.advance();
+        }
+        p.complete(inner, SyntaxKind::DropAccessEntityStatement);
+        p.complete(m, SyntaxKind::DropStatement);
+        return;
+    }
 
     // Optional TEMPORARY
     let _ = p.eat_keyword(Keyword::Temporary);
@@ -232,6 +296,9 @@ pub fn parse_check_statement(p: &mut Parser) {
 
     parse_partition(p);
 
+    // Optional SETTINGS clause
+    common::parse_optional_settings_clause(p);
+
     p.complete(m, SyntaxKind::CheckStatement);
 }
 
@@ -273,6 +340,9 @@ pub fn parse_optimize_statement(p: &mut Parser) {
             p.complete(m, SyntaxKind::IdentifierList);
         }
     }
+
+    // Optional SETTINGS clause
+    common::parse_optional_settings_clause(p);
 
     p.complete(m, SyntaxKind::OptimizeStatement);
 }
@@ -668,6 +738,12 @@ pub fn parse_system_statement(p: &mut Parser) {
     // Start SystemCommand node — consume subcommand keyword tokens
     let cmd = p.start();
 
+    // Track whether this is a FLUSH LOGS or SYNC REPLICA command
+    let mut is_flush_logs = false;
+    let mut is_sync_replica = false;
+    let mut prev_was_flush = false;
+    let mut prev_was_sync = false;
+
     // Consume known subcommand keywords until we hit a table identifier,
     // semicolon, or EOF. We don't validate every combination — just
     // consume bareword keywords that are part of SYSTEM subcommands.
@@ -705,14 +781,46 @@ pub fn parse_system_statement(p: &mut Parser) {
             break;
         }
 
+        // Track FLUSH LOGS and SYNC REPLICA patterns
+        if p.at_keyword(Keyword::Logs) && prev_was_flush {
+            is_flush_logs = true;
+        }
+        if p.at_keyword(Keyword::Replica) && prev_was_sync {
+            is_sync_replica = true;
+        }
+        prev_was_flush = p.at_keyword(Keyword::Flush);
+        prev_was_sync = p.at_keyword(Keyword::Sync);
+
         p.advance();
     }
 
     p.complete(cmd, SyntaxKind::SystemCommand);
 
-    // Optionally parse table identifier for commands that take one
-    if !p.end_of_statement() {
-        common::parse_table_identifier(p);
+    if is_flush_logs {
+        // FLUSH LOGS can have comma-separated log target list: query_log, trace_log
+        while !p.end_of_statement() {
+            if p.at_identifier() {
+                p.advance();
+            } else if p.at(SyntaxKind::Comma) {
+                p.advance();
+            } else {
+                break;
+            }
+        }
+    } else if is_sync_replica {
+        // SYNC REPLICA takes a table identifier then optional trailing keywords (PULL, STRICT, etc.)
+        if !p.end_of_statement() {
+            common::parse_table_identifier(p);
+        }
+        // Consume trailing modifier keywords (PULL, STRICT, etc.)
+        while !p.end_of_statement() && p.at_identifier() {
+            p.advance();
+        }
+    } else {
+        // Optionally parse table identifier for commands that take one
+        if !p.end_of_statement() {
+            common::parse_table_identifier(p);
+        }
     }
 
     p.complete(m, SyntaxKind::SystemStatement);

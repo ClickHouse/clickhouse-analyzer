@@ -44,6 +44,22 @@ pub fn parse_create_statement(p: &mut Parser) {
         parse_create_function(p);
     } else if p.at_keyword(Keyword::Dictionary) {
         parse_create_dictionary(p);
+    } else if p.at_keyword(Keyword::Index) {
+        parse_create_index(p);
+    } else if p.at_keyword(Keyword::User) {
+        parse_create_user(p);
+    } else if p.at_keyword(Keyword::Role) {
+        parse_create_role(p);
+    } else if p.at_keyword(Keyword::Quota) {
+        parse_create_quota(p);
+    } else if p.at_keyword(Keyword::Row) {
+        parse_create_row_policy(p);
+    } else if p.at_keyword(Keyword::Policy) {
+        parse_create_row_policy(p);
+    } else if p.at_keyword(Keyword::Settings) && !is_temporary {
+        parse_create_settings_profile(p);
+    } else if p.at_keyword(Keyword::Profile) {
+        parse_create_settings_profile(p);
     } else {
         if is_temporary {
             // TEMPORARY only valid with TABLE
@@ -670,7 +686,7 @@ fn parse_projection_definition(p: &mut Parser) {
     p.complete(m, SyntaxKind::ProjectionDefinition);
 }
 
-/// Parse CONSTRAINT definition: CONSTRAINT name CHECK expr
+/// Parse CONSTRAINT definition: CONSTRAINT name CHECK|ASSUME expr
 fn parse_constraint_definition(p: &mut Parser) {
     let m = p.start();
 
@@ -683,12 +699,12 @@ fn parse_constraint_definition(p: &mut Parser) {
         p.recover_with_error("Expected constraint name");
     }
 
-    // CHECK expr
-    if p.at_keyword(Keyword::Check) {
-        p.advance(); // CHECK
+    // CHECK expr / ASSUME expr
+    if p.at_keyword(Keyword::Check) || p.at_keyword(Keyword::Assume) {
+        p.advance(); // CHECK or ASSUME
         parse_expression(p);
     } else {
-        p.recover_with_error("Expected CHECK after constraint name");
+        p.recover_with_error("Expected CHECK or ASSUME after constraint name");
     }
 
     p.complete(m, SyntaxKind::ConstraintDefinition);
@@ -809,6 +825,148 @@ fn parse_settings_clause(p: &mut Parser) {
     }
 
     p.complete(m, SyntaxKind::SettingsClause);
+}
+
+// ===========================================================================
+// CREATE INDEX
+// ===========================================================================
+
+/// Parse: CREATE INDEX [IF NOT EXISTS] name ON [db.]table (column_list) [TYPE type_name] [GRANULARITY number]
+fn parse_create_index(p: &mut Parser) {
+    let m = p.start();
+
+    p.expect_keyword(Keyword::Index);
+
+    // IF NOT EXISTS
+    common::parse_if_not_exists(p);
+
+    // Index name
+    if p.at_identifier() {
+        p.advance();
+    } else {
+        p.recover_with_error("Expected index name");
+    }
+
+    // ON [db.]table
+    p.expect_keyword(Keyword::On);
+    common::parse_table_identifier(p);
+
+    // (column_list)
+    if p.at(SyntaxKind::OpeningRoundBracket) {
+        p.advance(); // (
+        // Parse comma-separated list of column expressions (may include ASC/DESC)
+        let mut first = true;
+        while !p.eof() && !p.at(SyntaxKind::ClosingRoundBracket) {
+            if !first {
+                if p.at(SyntaxKind::Comma) {
+                    p.advance();
+                } else {
+                    break;
+                }
+            }
+            first = false;
+            parse_expression(p);
+            // Optional ASC/DESC
+            let _ = p.eat_keyword(Keyword::Asc);
+            let _ = p.eat_keyword(Keyword::Desc);
+        }
+        p.expect(SyntaxKind::ClosingRoundBracket);
+    }
+
+    // Optional TYPE type_name
+    if p.at_keyword(Keyword::Type) {
+        p.advance(); // TYPE
+        if p.at_identifier() {
+            p.advance(); // type name
+        } else {
+            p.recover_with_error("Expected index type name after TYPE");
+        }
+    }
+
+    // Optional GRANULARITY number
+    if p.at_keyword(Keyword::Granularity) {
+        p.advance(); // GRANULARITY
+        parse_expression(p);
+    }
+
+    p.complete(m, SyntaxKind::CreateIndexStatement);
+}
+
+// ===========================================================================
+// Access control: CREATE USER / ROLE / QUOTA / ROW POLICY / SETTINGS PROFILE
+// ===========================================================================
+
+/// Consume remaining tokens until end of statement (generic body for access control).
+fn consume_remaining(p: &mut Parser) {
+    while !p.eof() && !p.end_of_statement() {
+        p.advance();
+    }
+}
+
+/// Parse: CREATE USER [IF NOT EXISTS] name ... (generic body)
+fn parse_create_user(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::User);
+    common::parse_if_not_exists(p);
+    // User name
+    if p.at_identifier() || p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::QuotedIdentifier) {
+        p.advance();
+    }
+    // Consume remaining body generically
+    consume_remaining(p);
+    p.complete(m, SyntaxKind::CreateUserStatement);
+}
+
+/// Parse: CREATE ROLE [IF NOT EXISTS] name ...
+fn parse_create_role(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Role);
+    common::parse_if_not_exists(p);
+    if p.at_identifier() || p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::QuotedIdentifier) {
+        p.advance();
+    }
+    consume_remaining(p);
+    p.complete(m, SyntaxKind::CreateRoleStatement);
+}
+
+/// Parse: CREATE QUOTA [IF NOT EXISTS] name ...
+fn parse_create_quota(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Quota);
+    common::parse_if_not_exists(p);
+    if p.at_identifier() || p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::QuotedIdentifier) {
+        p.advance();
+    }
+    consume_remaining(p);
+    p.complete(m, SyntaxKind::CreateQuotaStatement);
+}
+
+/// Parse: CREATE [ROW] POLICY [IF NOT EXISTS] name ON table ...
+fn parse_create_row_policy(p: &mut Parser) {
+    let m = p.start();
+    // Accept both CREATE ROW POLICY and CREATE POLICY
+    let _ = p.eat_keyword(Keyword::Row);
+    p.expect_keyword(Keyword::Policy);
+    common::parse_if_not_exists(p);
+    if p.at_identifier() || p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::QuotedIdentifier) {
+        p.advance();
+    }
+    consume_remaining(p);
+    p.complete(m, SyntaxKind::CreateRowPolicyStatement);
+}
+
+/// Parse: CREATE SETTINGS PROFILE / CREATE PROFILE
+fn parse_create_settings_profile(p: &mut Parser) {
+    let m = p.start();
+    // Accept both CREATE SETTINGS PROFILE and CREATE PROFILE
+    let _ = p.eat_keyword(Keyword::Settings);
+    p.expect_keyword(Keyword::Profile);
+    common::parse_if_not_exists(p);
+    if p.at_identifier() || p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::QuotedIdentifier) {
+        p.advance();
+    }
+    consume_remaining(p);
+    p.complete(m, SyntaxKind::CreateSettingsProfileStatement);
 }
 
 #[cfg(test)]

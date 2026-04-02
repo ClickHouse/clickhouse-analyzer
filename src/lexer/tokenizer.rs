@@ -161,6 +161,9 @@ impl<'a> Tokenizer<'a> {
                         // Invalid, but treat as equals for now
                         self.create_token(SyntaxKind::Equals)
                     }
+                } else if self.match_char('=') {
+                    // `==` is treated as `=` in ClickHouse
+                    self.create_token(SyntaxKind::Equals)
                 } else {
                     self.create_token(SyntaxKind::Equals)
                 }
@@ -273,7 +276,7 @@ impl<'a> Tokenizer<'a> {
     fn read_number(&mut self) -> Token {
         // Check if previous token was a dot - for chained tuple access operators (x.1.1)
         let prev_was_dot =
-            self.position > 0 && self.start > 0 && &self.input[self.start - 1..self.start] == ".";
+            self.start > 0 && self.input.as_bytes()[self.start - 1] == b'.';
 
         if prev_was_dot {
             // Simple integer parsing for tuple access

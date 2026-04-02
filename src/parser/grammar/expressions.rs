@@ -31,6 +31,8 @@ enum BinOp {
     Asterisk,
     Slash,
     Percent,
+    // String concatenation
+    Concatenation,
 }
 
 impl BinOp {
@@ -55,6 +57,7 @@ impl BinOp {
             SyntaxKind::Greater => Some(BinOp::Greater),
             SyntaxKind::LessOrEquals => Some(BinOp::LessOrEquals),
             SyntaxKind::GreaterOrEquals => Some(BinOp::GreaterOrEquals),
+            SyntaxKind::Concatenation => Some(BinOp::Concatenation),
             _ => None,
         }
     }
@@ -65,7 +68,7 @@ impl BinOp {
             BinOp::And => 2,
             BinOp::Equals | BinOp::NotEquals => 3,
             BinOp::Less | BinOp::Greater | BinOp::LessOrEquals | BinOp::GreaterOrEquals => 4,
-            BinOp::Plus | BinOp::Minus => 5,
+            BinOp::Plus | BinOp::Minus | BinOp::Concatenation => 5,
             BinOp::Asterisk | BinOp::Slash | BinOp::Percent => 6,
         }
     }
@@ -168,16 +171,32 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
             // chains, so any dot we see here is either:
             //   - after a non-identifier expression: func(x).1, (t).name
             //   - a numeric index after an identifier chain: a.b.1
-            let m = p.precede(lhs);
-            p.advance(); // consume .
-            // RHS: identifier (field name) or number (tuple index)
-            if !p.eat(SyntaxKind::BareWord)
-                && !p.eat(SyntaxKind::QuotedIdentifier)
-                && !p.eat(SyntaxKind::Number)
-            {
-                p.advance_with_error("expected field name or tuple index after '.'");
+            //   - qualified asterisk: t1.*
+            //   - JSON typed path access: json.path.:Type
+            if p.nth(1) == SyntaxKind::Colon {
+                // JSON typed path access: expr.:Type
+                let m = p.precede(lhs);
+                p.advance(); // consume .
+                p.advance(); // consume :
+                parse_column_type(p);
+                lhs = p.complete(m, SyntaxKind::TypedJsonAccessExpression);
+            } else {
+                let m = p.precede(lhs);
+                p.advance(); // consume .
+                if p.at(SyntaxKind::Star) {
+                    // Qualified asterisk: t1.*
+                    p.advance(); // consume *
+                    lhs = p.complete(m, SyntaxKind::QualifiedAsterisk);
+                } else if !p.eat(SyntaxKind::BareWord)
+                    && !p.eat(SyntaxKind::QuotedIdentifier)
+                    && !p.eat(SyntaxKind::Number)
+                {
+                    p.advance_with_error("expected field name or tuple index after '.'");
+                    lhs = p.complete(m, SyntaxKind::DotAccessExpression);
+                } else {
+                    lhs = p.complete(m, SyntaxKind::DotAccessExpression);
+                }
             }
-            lhs = p.complete(m, SyntaxKind::DotAccessExpression);
         } else {
             break;
         }
@@ -189,23 +208,33 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
 /// Handles postfix and infix operators after an initial LHS expression.
 fn parse_expression_postfix(p: &mut Parser, mut lhs: CompletedMarker, min_bp: u8) {
     loop {
-        // IS [NOT] NULL — postfix, binding power 4
+        // IS [NOT] NULL / IS [NOT] DISTINCT FROM expr — postfix, binding power 4
         if p.at_keyword(Keyword::Is) && 4 > min_bp {
             let m = p.precede(lhs);
             p.advance(); // consume IS
             p.eat_keyword(Keyword::Not); // optional NOT
-            p.expect_keyword(Keyword::Null);
-            lhs = p.complete(m, SyntaxKind::IsNullExpression);
+            if p.at_keyword(Keyword::Distinct) {
+                // IS [NOT] DISTINCT FROM expr
+                p.advance(); // consume DISTINCT
+                p.expect_keyword(Keyword::From);
+                parse_expression_rec(p, 4);
+                lhs = p.complete(m, SyntaxKind::IsDistinctFromExpression);
+            } else {
+                p.expect_keyword(Keyword::Null);
+                lhs = p.complete(m, SyntaxKind::IsNullExpression);
+            }
             continue;
         }
 
         // [NOT] BETWEEN expr AND expr — infix, binding power 4
+        // Bounds are parsed with min_bp=3 so that AND (bp=2) stops the lower
+        // bound but arithmetic (+/-/*) and comparisons are allowed.
         if p.at_keyword(Keyword::Between) && 4 > min_bp {
             let m = p.precede(lhs);
             p.advance(); // consume BETWEEN
-            parse_expression_rec(p, 5); // parse low bound (above +/- level)
+            parse_expression_rec(p, 3); // parse low bound (stops at AND)
             p.expect_keyword(Keyword::And);
-            parse_expression_rec(p, 5); // parse high bound
+            parse_expression_rec(p, 3); // parse high bound
             lhs = p.complete(m, SyntaxKind::BetweenExpression);
             continue;
         }
@@ -220,16 +249,16 @@ fn parse_expression_postfix(p: &mut Parser, mut lhs: CompletedMarker, min_bp: u8
 
                 if p.at_keyword(Keyword::Between) {
                     p.advance(); // consume BETWEEN
-                    parse_expression_rec(p, 5);
+                    parse_expression_rec(p, 3);
                     p.expect_keyword(Keyword::And);
-                    parse_expression_rec(p, 5);
+                    parse_expression_rec(p, 3);
                     lhs = p.complete(m, SyntaxKind::BetweenExpression);
                 } else if p.at_keyword(Keyword::In) {
                     p.advance(); // consume IN
                     parse_in_rhs(p);
                     lhs = p.complete(m, SyntaxKind::InExpression);
-                } else if p.at_keyword(Keyword::Like) {
-                    p.advance(); // consume LIKE
+                } else if p.at_keyword(Keyword::Like) || p.at_keyword(Keyword::Ilike) {
+                    p.advance(); // consume LIKE or ILIKE
                     parse_expression_rec(p, 4);
                     lhs = p.complete(m, SyntaxKind::LikeExpression);
                 }
@@ -256,10 +285,10 @@ fn parse_expression_postfix(p: &mut Parser, mut lhs: CompletedMarker, min_bp: u8
             continue;
         }
 
-        // LIKE — infix, binding power 4
-        if p.at_keyword(Keyword::Like) && 4 > min_bp {
+        // LIKE / ILIKE — infix, binding power 4
+        if (p.at_keyword(Keyword::Like) || p.at_keyword(Keyword::Ilike)) && 4 > min_bp {
             let m = p.precede(lhs);
-            p.advance(); // consume LIKE
+            p.advance(); // consume LIKE or ILIKE
             parse_expression_rec(p, 4);
             lhs = p.complete(m, SyntaxKind::LikeExpression);
             continue;
@@ -277,6 +306,17 @@ fn parse_expression_postfix(p: &mut Parser, mut lhs: CompletedMarker, min_bp: u8
         p.advance();
         parse_expression_rec(p, op.binding_power());
         lhs = p.complete(m, SyntaxKind::BinaryExpression);
+    }
+
+    // Ternary operator: expr ? expr : expr
+    // Lowest precedence — handled after all binary operators.
+    if p.at(SyntaxKind::QuestionMark) && 0 >= min_bp {
+        let m = p.precede(lhs);
+        p.advance(); // consume ?
+        parse_expression(p); // middle ("then") expression
+        p.expect(SyntaxKind::Colon);
+        parse_expression(p); // right ("else") expression
+        p.complete(m, SyntaxKind::TernaryExpression);
     }
 }
 
@@ -303,6 +343,7 @@ fn is_not_followed_by_postfix_op(p: &mut Parser) -> bool {
     next_text.eq_ignore_ascii_case("BETWEEN")
         || next_text.eq_ignore_ascii_case("IN")
         || next_text.eq_ignore_ascii_case("LIKE")
+        || next_text.eq_ignore_ascii_case("ILIKE")
 }
 
 /// Parse the right-hand side of an IN expression: (expr, ...) or (subquery)
@@ -368,6 +409,17 @@ fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
             // CASE expression
             else if p.at_keyword(Keyword::Case) {
                 parse_case_expression(p)
+            }
+            // CAST(expr AS type) — special syntax where AS separates expression from type
+            else if p.at_keyword(Keyword::Cast) && p.nth(1) == SyntaxKind::OpeningRoundBracket {
+                let m = p.start();
+                p.advance(); // consume CAST
+                p.expect(SyntaxKind::OpeningRoundBracket);
+                parse_expression(p);
+                p.expect_keyword(Keyword::As);
+                parse_column_type(p);
+                p.expect(SyntaxKind::ClosingRoundBracket);
+                p.complete(m, SyntaxKind::CastExpression)
             }
             // INTERVAL expression
             else if p.at_keyword(Keyword::Interval) {
@@ -532,11 +584,17 @@ fn parse_interval_expression(p: &mut Parser) {
 }
 
 /// Parses a parenthesized argument list: (arg, arg, ...)
+/// Handles aggregate DISTINCT: count(DISTINCT x), uniq(DISTINCT x), etc.
 fn arg_list(p: &mut Parser) {
     let m = p.start();
 
     let mut first = true;
     p.expect(SyntaxKind::OpeningRoundBracket);
+
+    // ClickHouse allows DISTINCT as the first token inside aggregate function calls:
+    // count(DISTINCT x), uniq(DISTINCT x, y), etc.
+    p.eat_keyword(Keyword::Distinct);
+
     while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
         if !first {
             p.expect(SyntaxKind::Comma);

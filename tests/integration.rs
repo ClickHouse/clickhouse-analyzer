@@ -375,6 +375,90 @@ fn valid_sql_produces_no_errors() {
         "CREATE DICTIONARY mydict (id UInt64, name String) PRIMARY KEY id SOURCE(CLICKHOUSE(HOST 'localhost')) LAYOUT(FLAT()) LIFETIME(MIN 300 MAX 600)",
         "CREATE DICTIONARY mydict (id UInt64, start Date, end Date) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(RANGE_HASHED()) RANGE(MIN start MAX end) LIFETIME(0)",
         "CREATE DICTIONARY mydict (id UInt64) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(COMPLEX_KEY_HASHED()) LIFETIME(300)",
+        // == equality operator
+        "SELECT 1 == 1",
+        "SELECT replaceRegexpAll('a', 'z*', '') == 'a'",
+        // || string concatenation
+        "SELECT 'a' || 'b'",
+        "ALTER TABLE test UPDATE d = d || '1' WHERE x = 42",
+        // Query parameters in more identifier positions
+        "USE {CLICKHOUSE_DATABASE:Identifier}",
+        "SHOW TABLES FROM {CLICKHOUSE_DATABASE:Identifier}",
+        // EXPLAIN QUERY TREE with inline settings
+        "EXPLAIN QUERY TREE run_passes = 1 SELECT 1",
+        // BETWEEN with complex expressions
+        "SELECT 2 BETWEEN 1 + 1 AND 3 - 1",
+        // IS NOT DISTINCT FROM
+        "SELECT a.key IS NOT DISTINCT FROM b.key",
+        // CONSTRAINT with ASSUME
+        "CREATE TABLE t (a Int32, CONSTRAINT c ASSUME a > 0) ENGINE = Memory",
+        // Ternary operator
+        "SELECT number % 2 ? 'odd' : 'even' FROM numbers(10)",
+        "SELECT number % 21 = 0 ? toString(number) : '' FROM numbers(10000)",
+        "INSERT INTO t SELECT number, number % 2 ? 'a' : 'b' FROM numbers(100)",
+        "SELECT 1 ? 2 : 3",
+        // Qualified asterisk
+        "SELECT t1.*, t2.* FROM t1 JOIN t2 ON t1.id = t2.id",
+        "SELECT X.*, Y.* FROM X INNER JOIN Y ON X.id = Y.id",
+        // Trailing SETTINGS on ALTER and SELECT
+        "ALTER TABLE t DELETE WHERE time = now() SETTINGS mutations_sync = 1",
+        "ALTER TABLE t DROP COLUMN x SETTINGS mutations_sync = 2",
+        "ALTER TABLE t UPDATE x = 1 WHERE y > 0 SETTINGS mutations_sync = 2",
+        "SELECT count() FROM t SETTINGS max_threads = 1",
+        // DESCRIBE (SELECT ...) subquery
+        "DESCRIBE (SELECT * FROM test_table)",
+        "DESCRIBE (SELECT 1 AS a, 'hello' AS b)",
+        "DESC (SELECT id, value FROM test_table)",
+        // ALTER TABLE MODIFY COMMENT / MODIFY QUERY
+        "ALTER TABLE t MODIFY COMMENT 'My comment'",
+        "ALTER TABLE mv MODIFY QUERY SELECT a FROM t",
+        "ALTER TABLE t MATERIALIZE PROJECTION p2",
+        "ALTER TABLE t MATERIALIZE TTL",
+        // ORDER BY ALL
+        "SELECT * FROM t ORDER BY ALL",
+        "SELECT a, b FROM t ORDER BY ALL ASC",
+        // format() function name (not FORMAT clause)
+        "SELECT format('{}{}{}', 'a', 'b', 'c')",
+        "SELECT format('The {0} is {1}.', 'answer', 42)",
+        // EXPLAIN as subquery source
+        "SELECT * FROM (EXPLAIN SYNTAX SELECT 1)",
+        "SELECT replaceRegexpAll(explain, '__table1.', '') FROM (EXPLAIN actions=1 SELECT count(*) FROM tab)",
+        // Comma-join syntax (implicit cross join)
+        "SELECT * FROM t1, t2",
+        "SELECT * FROM t1, t2 WHERE t1.id = t2.id",
+        "SELECT * FROM numbers(2) AS n1, numbers(3) AS n2",
+        // Aggregate DISTINCT
+        "SELECT count(DISTINCT data) FROM t",
+        "SELECT count(distinct id) FROM t",
+        "SELECT uniq(DISTINCT x) FROM t",
+        // SETTINGS after OPTIMIZE TABLE and CHECK TABLE
+        "OPTIMIZE TABLE t FINAL SETTINGS mutations_sync = 2",
+        "CHECK TABLE t SETTINGS max_threads = 1",
+        // SYSTEM FLUSH LOGS with multiple targets
+        "SYSTEM FLUSH LOGS query_log, trace_log",
+        // SYSTEM SYNC REPLICA with trailing keywords
+        "SYSTEM SYNC REPLICA rep2 PULL",
+        "SYSTEM SYNC REPLICA rep2 STRICT",
+        // Dynamic type with key=value params
+        "CREATE TABLE t (d Dynamic(max_dynamic_paths=254)) ENGINE = Memory",
+        "CREATE TABLE t (v Variant(String, UInt64, Array(UInt64))) ENGINE = Memory",
+        // Index TYPE with string/number arguments
+        "CREATE TABLE t (v Array(Float32), INDEX idx v TYPE vector_similarity('hnsw', 'L2Distance')) ENGINE = MergeTree() ORDER BY tuple()",
+        "ALTER TABLE tab ADD INDEX idx vec TYPE vector_similarity('hnsw', 'L2Distance', 1)",
+        // SETTINGS after FORMAT clause
+        "SELECT 1 FORMAT Null SETTINGS max_threads = 1",
+        "SELECT count() FROM t FORMAT Null SETTINGS max_rows_to_group_by = 1",
+        "SELECT number FROM numbers(100) FORMAT Null SETTINGS max_threads = 1",
+        // JSON typed path access .:Type
+        "SELECT json.a.b.d.:Int64 FROM t",
+        "SELECT json.a.b.e.:String FROM t",
+        "SELECT json::JSON(SKIP a, max_dynamic_paths=2) FROM t",
+        // CAST function with ILIKE/LIKE postfix
+        "SELECT CAST('hello' AS FixedString(5)) ILIKE '%he%o%'",
+        "SELECT CAST('hello' AS LowCardinality(Nullable(String)))",
+        "SELECT CAST(x AS Int32) LIKE '123'",
+        // WITH RECURSIVE
+        "WITH RECURSIVE x AS (SELECT 1 AS id UNION ALL SELECT id+1 FROM x WHERE id < 5) SELECT * FROM x",
     ];
     for input in &inputs {
         let result = parse(input);
@@ -1869,6 +1953,834 @@ fn dictionary_range_clause() {
                     '('
                     '0'
                     ')'
+        "#]],
+    );
+}
+
+#[test]
+fn ternary_expression_simple() {
+    check(
+        "SELECT 1 ? 2 : 3",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    TernaryExpression
+                      NumberLiteral
+                        '1'
+                      '?'
+                      NumberLiteral
+                        '2'
+                      ':'
+                      NumberLiteral
+                        '3'
+        "#]],
+    );
+}
+
+#[test]
+fn ternary_expression_with_binary_ops() {
+    check(
+        "SELECT number % 2 ? 'odd' : 'even'",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    TernaryExpression
+                      BinaryExpression
+                        ColumnReference
+                          'number'
+                        '%'
+                        NumberLiteral
+                          '2'
+                      '?'
+                      StringLiteral
+                        ''odd''
+                      ':'
+                      StringLiteral
+                        ''even''
+        "#]],
+    );
+}
+
+#[test]
+fn qualified_asterisk() {
+    check(
+        "SELECT t1.*, t2.* FROM t1 JOIN t2 ON t1.id = t2.id",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    QualifiedAsterisk
+                      ColumnReference
+                        't1'
+                      '.'
+                      '*'
+                    ','
+                    QualifiedAsterisk
+                      ColumnReference
+                        't2'
+                      '.'
+                      '*'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't1'
+                JoinClause
+                  'JOIN'
+                  TableIdentifier
+                    't2'
+                  'ON'
+                  BinaryExpression
+                    ColumnReference
+                      't1'
+                      '.'
+                      'id'
+                    '='
+                    ColumnReference
+                      't2'
+                      '.'
+                      'id'
+        "#]],
+    );
+}
+
+// ====================================================================
+// CREATE INDEX
+// ====================================================================
+
+#[test]
+fn create_index_simple() {
+    let result = parse("CREATE INDEX idx_tab1_0 ON tab1 (col0)");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn create_index_with_desc() {
+    let result = parse("CREATE INDEX idx_tab1_0 ON tab1 (col0 DESC)");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn create_index_multi_column() {
+    let result = parse("CREATE INDEX idx_tab1_0 ON tab1 (col0, col1 DESC)");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn create_index_type_granularity() {
+    check(
+        "CREATE INDEX idx1 ON tab1 (col0) TYPE minmax GRANULARITY 3",
+        expect![[r#"
+            File
+              CreateStatement
+                'CREATE'
+                CreateIndexStatement
+                  'INDEX'
+                  'idx1'
+                  'ON'
+                  TableIdentifier
+                    'tab1'
+                  '('
+                  ColumnReference
+                    'col0'
+                  ')'
+                  'TYPE'
+                  'minmax'
+                  'GRANULARITY'
+                  NumberLiteral
+                    '3'
+        "#]],
+    );
+}
+
+#[test]
+fn create_index_if_not_exists() {
+    let result = parse("CREATE INDEX IF NOT EXISTS idx1 ON tab1 (col0)");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+// ====================================================================
+// CREATE USER / ALTER USER / DROP USER
+// ====================================================================
+
+#[test]
+fn create_user_simple() {
+    let result = parse("CREATE USER u1");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn create_user_identified_by() {
+    let result = parse("CREATE USER u1 IDENTIFIED BY '123qwe'");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn create_user_not_identified() {
+    let result = parse("CREATE USER u1 NOT IDENTIFIED HOST ANY");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn create_user_if_not_exists() {
+    let result = parse("CREATE USER IF NOT EXISTS u1");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn create_user_settings() {
+    let result = parse("CREATE USER u1 SETTINGS max_memory_usage = 10000");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn alter_user_identified() {
+    let result = parse("ALTER USER u1 IDENTIFIED BY '123qwe'");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn alter_user_rename() {
+    let result = parse("ALTER USER u1 RENAME TO 'u2'");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn drop_user_simple() {
+    let result = parse("DROP USER u1");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn drop_user_if_exists() {
+    let result = parse("DROP USER IF EXISTS u1");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn drop_user_multiple() {
+    let result = parse("DROP USER IF EXISTS u1, u2, u3");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+// ====================================================================
+// CREATE / DROP ROLE
+// ====================================================================
+
+#[test]
+fn create_role() {
+    let result = parse("CREATE ROLE r1");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn drop_role_if_exists() {
+    let result = parse("DROP ROLE IF EXISTS r1");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+// ====================================================================
+// CREATE / DROP QUOTA
+// ====================================================================
+
+#[test]
+fn create_quota() {
+    let result = parse("CREATE QUOTA q1 KEYED BY user_name TO role1");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn drop_quota_if_exists() {
+    let result = parse("DROP QUOTA IF EXISTS q1");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+// ====================================================================
+// CREATE / DROP ROW POLICY
+// ====================================================================
+
+#[test]
+fn create_row_policy() {
+    let result = parse("CREATE ROW POLICY rp ON table FOR SELECT USING x = 1 TO default");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn drop_row_policy_if_exists() {
+    let result = parse("DROP ROW POLICY IF EXISTS rp ON table");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+// ====================================================================
+// SHOW CREATE USER / QUOTA / ROLE / ROW POLICY
+// ====================================================================
+
+#[test]
+fn show_create_user() {
+    let result = parse("SHOW CREATE USER u1");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn show_create_quota() {
+    let result = parse("SHOW CREATE QUOTA q1");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn show_create_role() {
+    let result = parse("SHOW CREATE ROLE r1");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+#[test]
+fn show_create_row_policy() {
+    let result = parse("SHOW CREATE ROW POLICY rp ON table");
+    assert!(
+        result.errors.is_empty(),
+        "Expected no errors, got: {:?}",
+        result.errors,
+    );
+}
+
+// ---------------------------------------------------------------------------
+// EXPLAIN as subquery source
+// ---------------------------------------------------------------------------
+
+#[test]
+fn explain_in_subquery() {
+    check(
+        "SELECT * FROM (EXPLAIN SYNTAX SELECT 1)",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    Asterisk
+                      '*'
+                FromClause
+                  'FROM'
+                  SubqueryExpression
+                    '('
+                    ExplainStatement
+                      'EXPLAIN'
+                      ExplainKind
+                        'SYNTAX'
+                      SelectStatement
+                        SelectClause
+                          'SELECT'
+                          ColumnList
+                            NumberLiteral
+                              '1'
+                    ')'
+        "#]],
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Comma-join syntax
+// ---------------------------------------------------------------------------
+
+#[test]
+fn comma_join() {
+    check(
+        "SELECT * FROM t1, t2 WHERE t1.id = t2.id",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    Asterisk
+                      '*'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't1'
+                  ','
+                  TableIdentifier
+                    't2'
+                WhereClause
+                  'WHERE'
+                  BinaryExpression
+                    ColumnReference
+                      't1'
+                      '.'
+                      'id'
+                    '='
+                    ColumnReference
+                      't2'
+                      '.'
+                      'id'
+        "#]],
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Aggregate DISTINCT: count(DISTINCT x)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn count_distinct() {
+    check(
+        "SELECT count(DISTINCT id) FROM t",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    FunctionCall
+                      Identifier
+                        'count'
+                      ExpressionList
+                        '('
+                        'DISTINCT'
+                        Expression
+                          ColumnReference
+                            'id'
+                        ')'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+        "#]],
+    );
+}
+
+// ====================================================================
+// Parsing gap fixes: SETTINGS, SYSTEM, Dynamic types, FORMAT+SETTINGS
+// ====================================================================
+
+#[test]
+fn optimize_table_with_settings() {
+    check(
+        "OPTIMIZE TABLE t FINAL SETTINGS mutations_sync = 2",
+        expect![[r#"
+            File
+              OptimizeStatement
+                'OPTIMIZE'
+                'TABLE'
+                TableIdentifier
+                  't'
+                'FINAL'
+                SettingsClause
+                  'SETTINGS'
+                  SettingItem
+                    'mutations_sync'
+                    '='
+                    NumberLiteral
+                      '2'
+        "#]],
+    );
+}
+
+#[test]
+fn check_table_with_settings() {
+    check(
+        "CHECK TABLE t SETTINGS max_threads = 1",
+        expect![[r#"
+            File
+              CheckStatement
+                'CHECK'
+                'TABLE'
+                TableIdentifier
+                  't'
+                SettingsClause
+                  'SETTINGS'
+                  SettingItem
+                    'max_threads'
+                    '='
+                    NumberLiteral
+                      '1'
+        "#]],
+    );
+}
+
+#[test]
+fn system_flush_logs_with_targets() {
+    check(
+        "SYSTEM FLUSH LOGS query_log, trace_log",
+        expect![[r#"
+            File
+              SystemStatement
+                'SYSTEM'
+                SystemCommand
+                  'FLUSH'
+                  'LOGS'
+                'query_log'
+                ','
+                'trace_log'
+        "#]],
+    );
+}
+
+#[test]
+fn dynamic_type_with_key_value_params() {
+    check(
+        "CREATE TABLE t (d Dynamic(max_dynamic_paths=254)) ENGINE = Memory",
+        expect![[r#"
+            File
+              CreateStatement
+                'CREATE'
+                TableDefinition
+                  'TABLE'
+                  TableIdentifier
+                    't'
+                  ColumnDefinitionList
+                    '('
+                    ColumnDefinition
+                      'd'
+                      DataType
+                        'Dynamic'
+                        DataTypeParameters
+                          '('
+                          BinaryExpression
+                            ColumnReference
+                              'max_dynamic_paths'
+                            '='
+                            NumberLiteral
+                              '254'
+                          ')'
+                    ')'
+                  EngineClause
+                    'ENGINE'
+                    '='
+                    'Memory'
+        "#]],
+    );
+}
+
+#[test]
+fn select_format_then_settings() {
+    check(
+        "SELECT 1 FORMAT Null SETTINGS max_threads = 1",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    NumberLiteral
+                      '1'
+                FormatClause
+                  'FORMAT'
+                  'Null'
+                SettingsClause
+                  'SETTINGS'
+                  SettingItem
+                    'max_threads'
+                    '='
+                    NumberLiteral
+                      '1'
+        "#]],
+    );
+}
+
+// ====================================================================
+// JSON typed path access
+// ====================================================================
+
+#[test]
+fn json_typed_path_access() {
+    check(
+        "SELECT json.a.b.d.:Int64 FROM t",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    TypedJsonAccessExpression
+                      ColumnReference
+                        'json'
+                        '.'
+                        'a'
+                        '.'
+                        'b'
+                        '.'
+                        'd'
+                      '.'
+                      ':'
+                      DataType
+                        'Int64'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+        "#]],
+    );
+}
+
+#[test]
+fn json_cast_with_skip_params() {
+    check(
+        "SELECT json::JSON(SKIP a, max_dynamic_paths=2) FROM t",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    CastExpression
+                      ColumnReference
+                        'json'
+                      '::'
+                      DataType
+                        'JSON'
+                        DataTypeParameters
+                          '('
+                          'SKIP'
+                          'a'
+                          ','
+                          BinaryExpression
+                            ColumnReference
+                              'max_dynamic_paths'
+                            '='
+                            NumberLiteral
+                              '2'
+                          ')'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+        "#]],
+    );
+}
+
+// ====================================================================
+// CAST with ILIKE/LIKE postfix
+// ====================================================================
+
+#[test]
+fn cast_with_ilike_postfix() {
+    check(
+        "SELECT CAST('hello' AS FixedString(5)) ILIKE '%he%o%'",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    LikeExpression
+                      CastExpression
+                        'CAST'
+                        '('
+                        StringLiteral
+                          ''hello''
+                        'AS'
+                        DataType
+                          'FixedString'
+                          DataTypeParameters
+                            '('
+                            NumberLiteral
+                              '5'
+                            ')'
+                        ')'
+                      'ILIKE'
+                      StringLiteral
+                        ''%he%o%''
+        "#]],
+    );
+}
+
+#[test]
+fn cast_with_nested_types() {
+    check(
+        "SELECT CAST('hello' AS LowCardinality(Nullable(String)))",
+        expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    CastExpression
+                      'CAST'
+                      '('
+                      StringLiteral
+                        ''hello''
+                      'AS'
+                      DataType
+                        'LowCardinality'
+                        DataTypeParameters
+                          '('
+                          DataType
+                            'Nullable'
+                            DataTypeParameters
+                              '('
+                              DataType
+                                'String'
+                              ')'
+                          ')'
+                      ')'
+        "#]],
+    );
+}
+
+// ====================================================================
+// WITH RECURSIVE
+// ====================================================================
+
+#[test]
+fn with_recursive_cte() {
+    check(
+        "WITH RECURSIVE x AS (SELECT 1 AS id UNION ALL SELECT id+1 FROM x WHERE id < 5) SELECT * FROM x",
+        expect![[r#"
+            File
+              SelectStatement
+                WithClause
+                  'WITH'
+                  'RECURSIVE'
+                  ColumnList
+                    WithExpressionItem
+                      'x'
+                      'AS'
+                      '('
+                      SubqueryExpression
+                        UnionClause
+                          SelectStatement
+                            SelectClause
+                              'SELECT'
+                              ColumnList
+                                NumberLiteral
+                                  '1'
+                                ColumnAlias
+                                  'AS'
+                                  'id'
+                          'UNION'
+                          'ALL'
+                          SelectStatement
+                            SelectClause
+                              'SELECT'
+                              ColumnList
+                                BinaryExpression
+                                  ColumnReference
+                                    'id'
+                                  '+'
+                                  NumberLiteral
+                                    '1'
+                            FromClause
+                              'FROM'
+                              TableIdentifier
+                                'x'
+                            WhereClause
+                              'WHERE'
+                              BinaryExpression
+                                ColumnReference
+                                  'id'
+                                '<'
+                                NumberLiteral
+                                  '5'
+                      ')'
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    Asterisk
+                      '*'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    'x'
         "#]],
     );
 }

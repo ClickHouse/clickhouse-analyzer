@@ -29,9 +29,11 @@ pub fn parse_explain_statement(p: &mut Parser) {
         parse_explain_kind(p);
     }
 
-    // Optional settings: setting = value, ...
+    // Optional settings: SETTINGS key = value, ... OR bare key = value, ...
     if p.at_keyword(Keyword::Settings) {
         parse_settings_list(p);
+    } else if at_inline_setting(p) {
+        parse_inline_settings(p);
     }
 
     // Inner statement
@@ -115,16 +117,29 @@ pub fn parse_describe_statement(p: &mut Parser) {
         p.advance();
     }
 
-    // Optional TABLE keyword
-    p.eat_keyword(Keyword::Table);
-
-    // Table identifier or table function
-    if p.at_identifier() {
-        parse_table_ref(p);
-    } else if !p.eof() && !p.end_of_statement() {
-        p.advance_with_error("Expected table name");
+    // Parenthesized subquery: DESCRIBE (SELECT ...)
+    if p.at(SyntaxKind::OpeningRoundBracket) {
+        let sm = p.start();
+        p.advance(); // consume (
+        if at_select_statement(p) {
+            parse_select_statement(p);
+        } else {
+            p.recover_with_error("Expected SELECT inside parentheses");
+        }
+        p.expect(SyntaxKind::ClosingRoundBracket);
+        p.complete(sm, SyntaxKind::SubqueryExpression);
     } else {
-        p.recover_with_error("Expected table name after DESCRIBE");
+        // Optional TABLE keyword
+        p.eat_keyword(Keyword::Table);
+
+        // Table identifier or table function
+        if p.at_identifier() {
+            parse_table_ref(p);
+        } else if !p.eof() && !p.end_of_statement() {
+            p.advance_with_error("Expected table name");
+        } else {
+            p.recover_with_error("Expected table name after DESCRIBE");
+        }
     }
 
     // Optional FORMAT clause
@@ -243,13 +258,33 @@ fn parse_show_create(p: &mut Parser) {
         || p.at_keyword(Keyword::View)
         || p.at_keyword(Keyword::Database)
         || p.at_keyword(Keyword::Dictionary)
+        || p.at_keyword(Keyword::User)
+        || p.at_keyword(Keyword::Role)
+        || p.at_keyword(Keyword::Quota)
+        || p.at_keyword(Keyword::Policy)
+        || p.at_keyword(Keyword::Profile)
     {
         p.advance();
+    } else if p.at_keyword(Keyword::Row) {
+        p.advance(); // ROW
+        if p.at_keyword(Keyword::Policy) {
+            p.advance(); // POLICY
+        }
+    } else if p.at_keyword(Keyword::Settings) {
+        p.advance(); // SETTINGS
+        if p.at_keyword(Keyword::Profile) {
+            p.advance(); // PROFILE
+        }
     }
 
     // Object name: [db.]name
     if p.at_identifier() {
         parse_table_ref(p);
+    }
+
+    // Consume remaining tokens (e.g. ON table for ROW POLICY)
+    while !p.eof() && !p.end_of_statement() && !p.at_keyword(Keyword::Format) {
+        p.advance();
     }
 
     if p.at_keyword(Keyword::Format) {
@@ -425,6 +460,8 @@ fn parse_from_database(p: &mut Parser) {
 
     if p.at_identifier() {
         p.advance();
+    } else if common::at_query_parameter(p) {
+        common::parse_query_parameter(p);
     } else {
         p.recover_with_error("Expected database name after FROM");
     }
@@ -471,6 +508,43 @@ fn parse_table_ref(p: &mut Parser) {
     } else {
         p.complete(m, SyntaxKind::TableIdentifier);
     }
+}
+
+/// True if the parser is at an inline setting: `identifier =` (not preceded by SETTINGS keyword).
+/// Used for EXPLAIN QUERY TREE which accepts bare settings before the inner statement.
+fn at_inline_setting(p: &mut Parser) -> bool {
+    p.at_identifier()
+        && p.nth(1) == SyntaxKind::Equals
+        && !at_select_statement(p)
+        && !at_explain_statement(p)
+        && !at_show_statement(p)
+        && !at_describe_statement(p)
+}
+
+/// Parse inline settings (without SETTINGS keyword): key = value [, key = value, ...]
+fn parse_inline_settings(p: &mut Parser) {
+    let m = p.start();
+
+    let mut first = true;
+    while !p.eof()
+        && !p.end_of_statement()
+        && at_inline_setting(p)
+    {
+        if !first {
+            if !p.eat(SyntaxKind::Comma) {
+                break;
+            }
+        }
+        first = false;
+
+        let item_m = p.start();
+        p.advance(); // key
+        p.expect(SyntaxKind::Equals);
+        parse_expression(p);
+        p.complete(item_m, SyntaxKind::SettingItem);
+    }
+
+    p.complete(m, SyntaxKind::SettingsClause);
 }
 
 /// Parses: SETTINGS key = value, key = value, ...

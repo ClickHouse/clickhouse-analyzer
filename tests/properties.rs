@@ -42,6 +42,11 @@ fn collect_tokens_rec(tree: &SyntaxTree, tokens: &mut Vec<(u32, u32)>) {
 fn assert_ranges_consistent(tree: &SyntaxTree) {
     for child in &tree.children {
         if let SyntaxChild::Tree(subtree) = child {
+            // Empty nodes (no tokens) have start=MAX, end=0 — skip them
+            if subtree.start == u32::MAX && subtree.end == 0 {
+                assert_ranges_consistent(subtree);
+                continue;
+            }
             assert!(
                 subtree.start <= subtree.end,
                 "Node {:?} has start {} > end {}",

@@ -214,8 +214,9 @@ pub enum Keyword {
     Async,
     Test,
 
-    // CHECK / EXISTS
+    // CHECK / EXISTS / ASSUME
     Check,
+    Assume,
 
     // Transaction
     Begin,
@@ -273,6 +274,17 @@ pub enum Keyword {
     Fill,
     Step,
     Interpolate,
+
+    // Access control keywords
+    Identified,
+    Host,
+    Keyed,
+
+    // Recursive CTE
+    Recursive,
+
+    // JSON type parameters
+    Skip,
 
     // Missing keywords for specific parsers
     Syntax,
@@ -460,6 +472,7 @@ impl Keyword {
             Keyword::Async => "ASYNC",
             Keyword::Test => "TEST",
             Keyword::Check => "CHECK",
+            Keyword::Assume => "ASSUME",
             Keyword::Begin => "BEGIN",
             Keyword::Commit => "COMMIT",
             Keyword::Rollback => "ROLLBACK",
@@ -501,6 +514,11 @@ impl Keyword {
             Keyword::Fill => "FILL",
             Keyword::Step => "STEP",
             Keyword::Interpolate => "INTERPOLATE",
+            Keyword::Identified => "IDENTIFIED",
+            Keyword::Host => "HOST",
+            Keyword::Keyed => "KEYED",
+            Keyword::Recursive => "RECURSIVE",
+            Keyword::Skip => "SKIP",
             Keyword::Syntax => "SYNTAX",
             Keyword::Tree => "TREE",
             Keyword::Override => "OVERRIDE",

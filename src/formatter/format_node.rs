@@ -42,6 +42,7 @@ const KEYWORDS: &[&str] = &[
     "MATERIALIZE", "SETTING", "RESET", "ILIKE",
     "FILL", "STEP", "INTERPOLATE",
     "MATERIALIZE", "SETTING", "RESET", "ILIKE", "OPTION",
+    "IDENTIFIED", "HOST", "KEYED",
 ];
 
 fn is_keyword(text: &str) -> bool {
@@ -216,6 +217,16 @@ pub fn format_node(tree: &SyntaxTree, ctx: &mut FormatterContext) {
         SyntaxKind::IndexDefinition => format_inline_tight_parens(tree, ctx),
         SyntaxKind::ProjectionDefinition => format_inline(tree, ctx),
         SyntaxKind::ConstraintDefinition => format_inline(tree, ctx),
+        SyntaxKind::CreateIndexStatement => format_simple_clause(tree, ctx),
+
+        // Access control
+        SyntaxKind::CreateUserStatement
+        | SyntaxKind::CreateRoleStatement
+        | SyntaxKind::CreateQuotaStatement
+        | SyntaxKind::CreateRowPolicyStatement
+        | SyntaxKind::CreateSettingsProfileStatement
+        | SyntaxKind::AlterUserStatement
+        | SyntaxKind::DropAccessEntityStatement => format_inline(tree, ctx),
 
         // ALTER
         SyntaxKind::AlterStatement => format_alter_statement(tree, ctx),
@@ -237,6 +248,10 @@ pub fn format_node(tree: &SyntaxTree, ctx: &mut FormatterContext) {
         | SyntaxKind::AlterModifyOrderBy
         | SyntaxKind::AlterModifyTtl
         | SyntaxKind::AlterModifySetting
+        | SyntaxKind::AlterModifyComment
+        | SyntaxKind::AlterModifyQuery
+        | SyntaxKind::AlterMaterializeProjection
+        | SyntaxKind::AlterMaterializeTtl
         | SyntaxKind::AlterResetSetting
         | SyntaxKind::AlterDropPartition
         | SyntaxKind::AlterAttachPartition

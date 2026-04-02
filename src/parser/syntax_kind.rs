@@ -118,6 +118,18 @@ pub enum SyntaxKind {
     IndexDefinition,
     ProjectionDefinition,
     ConstraintDefinition,
+    CreateIndexStatement,
+
+    // =======================================================================
+    // Access control statements
+    // =======================================================================
+    CreateUserStatement,
+    CreateRoleStatement,
+    CreateQuotaStatement,
+    CreateRowPolicyStatement,
+    CreateSettingsProfileStatement,
+    AlterUserStatement,
+    DropAccessEntityStatement,
 
     // =======================================================================
     // Table components
@@ -147,6 +159,10 @@ pub enum SyntaxKind {
     AlterModifyOrderBy,
     AlterModifyTtl,
     AlterModifySetting,
+    AlterModifyComment,
+    AlterModifyQuery,
+    AlterMaterializeProjection,
+    AlterMaterializeTtl,
     AlterResetSetting,
     AlterDropPartition,
     AlterAttachPartition,
@@ -181,11 +197,13 @@ pub enum SyntaxKind {
     BetweenExpression,
     InExpression,
     IsNullExpression,
+    IsDistinctFromExpression,
     LikeExpression,
     TupleExpression,
     ArrayExpression,
     ArrayAccessExpression,
     DotAccessExpression,
+    TypedJsonAccessExpression,
     MapExpression,
     QueryParameterExpression,
     SubqueryExpression,
@@ -193,6 +211,8 @@ pub enum SyntaxKind {
     IntervalExpression,
     WindowExpression,
     ExistsExpression,
+    TernaryExpression,
+    QualifiedAsterisk,
 
     // =======================================================================
     // Literals

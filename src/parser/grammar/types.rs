@@ -1,5 +1,6 @@
 use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::expressions::parse_expression;
+use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
 
 /// Parses a data type with optional parameters:
@@ -38,9 +39,31 @@ pub fn parse_column_type(p: &mut Parser) {
 /// Handles named tuple fields: `Tuple(a String, b String)` where a BareWord
 /// field name precedes the type.  Disambiguated by checking whether two
 /// consecutive BareWords appear — if so the first is a field name.
+///
+/// Also handles key=value parameters: `Dynamic(max_dynamic_paths=254)` where
+/// a BareWord is followed by `=` and an expression.
 fn parse_type_parameter(p: &mut Parser) {
     if p.at(SyntaxKind::BareWord) {
-        if p.nth(1) == SyntaxKind::BareWord {
+        if p.at_keyword(Keyword::Skip) {
+            // SKIP path — JSON type parameter to skip a path.
+            // Consume SKIP keyword and the path identifier(s).
+            p.advance(); // consume SKIP
+            // The path can be a dot-separated identifier or a REGEXP pattern
+            if p.at(SyntaxKind::BareWord) {
+                p.advance(); // consume path name
+                // Handle dot-separated paths like SKIP a.b.c
+                while p.at(SyntaxKind::Dot) && p.nth(1) == SyntaxKind::BareWord {
+                    p.advance(); // consume .
+                    p.advance(); // consume identifier
+                }
+            } else if p.at(SyntaxKind::StringToken) {
+                // SKIP REGEXP 'pattern' — already consumed SKIP, string follows
+                p.advance();
+            }
+        } else if p.nth(1) == SyntaxKind::Equals {
+            // Key=value parameter: `max_dynamic_paths=254`
+            parse_expression(p);
+        } else if p.nth(1) == SyntaxKind::BareWord {
             // Named field: `name Type` — consume the name, then parse the type.
             p.advance(); // field name
             parse_column_type(p);

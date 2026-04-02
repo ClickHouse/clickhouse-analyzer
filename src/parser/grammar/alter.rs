@@ -1,6 +1,7 @@
 use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::parse_expression;
+use crate::parser::grammar::select::parse_select_statement;
 use crate::parser::grammar::types::parse_column_type;
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
@@ -13,6 +14,55 @@ pub fn parse_alter_statement(p: &mut Parser) {
     let m = p.start();
 
     p.expect_keyword(Keyword::Alter);
+
+    // Dispatch: ALTER USER / ALTER ROLE / ALTER QUOTA / ALTER ROW POLICY / ALTER SETTINGS PROFILE
+    if p.at_keyword(Keyword::User)
+        || p.at_keyword(Keyword::Role)
+        || p.at_keyword(Keyword::Quota)
+        || p.at_keyword(Keyword::Row)
+        || p.at_keyword(Keyword::Policy)
+        || p.at_keyword(Keyword::Profile)
+    {
+        let inner = p.start();
+        // Consume keyword(s) for the entity type
+        if p.at_keyword(Keyword::Row) {
+            p.advance(); // ROW
+        }
+        p.advance(); // USER / ROLE / QUOTA / POLICY / PROFILE
+        // IF EXISTS
+        common::parse_if_exists(p);
+        // Entity name
+        if p.at_identifier() || p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::QuotedIdentifier) {
+            p.advance();
+        }
+        // Consume remaining body generically
+        while !p.eof() && !p.end_of_statement() {
+            p.advance();
+        }
+        p.complete(inner, SyntaxKind::AlterUserStatement);
+        p.complete(m, SyntaxKind::AlterStatement);
+        return;
+    }
+
+    // Handle ALTER SETTINGS PROFILE as well
+    if p.at_keyword(Keyword::Settings) {
+        let inner = p.start();
+        p.advance(); // SETTINGS
+        if p.at_keyword(Keyword::Profile) {
+            p.advance(); // PROFILE
+        }
+        common::parse_if_exists(p);
+        if p.at_identifier() || p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::QuotedIdentifier) {
+            p.advance();
+        }
+        while !p.eof() && !p.end_of_statement() {
+            p.advance();
+        }
+        p.complete(inner, SyntaxKind::AlterUserStatement);
+        p.complete(m, SyntaxKind::AlterStatement);
+        return;
+    }
+
     p.expect_keyword(Keyword::Table);
 
     // Parse [db.]table
@@ -23,6 +73,11 @@ pub fn parse_alter_statement(p: &mut Parser) {
 
     // Parse command list
     parse_alter_command_list(p);
+
+    // Optional trailing SETTINGS clause
+    if p.at_keyword(Keyword::Settings) {
+        parse_alter_settings_clause(p);
+    }
 
     p.complete(m, SyntaxKind::AlterStatement);
 }
@@ -71,7 +126,7 @@ fn parse_alter_command(p: &mut Parser) {
     } else if p.at_keyword(Keyword::Update) {
         parse_update_where(p);
     } else if p.at_keyword(Keyword::Materialize) {
-        parse_materialize_index(p);
+        parse_materialize_command(p);
     } else if p.at_keyword(Keyword::Reset) {
         parse_reset_setting(p);
     } else {
@@ -160,12 +215,14 @@ fn parse_add_command(p: &mut Parser) {
             p.expect(SyntaxKind::ClosingRoundBracket);
         }
 
-        // GRANULARITY val
-        p.expect_keyword(Keyword::Granularity);
-        if p.at(SyntaxKind::Number) {
+        // GRANULARITY val (optional)
+        if p.at_keyword(Keyword::Granularity) {
             p.advance();
-        } else {
-            p.recover_with_error("Expected granularity value");
+            if p.at(SyntaxKind::Number) {
+                p.advance();
+            } else {
+                p.recover_with_error("Expected granularity value");
+            }
         }
 
         // AFTER index | FIRST
@@ -319,8 +376,20 @@ fn parse_modify_command(p: &mut Parser) {
         p.advance(); // consume SETTING/SETTINGS
         parse_setting_list(p);
         p.complete(m, SyntaxKind::AlterModifySetting);
+    } else if p.at_keyword(Keyword::Comment) {
+        p.advance(); // consume COMMENT
+        if p.at(SyntaxKind::StringToken) {
+            p.advance();
+        } else {
+            p.recover_with_error("Expected comment string after MODIFY COMMENT");
+        }
+        p.complete(m, SyntaxKind::AlterModifyComment);
+    } else if p.at_keyword(Keyword::Query) {
+        p.advance(); // consume QUERY
+        parse_select_statement(p);
+        p.complete(m, SyntaxKind::AlterModifyQuery);
     } else {
-        p.advance_with_error("Expected COLUMN, ORDER BY, TTL, or SETTING after MODIFY");
+        p.advance_with_error("Expected COLUMN, ORDER BY, TTL, SETTING, COMMENT, or QUERY after MODIFY");
         p.complete(m, SyntaxKind::Error);
     }
 }
@@ -429,29 +498,75 @@ fn parse_comment_column(p: &mut Parser) {
     p.complete(m, SyntaxKind::AlterCommentColumn);
 }
 
-// ---- MATERIALIZE INDEX ----
+// ---- MATERIALIZE commands ----
 
-fn parse_materialize_index(p: &mut Parser) {
+fn parse_materialize_command(p: &mut Parser) {
     let m = p.start();
     p.expect_keyword(Keyword::Materialize);
-    p.expect_keyword(Keyword::Index);
 
-    common::parse_if_exists(p);
+    if p.at_keyword(Keyword::Index) {
+        p.advance(); // consume INDEX
 
-    if p.at_identifier() {
-        p.advance();
+        common::parse_if_exists(p);
+
+        if p.at_identifier() {
+            p.advance();
+        } else {
+            p.recover_with_error("Expected index name");
+        }
+
+        // Optional IN PARTITION
+        if p.at_keyword(Keyword::In) {
+            p.advance();
+            p.expect_keyword(Keyword::Partition);
+            parse_partition_expression(p);
+        }
+
+        p.complete(m, SyntaxKind::AlterMaterializeIndex);
+    } else if p.at_keyword(Keyword::Projection) {
+        p.advance(); // consume PROJECTION
+
+        common::parse_if_exists(p);
+
+        if p.at_identifier() {
+            p.advance();
+        } else {
+            p.recover_with_error("Expected projection name");
+        }
+
+        // Optional IN PARTITION
+        if p.at_keyword(Keyword::In) {
+            p.advance();
+            p.expect_keyword(Keyword::Partition);
+            parse_partition_expression(p);
+        }
+
+        p.complete(m, SyntaxKind::AlterMaterializeProjection);
+    } else if p.at_keyword(Keyword::Ttl) {
+        p.advance(); // consume TTL
+
+        // Optional IN PARTITION
+        if p.at_keyword(Keyword::In) {
+            p.advance();
+            p.expect_keyword(Keyword::Partition);
+            parse_partition_expression(p);
+        }
+
+        p.complete(m, SyntaxKind::AlterMaterializeTtl);
     } else {
-        p.recover_with_error("Expected index name");
-    }
+        // Unknown MATERIALIZE target — try INDEX as fallback
+        p.advance(); // consume INDEX (expected)
 
-    // Optional IN PARTITION
-    if p.at_keyword(Keyword::In) {
-        p.advance();
-        p.expect_keyword(Keyword::Partition);
-        parse_partition_expression(p);
-    }
+        common::parse_if_exists(p);
 
-    p.complete(m, SyntaxKind::AlterMaterializeIndex);
+        if p.at_identifier() {
+            p.advance();
+        } else {
+            p.recover_with_error("Expected INDEX, PROJECTION, or TTL after MATERIALIZE");
+        }
+
+        p.complete(m, SyntaxKind::AlterMaterializeIndex);
+    }
 }
 
 // ---- Partition commands ----
@@ -679,8 +794,26 @@ fn parse_column_definition(p: &mut Parser) {
     p.complete(m, SyntaxKind::ColumnDefinition);
 }
 
-fn parse_select_statement(p: &mut Parser) {
-    crate::parser::grammar::select::parse_select_statement(p);
+/// Parses trailing SETTINGS clause: SETTINGS key = value [, key = value ...]
+fn parse_alter_settings_clause(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Settings);
+
+    let mut first = true;
+    while !p.eof() && !p.end_of_statement() {
+        if !first {
+            if p.at(SyntaxKind::Comma) {
+                p.advance();
+            } else {
+                break;
+            }
+        }
+        first = false;
+
+        common::parse_setting_item(p);
+    }
+
+    p.complete(m, SyntaxKind::SettingsClause);
 }
 
 #[cfg(test)]

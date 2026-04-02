@@ -125,3 +125,34 @@ pub fn parse_setting_item(p: &mut Parser) {
 
     p.complete(m, SyntaxKind::SettingItem);
 }
+
+/// Parse optional SETTINGS clause: `SETTINGS key = value [, key = value, ...]`
+/// Returns true if a SETTINGS clause was parsed.
+pub fn parse_optional_settings_clause(p: &mut Parser) -> bool {
+    if !p.at_keyword(Keyword::Settings) {
+        return false;
+    }
+
+    let m = p.start();
+    p.expect_keyword(Keyword::Settings);
+
+    let mut first = true;
+    while !p.eof() && !p.end_of_statement() {
+        if !first {
+            if !p.at(SyntaxKind::Comma) {
+                break;
+            }
+            p.advance(); // comma
+        }
+        first = false;
+
+        if !p.at_identifier() {
+            break;
+        }
+
+        parse_setting_item(p);
+    }
+
+    p.complete(m, SyntaxKind::SettingsClause);
+    true
+}

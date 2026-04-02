@@ -27,6 +27,7 @@ lto = true
 expect-test = "1"
 proptest = "1"
 criterion = { version = "0.5", features = ["html_reports"] }
+walkdir = "2.5.0"
 
 [[bench]]
 name = "parse_bench"

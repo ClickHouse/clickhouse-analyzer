@@ -1,6 +1,7 @@
 use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::{parse_expression, parse_window_spec};
+use crate::parser::grammar::show::{at_explain_statement, parse_explain_statement};
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
 
@@ -119,7 +120,7 @@ pub fn parse_select_statement(p: &mut Parser) {
 
     skip_to_clause_keyword(p);
 
-    // FORMAT (always last)
+    // FORMAT
     if p.at_keyword(Keyword::Format) {
         let m = p.start();
         p.expect_keyword(Keyword::Format);
@@ -129,6 +130,11 @@ pub fn parse_select_statement(p: &mut Parser) {
             p.recover_with_error("Expected format name after FORMAT");
         }
         p.complete(m, SyntaxKind::FormatClause);
+    }
+
+    // SETTINGS can also appear after FORMAT
+    if p.at_keyword(Keyword::Settings) {
+        parse_settings_clause(p);
     }
 
     let completed = p.complete(m, SyntaxKind::SelectStatement);
@@ -168,7 +174,15 @@ const SELECT_CLAUSE_KEYWORDS: &[Keyword] = &[
 
 /// True if the parser is positioned at a clause keyword that can appear
 /// inside a SELECT statement. Used for error recovery.
+///
+/// `FORMAT` followed by `(` is treated as a function call (e.g. `format('{}', x)`),
+/// not as the FORMAT clause keyword.
 fn at_clause_keyword(p: &mut Parser) -> bool {
+    // FORMAT is ambiguous: it can be the FORMAT clause or the format() function.
+    // When followed by '(', it's a function call, not a clause.
+    if p.at_keyword(Keyword::Format) && p.at_followed_by_paren() {
+        return false;
+    }
     common::at_any_keyword(p, SELECT_CLAUSE_KEYWORDS) || at_join_keyword(p)
 }
 
@@ -184,9 +198,10 @@ fn at_join_keyword(p: &mut Parser) -> bool {
         || p.at_keyword(Keyword::Cross)
         || p.at_keyword(Keyword::Natural);
 
-    // These keywords can also be function names; only treat them as join keywords
-    // when NOT followed by '('
+    // These keywords can also be function names or identifiers; only treat them
+    // as join keywords when NOT followed by '(' (function call) or '.' (column ref).
     let at_ambiguous = !p.at_followed_by_paren()
+        && p.nth(1) != SyntaxKind::Dot
         && (p.at_keyword(Keyword::Left)
             || p.at_keyword(Keyword::Right)
             || p.at_keyword(Keyword::Full)
@@ -218,8 +233,72 @@ fn skip_to_clause_keyword(p: &mut Parser) {
 fn parse_with_clause(p: &mut Parser) {
     let m = p.start();
     p.expect_keyword(Keyword::With);
-    parse_column_list(p);
+    // WITH RECURSIVE — optional RECURSIVE keyword for recursive CTEs
+    p.eat_keyword(Keyword::Recursive);
+
+    // The WITH clause can contain either:
+    //   - CTE definitions: name AS (subquery), ...
+    //   - Expression aliases: expr AS name, ...
+    // We detect CTEs by checking: BareWord AS (
+    parse_with_items(p);
+
     p.complete(m, SyntaxKind::WithClause);
+}
+
+/// Parse WITH clause items — a comma-separated list of CTEs or expression aliases.
+fn parse_with_items(p: &mut Parser) {
+    let m = p.start();
+
+    let mut first = true;
+    while !at_end_of_column_list(p) && !p.end_of_statement() {
+        if !first {
+            p.expect(SyntaxKind::Comma);
+        }
+        first = false;
+
+        // Detect CTE pattern: identifier AS (
+        if p.at_identifier()
+            && p.nth(1) == SyntaxKind::BareWord
+            && p.nth_text(1).eq_ignore_ascii_case("AS")
+            && p.nth(2) == SyntaxKind::OpeningRoundBracket
+        {
+            // CTE: name AS (subquery)
+            let item = p.start();
+            p.advance(); // consume name
+            p.expect_keyword(Keyword::As);
+            p.expect(SyntaxKind::OpeningRoundBracket);
+            if at_select_statement(p) {
+                let subq = p.start();
+                parse_select_statement(p);
+                p.complete(subq, SyntaxKind::SubqueryExpression);
+            } else {
+                parse_expression(p);
+            }
+            p.expect(SyntaxKind::ClosingRoundBracket);
+            p.complete(item, SyntaxKind::WithExpressionItem);
+        } else {
+            // Expression alias: expr AS name
+            parse_expression(p);
+
+            if p.at_keyword(Keyword::As)
+                || (!at_end_of_column_list(p) && p.at(SyntaxKind::BareWord))
+                || p.at(SyntaxKind::QuotedIdentifier)
+            {
+                let am = p.start();
+                if p.at_keyword(Keyword::As) {
+                    p.expect_keyword(Keyword::As);
+                }
+                if !at_end_of_column_list(p) {
+                    p.advance();
+                } else {
+                    p.recover_with_error("Expected alias");
+                }
+                p.complete(am, SyntaxKind::ColumnAlias);
+            }
+        }
+    }
+
+    p.complete(m, SyntaxKind::ColumnList);
 }
 
 /// Parses: SELECT [DISTINCT [ON (col, ...)]] expr [, expr ...]
@@ -285,11 +364,16 @@ pub fn parse_column_list(p: &mut Parser) {
     p.complete(m, SyntaxKind::ColumnList);
 }
 
-/// Parses: FROM table_reference [FINAL] [AS alias | alias]
+/// Parses: FROM table_reference [, table_reference ...] [FINAL] [AS alias | alias]
+/// Commas produce implicit cross joins (ClickHouse comma-join syntax).
 fn parse_from_clause(p: &mut Parser) {
     let m = p.start();
     p.expect_keyword(Keyword::From);
     parse_table_reference(p);
+    while p.at(SyntaxKind::Comma) && !p.eof() && !p.end_of_statement() {
+        p.advance(); // consume comma
+        parse_table_reference(p);
+    }
     p.complete(m, SyntaxKind::FromClause);
 }
 
@@ -375,12 +459,14 @@ fn parse_sample_clause(p: &mut Parser) {
     p.complete(m, SyntaxKind::SampleClause);
 }
 
-/// Parses: (SELECT ...) as a table reference
+/// Parses: (SELECT ...) or (EXPLAIN ...) as a table reference
 fn parse_subquery_table_ref(p: &mut Parser) {
     let m = p.start();
     p.expect(SyntaxKind::OpeningRoundBracket);
     if at_select_statement(p) {
         parse_select_statement(p);
+    } else if at_explain_statement(p) {
+        parse_explain_statement(p);
     } else {
         p.recover_with_error("Expected subquery");
     }
@@ -390,11 +476,15 @@ fn parse_subquery_table_ref(p: &mut Parser) {
 
 /// Parses optional table alias: [AS] alias
 /// Careful not to consume clause keywords as aliases.
+///
+/// When AS is present, it's unambiguous — any bareword is accepted as an alias
+/// (including keywords like LEFT, RIGHT). Without AS, we reject keywords that
+/// could start a JOIN or other clause.
 fn parse_optional_table_alias(p: &mut Parser) {
     if p.at_keyword(Keyword::As) {
         let m = p.start();
         p.advance(); // consume AS
-        if p.at_identifier() && !at_clause_keyword(p) {
+        if p.at(SyntaxKind::BareWord) || p.at(SyntaxKind::QuotedIdentifier) {
             p.advance();
         } else {
             p.recover_with_error("Expected table alias");
@@ -590,27 +680,56 @@ fn parse_window_clause(p: &mut Parser) {
 // ========== ORDER BY ==========
 
 /// Parses: ORDER BY item, item, ...
+/// Also handles ORDER BY ALL (ClickHouse extension).
 fn parse_order_by_clause(p: &mut Parser) {
     let m = p.start();
     p.expect_keyword(Keyword::Order);
     p.expect_keyword(Keyword::By);
 
-    let mut first = true;
-    while !p.eof() && !p.end_of_statement() && !at_order_by_terminator(p) {
-        if !first {
-            p.expect(SyntaxKind::Comma);
+    // ORDER BY ALL is a special ClickHouse syntax.
+    // ALL is normally treated as a join keyword by at_order_by_terminator,
+    // so we handle it explicitly before the loop.
+    if p.at_keyword(Keyword::All) && !p.at_followed_by_paren() {
+        let item_m = p.start();
+        let cm = p.start();
+        p.advance();
+        p.complete(cm, SyntaxKind::ColumnReference);
+
+        // ASC or DESC
+        if p.at_keyword(Keyword::Asc) || p.at_keyword(Keyword::Desc) {
+            p.advance();
         }
-        first = false;
-        parse_order_by_item(p);
+
+        p.complete(item_m, SyntaxKind::OrderByItem);
+    } else {
+        let mut first = true;
+        while !p.eof() && !p.end_of_statement() && !at_order_by_terminator(p) {
+            if !first {
+                p.expect(SyntaxKind::Comma);
+            }
+            first = false;
+            parse_order_by_item(p);
+        }
     }
 
     p.complete(m, SyntaxKind::OrderByClause);
 }
 
 /// Parses: expr [ASC|DESC] [NULLS FIRST|LAST]
+/// Also handles ORDER BY ALL (ClickHouse extension).
 fn parse_order_by_item(p: &mut Parser) {
     let m = p.start();
-    parse_expression(p);
+
+    // ALL is a special ORDER BY target in ClickHouse.
+    // It's normally treated as a join keyword by the expression parser,
+    // so we handle it explicitly here.
+    if p.at_keyword(Keyword::All) && !p.at_followed_by_paren() {
+        let cm = p.start();
+        p.advance();
+        p.complete(cm, SyntaxKind::ColumnReference);
+    } else {
+        parse_expression(p);
+    }
 
     // ASC or DESC
     if p.at_keyword(Keyword::Asc) || p.at_keyword(Keyword::Desc) {
@@ -690,7 +809,7 @@ fn parse_with_fill_clause(p: &mut Parser) {
 fn at_order_by_terminator(p: &mut Parser) -> bool {
     p.at_keyword(Keyword::Limit)
         || p.at_keyword(Keyword::Settings)
-        || p.at_keyword(Keyword::Format)
+        || (p.at_keyword(Keyword::Format) && !p.at_followed_by_paren())
         || p.at_keyword(Keyword::Select)
         || p.at_keyword(Keyword::From)
         || p.at_keyword(Keyword::Where)
