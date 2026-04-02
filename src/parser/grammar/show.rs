@@ -1,9 +1,15 @@
 use crate::lexer::token::TokenKind;
+use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::grammar::select::{at_select_statement, parse_select_statement};
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
 use crate::parser::syntax_kind::SyntaxKind;
+
+const SHOW_KEYWORDS: &[Keyword] = &[
+    Keyword::From, Keyword::Like, Keyword::Ilike, Keyword::Limit,
+    Keyword::Format, Keyword::Where,
+];
 
 // ===========================================================================
 // EXPLAIN statement
@@ -187,13 +193,19 @@ fn parse_show_tables(p: &mut Parser) {
     let m = p.start();
     p.advance(); // TABLES
 
+    common::skip_to_keywords(p, SHOW_KEYWORDS);
+
     if p.at_keyword(Keyword::From) {
         parse_from_database(p);
     }
 
+    common::skip_to_keywords(p, SHOW_KEYWORDS);
+
     if p.at_keyword(Keyword::Like) || p.at_keyword(Keyword::Ilike) {
         parse_like_clause(p);
     }
+
+    common::skip_to_keywords(p, SHOW_KEYWORDS);
 
     if p.at_keyword(Keyword::Limit) {
         parse_optional_limit(p);
@@ -207,9 +219,13 @@ fn parse_show_databases(p: &mut Parser) {
     let m = p.start();
     p.advance(); // DATABASES
 
+    common::skip_to_keywords(p, SHOW_KEYWORDS);
+
     if p.at_keyword(Keyword::Like) || p.at_keyword(Keyword::Ilike) {
         parse_like_clause(p);
     }
+
+    common::skip_to_keywords(p, SHOW_KEYWORDS);
 
     if p.at_keyword(Keyword::Limit) {
         parse_optional_limit(p);
@@ -249,6 +265,8 @@ fn parse_show_columns(p: &mut Parser) {
     let m = p.start();
     p.advance(); // COLUMNS
 
+    common::skip_to_keywords(p, SHOW_KEYWORDS);
+
     if p.at_keyword(Keyword::From) {
         p.advance(); // FROM
         if p.at_identifier() {
@@ -258,9 +276,13 @@ fn parse_show_columns(p: &mut Parser) {
         }
     }
 
+    common::skip_to_keywords(p, SHOW_KEYWORDS);
+
     if p.at_keyword(Keyword::Like) || p.at_keyword(Keyword::Ilike) {
         parse_like_clause(p);
     }
+
+    common::skip_to_keywords(p, SHOW_KEYWORDS);
 
     if p.at_keyword(Keyword::Limit) {
         parse_optional_limit(p);
@@ -286,9 +308,13 @@ fn parse_show_dictionaries(p: &mut Parser) {
     let m = p.start();
     p.advance(); // DICTIONARIES
 
+    common::skip_to_keywords(p, SHOW_KEYWORDS);
+
     if p.at_keyword(Keyword::From) {
         parse_from_database(p);
     }
+
+    common::skip_to_keywords(p, SHOW_KEYWORDS);
 
     if p.at_keyword(Keyword::Like) || p.at_keyword(Keyword::Ilike) {
         parse_like_clause(p);
@@ -301,6 +327,8 @@ fn parse_show_dictionaries(p: &mut Parser) {
 fn parse_show_functions(p: &mut Parser) {
     let m = p.start();
     p.advance(); // FUNCTIONS
+
+    common::skip_to_keywords(p, SHOW_KEYWORDS);
 
     if p.at_keyword(Keyword::Like) || p.at_keyword(Keyword::Ilike) {
         parse_like_clause(p);
@@ -344,6 +372,8 @@ fn parse_show_engines(p: &mut Parser) {
 fn parse_show_settings(p: &mut Parser) {
     let m = p.start();
     p.advance(); // SETTINGS
+
+    common::skip_to_keywords(p, SHOW_KEYWORDS);
 
     if p.at_keyword(Keyword::Like) || p.at_keyword(Keyword::Ilike) {
         parse_like_clause(p);

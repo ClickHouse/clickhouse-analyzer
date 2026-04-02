@@ -60,6 +60,27 @@ pub fn parse_table_identifier(p: &mut Parser) {
     p.complete(m, SyntaxKind::TableIdentifier);
 }
 
+// ---------------------------------------------------------------------------
+// Error recovery infrastructure
+// ---------------------------------------------------------------------------
+
+/// True if the current token exactly matches any keyword in the set.
+pub fn at_any_keyword(p: &mut Parser, keywords: &[Keyword]) -> bool {
+    keywords.iter().any(|kw| p.at_keyword(*kw))
+}
+
+/// Skip unexpected tokens until we reach a recognized keyword, end of statement,
+/// or EOF. Each skipped token is wrapped in an Error node.
+pub fn skip_to_keywords(p: &mut Parser, keywords: &[Keyword]) {
+    while !p.eof() && !p.end_of_statement() && !at_any_keyword(p, keywords) {
+        p.advance_with_error("Unexpected token");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Setting parsing
+// ---------------------------------------------------------------------------
+
 /// Parse a single setting: `key = value`.
 pub fn parse_setting_item(p: &mut Parser) {
     let m = p.start();

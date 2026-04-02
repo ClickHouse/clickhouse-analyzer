@@ -254,10 +254,14 @@ fn format_file(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     let mut had_statement = false;
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_token(&t.text);
-                ctx.write_newline();
+                if ctx.take_pending_blank_line() && !ctx.is_at_line_start() {
+                    ctx.write_newline();
+                }
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::Semicolon => {
                 ctx.write_token(";");
@@ -266,6 +270,8 @@ fn format_file(tree: &SyntaxTree, ctx: &mut FormatterContext) {
             SyntaxChild::Tree(subtree) => {
                 if had_statement {
                     ctx.write_newline();
+                    ctx.write_newline();
+                } else if ctx.take_pending_blank_line() {
                     ctx.write_newline();
                 }
                 had_statement = true;
@@ -279,13 +285,14 @@ fn format_query_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     let mut first = true;
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Semicolon => {
                 ctx.write_token(";");
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) => emit_token(t, ctx),
             SyntaxChild::Tree(subtree) => {
@@ -309,10 +316,11 @@ fn format_select_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::Semicolon => {
                 // Semicolons stay on the same line as the last clause
@@ -337,10 +345,11 @@ fn format_select_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     // Emit keywords (SELECT, DISTINCT) then indent the column list
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 // Keywords like SELECT, DISTINCT
@@ -372,10 +381,11 @@ fn format_simple_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     let mut need_sep = false;
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) => {
                 if need_sep && !no_space_before(t) {
@@ -417,10 +427,11 @@ fn format_group_by_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 ctx.write_keyword(&t.text);
@@ -484,10 +495,11 @@ fn format_order_by_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 ctx.write_keyword(&t.text);
@@ -538,10 +550,11 @@ fn format_limit_by_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     let mut need_sep = false;
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 if need_sep {
@@ -575,10 +588,11 @@ fn format_limit_by_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 fn format_settings_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 ctx.write_keyword(&t.text);
@@ -608,10 +622,11 @@ fn format_settings_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 fn format_with_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 ctx.write_keyword(&t.text);
@@ -636,10 +651,11 @@ fn format_join_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     let mut need_sep = false;
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 if need_sep {
@@ -674,10 +690,11 @@ fn format_comma_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     let mut after_comma = false;
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comma => {
                 ctx.write_token(",");
@@ -706,10 +723,11 @@ fn format_comma_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 fn format_inline_comma_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comma => {
                 ctx.write_token(",");
@@ -730,10 +748,11 @@ fn format_binary_expression(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     // We want spaces around the operator
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 // Keyword operators: AND, OR
@@ -755,10 +774,11 @@ fn format_binary_expression(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 fn format_unary_expression(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 // NOT keyword
@@ -778,10 +798,11 @@ fn format_unary_expression(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 fn format_function_call(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t)
                 if t.kind == TokenKind::OpeningRoundBracket =>
@@ -806,10 +827,11 @@ fn format_function_call(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 fn format_case_expression(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 let upper = t.text.to_uppercase();
@@ -851,10 +873,11 @@ fn format_case_expression(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 fn format_when_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 let upper = t.text.to_uppercase();
@@ -883,10 +906,11 @@ fn format_when_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 fn format_subquery(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t)
                 if t.kind == TokenKind::OpeningRoundBracket =>
@@ -915,7 +939,9 @@ fn format_subquery(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 fn format_paren_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comma => {
                 ctx.write_token(",");
                 ctx.write_space();
@@ -939,7 +965,9 @@ fn format_paren_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 fn format_bracket_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comma => {
                 ctx.write_token(",");
                 ctx.write_space();
@@ -963,7 +991,9 @@ fn format_bracket_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 fn format_brace_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comma => {
                 ctx.write_token(",");
                 ctx.write_space();
@@ -995,7 +1025,9 @@ fn format_brace_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 fn format_data_type(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comma => {
                 ctx.write_token(",");
                 ctx.write_space();
@@ -1005,6 +1037,9 @@ fn format_data_type(tree: &SyntaxTree, ctx: &mut FormatterContext) {
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::ClosingRoundBracket => {
                 ctx.write_token(")");
+            }
+            SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) => {
                 // Type names are identifiers — preserve original casing
@@ -1027,10 +1062,11 @@ fn format_inline_tight_parens(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     let mut prev_kind: Option<TokenKind> = None;
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) => {
                 let suppress_space = t.kind == TokenKind::OpeningRoundBracket
@@ -1067,10 +1103,11 @@ fn format_engine_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     let mut prev_kind: Option<TokenKind> = None;
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) => {
                 let suppress_space = t.kind == TokenKind::OpeningRoundBracket
@@ -1102,10 +1139,11 @@ fn format_inline(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     let mut prev_kind: Option<TokenKind> = None;
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) => {
                 if !no_space_before(t) {
@@ -1137,9 +1175,11 @@ fn format_inline(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 fn format_inline_no_spaces(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) => emit_token(t, ctx),
             SyntaxChild::Tree(subtree) => format_node(subtree, ctx),
@@ -1155,11 +1195,11 @@ fn format_passthrough(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     for child in &tree.children {
         match child {
             SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
                 ctx.write_space();
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) => emit_token(t, ctx),
             SyntaxChild::Tree(subtree) => format_node(subtree, ctx),
@@ -1170,6 +1210,23 @@ fn format_passthrough(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/// Emit a comment, preserving its original line placement.
+/// If the comment was preceded by a newline in the source, emit it on a new line.
+fn emit_comment(token: &Token, ctx: &mut FormatterContext) {
+    if ctx.take_pending_newline() {
+        if !ctx.is_at_line_start() {
+            ctx.write_newline();
+        }
+    } else {
+        ctx.write_space();
+    }
+    ctx.write_token(&token.text);
+    // Line comments (--) consume the rest of the line, so we must newline after.
+    if token.text.starts_with("--") {
+        ctx.write_newline();
+    }
+}
 
 fn emit_token(token: &Token, ctx: &mut FormatterContext) {
     if token.kind == TokenKind::Whitespace {
@@ -1217,10 +1274,11 @@ fn format_insert_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     let mut first_clause = true;
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 if !first_clause {
@@ -1265,7 +1323,9 @@ fn format_values_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     let mut need_sep = false;
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 ctx.write_keyword(&t.text);
                 need_sep = true;
@@ -1294,10 +1354,11 @@ fn format_create_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     let mut first_clause = true;
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
-                ctx.write_space();
-                ctx.write_token(&t.text);
+                emit_comment(t, ctx);
             }
             SyntaxChild::Token(t) => {
                 if !first_clause && !no_space_before(t) {
@@ -1334,27 +1395,146 @@ fn format_create_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 }
 
 fn format_column_def_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    // Two-pass approach to align trailing comments.
+    //
+    // Pass 1: format each column-definition line into a string, split off any
+    //         trailing comment, and record both pieces.
+    // Pass 2: pad the non-comment part so all comments start at the same column.
+
+    struct Line {
+        content: String,  // formatted column def (+ comma)
+        comment: Option<String>,
+    }
+
+    let mut lines: Vec<Line> = Vec::new();
+    let mut has_open = false;
+    let mut has_close = false;
+
+    // Group children into lines. Each Tree child (ColumnDefinition) starts a new line.
+    // Tokens like comma attach to the previous line, comments attach as trailing.
+    let mut current_parts: Vec<&SyntaxChild> = Vec::new();
+
+    let flush_line = |parts: &mut Vec<&SyntaxChild>, lines: &mut Vec<Line>, ctx: &FormatterContext| {
+        if parts.is_empty() {
+            return;
+        }
+        let mut tmp = ctx.child();
+        for child in parts.iter() {
+            match child {
+                SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+                SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {}
+                SyntaxChild::Token(t) if t.kind == TokenKind::Comma => {
+                    tmp.write_token(",");
+                }
+                SyntaxChild::Token(t) => emit_token(t, &mut tmp),
+                SyntaxChild::Tree(subtree) => format_node(subtree, &mut tmp),
+            }
+        }
+
+        // Extract trailing comment: could be a direct Comment token in parts,
+        // or the formatted output may end with one from a nested node.
+        let formatted = tmp.output().to_string();
+
+        // Check for direct comment token in parts
+        let mut comment = None;
+        for child in parts.iter().rev() {
+            match child {
+                SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => continue,
+                SyntaxChild::Token(t) if t.kind == TokenKind::Comment => {
+                    comment = Some(t.text.clone());
+                    break;
+                }
+                _ => break,
+            }
+        }
+
+        // If no direct comment, check if the formatted output ends with a line comment
+        // (from a nested node that emit_comment formatted)
+        if comment.is_none() {
+            let trimmed = formatted.trim_end();
+            // Find if a line comment got appended by emit_comment (which adds \n after --)
+            // The output might be "col_b Int64 -- example2\n"
+            if let Some(pos) = trimmed.rfind("-- ").or_else(|| trimmed.rfind("--")) {
+                // Only if it looks like a trailing comment (not part of a string/identifier)
+                let before = &trimmed[..pos];
+                // Heuristic: there should be a space or line-start before --
+                if before.is_empty() || before.ends_with(' ') {
+                    comment = Some(trimmed[pos..].to_string());
+                }
+            }
+        }
+
+        let content = if let Some(ref c) = comment {
+            // Strip the comment from the formatted content
+            let trimmed = formatted.trim_end();
+            let content = trimmed.strip_suffix(c.as_str())
+                .unwrap_or(trimmed)
+                .trim_end()
+                .to_string();
+            content
+        } else {
+            formatted.trim_end().to_string()
+        };
+
+        lines.push(Line { content, comment });
+        parts.clear();
+    };
+
     for child in &tree.children {
         match child {
             SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
             SyntaxChild::Token(t) if t.kind == TokenKind::OpeningRoundBracket => {
-                ctx.write_token("(");
-                ctx.indent();
+                has_open = true;
             }
             SyntaxChild::Token(t) if t.kind == TokenKind::ClosingRoundBracket => {
-                ctx.dedent();
-                ctx.write_newline();
-                ctx.write_token(")");
+                has_close = true;
             }
-            SyntaxChild::Token(t) if t.kind == TokenKind::Comma => {
-                ctx.write_token(",");
+            SyntaxChild::Tree(_) => {
+                flush_line(&mut current_parts, &mut lines, ctx);
+                current_parts.push(child);
             }
-            SyntaxChild::Token(t) => emit_token(t, ctx),
-            SyntaxChild::Tree(subtree) => {
-                ctx.write_newline();
-                format_node(subtree, ctx);
+            _ => {
+                current_parts.push(child);
             }
         }
+    }
+    flush_line(&mut current_parts, &mut lines, ctx);
+
+    // Find max content width among lines that have comments
+    let max_width = lines.iter()
+        .filter(|l| l.comment.is_some())
+        .map(|l| l.content.len())
+        .max()
+        .unwrap_or(0);
+
+    // Emit
+    if has_open {
+        ctx.write_token("(");
+        ctx.indent();
+    }
+
+    for line in &lines {
+        if !ctx.is_at_line_start() {
+            ctx.write_newline();
+        }
+        ctx.write_token(&line.content);
+        if let Some(ref comment) = line.comment {
+            let pad = max_width.saturating_sub(line.content.len());
+            ctx.write_padding(pad);
+            ctx.write_space();
+            ctx.write_token(comment);
+            if comment.starts_with("--") {
+                ctx.write_newline();
+            }
+        }
+    }
+
+    if has_close {
+        ctx.dedent();
+        if !ctx.is_at_line_start() {
+            ctx.write_newline();
+        }
+        ctx.write_token(")");
     }
 }
 
@@ -1366,7 +1546,9 @@ fn format_alter_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     let mut need_sep = false;
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 if need_sep {
                     ctx.write_space();
@@ -1406,7 +1588,9 @@ fn format_alter_command_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     let mut after_comma = false;
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::Comma => {
                 ctx.write_token(",");
                 ctx.write_newline();
@@ -1428,7 +1612,9 @@ fn format_alter_command_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 fn format_set_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 ctx.write_keyword(&t.text);
                 ctx.write_newline();
@@ -1455,7 +1641,9 @@ fn format_union_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     let mut after_first_select = false;
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 if after_first_select {
                     // This is the UNION/EXCEPT/INTERSECT keyword or ALL/DISTINCT
@@ -1490,7 +1678,9 @@ fn format_explain_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     let mut had_kind = false;
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {}
+            SyntaxChild::Token(t) if t.kind == TokenKind::Whitespace => {
+                ctx.note_skipped_whitespace(&t.text);
+            }
             SyntaxChild::Token(t) if t.kind == TokenKind::BareWord => {
                 ctx.write_keyword(&t.text);
                 ctx.write_space();

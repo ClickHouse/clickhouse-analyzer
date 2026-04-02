@@ -7,6 +7,12 @@ use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
 use crate::parser::syntax_kind::SyntaxKind;
 
+const CREATE_TABLE_KEYWORDS: &[Keyword] = &[
+    Keyword::Engine, Keyword::Order, Keyword::Partition, Keyword::Primary,
+    Keyword::Sample, Keyword::Ttl, Keyword::Settings, Keyword::Comment,
+    Keyword::As,
+];
+
 /// Check if the current position starts a CREATE statement.
 pub fn at_create_statement(p: &mut Parser) -> bool {
     p.at_keyword(Keyword::Create)
@@ -84,10 +90,16 @@ fn parse_create_table(p: &mut Parser) {
         parse_column_definition_list(p);
     }
 
+    // Skip unexpected tokens before ENGINE
+    common::skip_to_keywords(p, CREATE_TABLE_KEYWORDS);
+
     // ENGINE = ...
     if p.at_keyword(Keyword::Engine) {
         parse_engine_clause(p);
     }
+
+    // Skip unexpected tokens after ENGINE
+    common::skip_to_keywords(p, CREATE_TABLE_KEYWORDS);
 
     // Table-level clauses (can appear in any order after ENGINE)
     parse_table_clauses(p);
@@ -639,6 +651,8 @@ fn parse_engine_clause(p: &mut Parser) {
 /// Parse table-level clauses: ORDER BY, PARTITION BY, PRIMARY KEY, SAMPLE BY, TTL, SETTINGS, COMMENT
 fn parse_table_clauses(p: &mut Parser) {
     loop {
+        common::skip_to_keywords(p, CREATE_TABLE_KEYWORDS);
+
         if p.at_keyword(Keyword::Order) {
             let m = p.start();
             p.advance(); // ORDER

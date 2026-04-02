@@ -153,23 +153,17 @@ pub fn at_end_of_column_list(p: &mut Parser) -> bool {
         || p.at_keyword(Keyword::Intersect)
 }
 
+const SELECT_CLAUSE_KEYWORDS: &[Keyword] = &[
+    Keyword::Select, Keyword::From, Keyword::Where, Keyword::Order,
+    Keyword::Limit, Keyword::Group, Keyword::Having, Keyword::Prewhere,
+    Keyword::Settings, Keyword::Format, Keyword::Union, Keyword::Except,
+    Keyword::Intersect,
+];
+
 /// True if the parser is positioned at a clause keyword that can appear
 /// inside a SELECT statement. Used for error recovery.
 fn at_clause_keyword(p: &mut Parser) -> bool {
-    p.at_keyword(Keyword::Select)
-        || p.at_keyword(Keyword::From)
-        || p.at_keyword(Keyword::Where)
-        || p.at_keyword(Keyword::Order)
-        || p.at_keyword(Keyword::Limit)
-        || p.at_keyword(Keyword::Group)
-        || p.at_keyword(Keyword::Having)
-        || p.at_keyword(Keyword::Prewhere)
-        || p.at_keyword(Keyword::Settings)
-        || p.at_keyword(Keyword::Format)
-        || p.at_keyword(Keyword::Union)
-        || p.at_keyword(Keyword::Except)
-        || p.at_keyword(Keyword::Intersect)
-        || at_join_keyword(p)
+    common::at_any_keyword(p, SELECT_CLAUSE_KEYWORDS) || at_join_keyword(p)
 }
 
 /// True if the parser is positioned at a keyword that starts a JOIN clause.

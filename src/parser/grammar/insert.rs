@@ -6,6 +6,11 @@ use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
 use crate::parser::syntax_kind::SyntaxKind;
 
+const INSERT_KEYWORDS: &[Keyword] = &[
+    Keyword::Values, Keyword::Format, Keyword::Settings,
+    Keyword::Select, Keyword::With,
+];
+
 pub fn at_insert_statement(p: &mut Parser) -> bool {
     p.at_keyword(Keyword::Insert)
 }
@@ -31,10 +36,16 @@ pub fn parse_insert_statement(p: &mut Parser) {
         parse_insert_columns(p);
     }
 
+    // Skip unexpected tokens before SETTINGS/VALUES/FORMAT/SELECT
+    common::skip_to_keywords(p, INSERT_KEYWORDS);
+
     // Optional SETTINGS clause before data
     if p.at_keyword(Keyword::Settings) {
         parse_settings_clause(p);
     }
+
+    // Skip unexpected tokens before data clause
+    common::skip_to_keywords(p, INSERT_KEYWORDS);
 
     // Data part: VALUES, SELECT, or FORMAT
     if p.at_keyword(Keyword::Values) {

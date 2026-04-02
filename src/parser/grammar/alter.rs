@@ -81,13 +81,21 @@ fn parse_alter_command(p: &mut Parser) {
     }
 }
 
+const ALTER_COMMAND_KEYWORDS: &[Keyword] = &[
+    Keyword::Add, Keyword::Drop, Keyword::Modify, Keyword::Rename,
+    Keyword::Clear, Keyword::Comment, Keyword::Detach, Keyword::Attach,
+    Keyword::Freeze, Keyword::Delete, Keyword::Update, Keyword::Materialize,
+    Keyword::Reset,
+];
+
 fn skip_unknown_command(p: &mut Parser) {
     let m = p.start();
     if !p.eof() {
         p.advance();
     }
-    // Skip tokens until we reach a comma or end of statement
-    while !p.at(TokenKind::Comma) && !p.end_of_statement() {
+    while !p.at(TokenKind::Comma) && !p.end_of_statement()
+        && !common::at_any_keyword(p, ALTER_COMMAND_KEYWORDS)
+    {
         p.advance();
     }
     p.complete(m, SyntaxKind::Error);

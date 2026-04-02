@@ -951,3 +951,37 @@ fn materialized_view_with_dot_access() {
     let reconstructed = collect_text(&result.tree);
     assert_eq!(reconstructed, sql);
 }
+
+// ===========================================================================
+// Error recovery tests
+// ===========================================================================
+
+#[test]
+fn recovery_misspelled_where() {
+    // WHER should not cause cascading errors
+    let result = parse("SELECT 1 FROM t WHER x > 1");
+    // Should have errors but not many "Unexpected token" errors
+    assert!(result.errors.len() <= 4, "Too many errors: {:?}", result.errors);
+    // Tree should cover all bytes
+    assert_eq!(collect_text(&result.tree), "SELECT 1 FROM t WHER x > 1");
+}
+
+#[test]
+fn recovery_misspelled_engine() {
+    let result = parse("CREATE TABLE t (id UInt64) ENIGNE = MergeTree() ORDER BY id");
+    assert_eq!(collect_text(&result.tree), "CREATE TABLE t (id UInt64) ENIGNE = MergeTree() ORDER BY id");
+    // Should still parse something after ENIGNE, not eat ORDER BY as garbage
+}
+
+#[test]
+fn recovery_garbage_between_create_clauses() {
+    let result = parse("CREATE TABLE t (id UInt64) ENGINE = MergeTree() GARBAGE ORDER BY id");
+    assert_eq!(collect_text(&result.tree), "CREATE TABLE t (id UInt64) ENGINE = MergeTree() GARBAGE ORDER BY id");
+    // GARBAGE should be an error, ORDER BY should still parse
+}
+
+#[test]
+fn recovery_misspelled_from_in_show() {
+    let result = parse("SHOW TABLES FORM default");
+    assert_eq!(collect_text(&result.tree), "SHOW TABLES FORM default");
+}

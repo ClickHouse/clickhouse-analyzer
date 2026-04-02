@@ -39,9 +39,22 @@ fn main() {
         print!("{buf}");
     }
 
-    for e in &result.errors {
-        let (line, col) = byte_offset_to_line_col(&input, e.range.0);
-        eprintln!("error at {line}:{col}: {}", e.message);
+    let diagnostics = clickhouse_analyzer::enrich_diagnostics(&result, &input);
+    for d in &diagnostics {
+        let (line, col) = byte_offset_to_line_col(&input, d.range.0);
+        let severity = match d.severity {
+            clickhouse_analyzer::Severity::Error => "error",
+            clickhouse_analyzer::Severity::Warning => "warning",
+            clickhouse_analyzer::Severity::Hint => "hint",
+        };
+        eprintln!("{severity} at {line}:{col}: {}", d.message);
+        if let Some(ref suggestion) = d.suggestion {
+            eprintln!("  suggestion: {}", suggestion.message);
+        }
+        for r in &d.related {
+            let (rl, rc) = byte_offset_to_line_col(&input, r.range.0);
+            eprintln!("  related {rl}:{rc}: {}", r.message);
+        }
     }
 }
 
