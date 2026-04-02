@@ -277,6 +277,486 @@ pub fn parse_optimize_statement(p: &mut Parser) {
     p.complete(m, SyntaxKind::OptimizeStatement);
 }
 
+// ---------------------------------------------------------------------------
+// ATTACH statement
+// ---------------------------------------------------------------------------
+
+pub fn at_attach_statement(p: &mut Parser) -> bool {
+    p.at_keyword(Keyword::Attach)
+}
+
+pub fn parse_attach_statement(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Attach);
+
+    // Object kind: TABLE, DATABASE
+    if p.at_keyword(Keyword::Table) {
+        p.advance();
+    } else if p.at_keyword(Keyword::Database) {
+        p.advance();
+    }
+
+    common::parse_if_not_exists(p);
+
+    common::parse_table_identifier(p);
+
+    common::parse_on_cluster(p);
+
+    p.complete(m, SyntaxKind::AttachStatement);
+}
+
+// ---------------------------------------------------------------------------
+// DETACH statement
+// ---------------------------------------------------------------------------
+
+pub fn at_detach_statement(p: &mut Parser) -> bool {
+    p.at_keyword(Keyword::Detach)
+}
+
+pub fn parse_detach_statement(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Detach);
+
+    // Object kind: TABLE, DATABASE
+    if p.at_keyword(Keyword::Table) {
+        p.advance();
+    } else if p.at_keyword(Keyword::Database) {
+        p.advance();
+    }
+
+    common::parse_if_exists(p);
+
+    common::parse_table_identifier(p);
+
+    common::parse_on_cluster(p);
+
+    // Optional PERMANENTLY
+    let _ = p.eat_keyword(Keyword::Permanently);
+
+    p.complete(m, SyntaxKind::DetachStatement);
+}
+
+// ---------------------------------------------------------------------------
+// EXCHANGE statement
+// ---------------------------------------------------------------------------
+
+pub fn at_exchange_statement(p: &mut Parser) -> bool {
+    p.at_keyword(Keyword::Exchange)
+}
+
+pub fn parse_exchange_statement(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Exchange);
+    p.expect_keyword(Keyword::Tables);
+
+    common::parse_table_identifier(p);
+
+    p.expect_keyword(Keyword::And);
+
+    common::parse_table_identifier(p);
+
+    common::parse_on_cluster(p);
+
+    p.complete(m, SyntaxKind::ExchangeStatement);
+}
+
+// ---------------------------------------------------------------------------
+// UNDROP statement
+// ---------------------------------------------------------------------------
+
+pub fn at_undrop_statement(p: &mut Parser) -> bool {
+    p.at_keyword(Keyword::Undrop)
+}
+
+pub fn parse_undrop_statement(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Undrop);
+    p.expect_keyword(Keyword::Table);
+
+    common::parse_table_identifier(p);
+
+    common::parse_on_cluster(p);
+
+    p.complete(m, SyntaxKind::UndropStatement);
+}
+
+// ---------------------------------------------------------------------------
+// BACKUP statement
+// ---------------------------------------------------------------------------
+
+pub fn at_backup_statement(p: &mut Parser) -> bool {
+    p.at_keyword(Keyword::Backup)
+}
+
+pub fn parse_backup_statement(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Backup);
+
+    // Object kind: TABLE, DATABASE
+    if p.at_keyword(Keyword::Table) {
+        p.advance();
+    } else if p.at_keyword(Keyword::Database) {
+        p.advance();
+    }
+
+    common::parse_table_identifier(p);
+
+    // TO <expression>
+    p.expect_keyword(Keyword::To);
+    parse_expression(p);
+
+    // Optional SETTINGS
+    if p.at_keyword(Keyword::Settings) {
+        let sm = p.start();
+        p.expect_keyword(Keyword::Settings);
+
+        let mut first = true;
+        while !p.end_of_statement() {
+            if !first {
+                p.expect(SyntaxKind::Comma);
+            }
+            first = false;
+
+            common::parse_setting_item(p);
+        }
+
+        p.complete(sm, SyntaxKind::SettingsClause);
+    }
+
+    p.complete(m, SyntaxKind::BackupStatement);
+}
+
+// ---------------------------------------------------------------------------
+// RESTORE statement
+// ---------------------------------------------------------------------------
+
+pub fn at_restore_statement(p: &mut Parser) -> bool {
+    p.at_keyword(Keyword::Restore)
+}
+
+pub fn parse_restore_statement(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Restore);
+
+    // Object kind: TABLE, DATABASE
+    if p.at_keyword(Keyword::Table) {
+        p.advance();
+    } else if p.at_keyword(Keyword::Database) {
+        p.advance();
+    }
+
+    common::parse_table_identifier(p);
+
+    // FROM <expression>
+    p.expect_keyword(Keyword::From);
+    parse_expression(p);
+
+    // Optional SETTINGS
+    if p.at_keyword(Keyword::Settings) {
+        let sm = p.start();
+        p.expect_keyword(Keyword::Settings);
+
+        let mut first = true;
+        while !p.end_of_statement() {
+            if !first {
+                p.expect(SyntaxKind::Comma);
+            }
+            first = false;
+
+            common::parse_setting_item(p);
+        }
+
+        p.complete(sm, SyntaxKind::SettingsClause);
+    }
+
+    p.complete(m, SyntaxKind::RestoreStatement);
+}
+
+// GRANT statement
+// ---------------------------------------------------------------------------
+
+pub fn at_grant_statement(p: &mut Parser) -> bool {
+    p.at_keyword(Keyword::Grant)
+}
+
+pub fn parse_grant_statement(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Grant);
+
+    // Parse privilege list
+    parse_privilege_list(p);
+
+    // ON target
+    if p.at_keyword(Keyword::On) {
+        parse_grant_target(p);
+    } else {
+        p.recover_with_error("Expected ON after privilege list");
+    }
+
+    // TO user_list
+    if p.at_keyword(Keyword::To) {
+        p.expect_keyword(Keyword::To);
+        parse_identifier_list(p);
+    } else {
+        p.recover_with_error("Expected TO after grant target");
+    }
+
+    // Optional WITH GRANT OPTION
+    if p.at_keyword(Keyword::With) {
+        p.advance(); // WITH
+        let _ = p.eat_keyword(Keyword::Grant);
+        let _ = p.eat_keyword(Keyword::Option);
+    }
+
+    p.complete(m, SyntaxKind::GrantStatement);
+}
+
+// ---------------------------------------------------------------------------
+// REVOKE statement
+// ---------------------------------------------------------------------------
+
+pub fn at_revoke_statement(p: &mut Parser) -> bool {
+    p.at_keyword(Keyword::Revoke)
+}
+
+pub fn parse_revoke_statement(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Revoke);
+
+    // Parse privilege list
+    parse_privilege_list(p);
+
+    // ON target
+    if p.at_keyword(Keyword::On) {
+        parse_grant_target(p);
+    } else {
+        p.recover_with_error("Expected ON after privilege list");
+    }
+
+    // FROM user_list
+    if p.at_keyword(Keyword::From) {
+        p.expect_keyword(Keyword::From);
+        parse_identifier_list(p);
+    } else {
+        p.recover_with_error("Expected FROM after revoke target");
+    }
+
+    p.complete(m, SyntaxKind::RevokeStatement);
+}
+
+// ---------------------------------------------------------------------------
+// Shared helpers for GRANT / REVOKE
+// ---------------------------------------------------------------------------
+
+/// Parse a comma-separated list of privileges.
+/// Each privilege is a keyword/identifier optionally followed by a column list in parens.
+/// Example: SELECT, INSERT(col1, col2), ALTER
+fn parse_privilege_list(p: &mut Parser) {
+    let m = p.start();
+
+    parse_privilege(p);
+
+    while p.at(SyntaxKind::Comma) && !p.end_of_statement() {
+        p.advance(); // ','
+        parse_privilege(p);
+    }
+
+    p.complete(m, SyntaxKind::PrivilegeList);
+}
+
+/// Parse a single privilege: a keyword/identifier, optionally followed by
+/// additional keyword words (e.g. ALL PRIVILEGES, SHOW TABLES) and
+/// an optional column list in parens.
+fn parse_privilege(p: &mut Parser) {
+    let m = p.start();
+
+    if p.at_identifier() {
+        p.advance();
+
+        // Some privileges are multi-word: ALL PRIVILEGES, SHOW TABLES, etc.
+        // Consume additional bare words that aren't structural keywords (ON, TO, FROM, comma).
+        while p.at(SyntaxKind::BareWord)
+            && !p.at_keyword(Keyword::On)
+            && !p.at_keyword(Keyword::To)
+            && !p.at_keyword(Keyword::From)
+            && !p.end_of_statement()
+        {
+            // Don't consume if next is comma (separates privileges)
+            if p.at(SyntaxKind::Comma) {
+                break;
+            }
+            p.advance();
+        }
+
+        // Optional column list: SELECT(col1, col2)
+        if p.at(SyntaxKind::OpeningRoundBracket) {
+            p.advance(); // '('
+            parse_identifier_list(p);
+            p.expect(SyntaxKind::ClosingRoundBracket);
+        }
+    } else {
+        p.recover_with_error("Expected privilege name");
+    }
+
+    p.complete(m, SyntaxKind::Privilege);
+}
+
+/// Parse ON target: ON db.table, ON db.*, ON *.*
+fn parse_grant_target(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::On);
+
+    // Parse the target: could be *.*, db.*, db.table, or just *
+    if p.at(SyntaxKind::Star) {
+        p.advance(); // '*'
+        if p.at(SyntaxKind::Dot) {
+            p.advance(); // '.'
+            if p.at(SyntaxKind::Star) {
+                p.advance(); // '*'
+            } else if p.at_identifier() {
+                p.advance();
+            } else {
+                p.recover_with_error("Expected table name or * after dot");
+            }
+        }
+    } else if p.at_identifier() {
+        p.advance(); // db or table name
+        if p.at(SyntaxKind::Dot) {
+            p.advance(); // '.'
+            if p.at(SyntaxKind::Star) {
+                p.advance(); // '*'
+            } else if p.at_identifier() {
+                p.advance();
+            } else {
+                p.recover_with_error("Expected table name or * after dot");
+            }
+        }
+    } else {
+        p.recover_with_error("Expected target after ON");
+    }
+
+    p.complete(m, SyntaxKind::GrantTarget);
+}
+
+/// Parse comma-separated identifier list (for user names, column names in privileges).
+fn parse_identifier_list(p: &mut Parser) {
+    if p.at_identifier() {
+        p.advance();
+    }
+
+    while p.at(SyntaxKind::Comma) && !p.end_of_statement() {
+        p.advance(); // ','
+        if p.at_identifier() {
+            p.advance();
+        } else {
+            p.recover_with_error("Expected identifier");
+        }
+    }
+}
+// ---------------------------------------------------------------------------
+// SYSTEM statement
+// ---------------------------------------------------------------------------
+
+pub fn at_system_statement(p: &mut Parser) -> bool {
+    p.at_keyword(Keyword::System)
+}
+
+pub fn parse_system_statement(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::System);
+
+    // Start SystemCommand node — consume subcommand keyword tokens
+    let cmd = p.start();
+
+    // Consume known subcommand keywords until we hit a table identifier,
+    // semicolon, or EOF. We don't validate every combination — just
+    // consume bareword keywords that are part of SYSTEM subcommands.
+    loop {
+        if p.end_of_statement() {
+            break;
+        }
+
+        // Check if this is a known system subcommand keyword
+        let is_subcommand_kw = p.at_keyword(Keyword::Reload)
+            || p.at_keyword(Keyword::Drop)
+            || p.at_keyword(Keyword::Flush)
+            || p.at_keyword(Keyword::Stop)
+            || p.at_keyword(Keyword::Start)
+            || p.at_keyword(Keyword::Sync)
+            || p.at_keyword(Keyword::Dns)
+            || p.at_keyword(Keyword::Cache)
+            || p.at_keyword(Keyword::Mark)
+            || p.at_keyword(Keyword::Uncompressed)
+            || p.at_keyword(Keyword::Compiled)
+            || p.at_keyword(Keyword::Logs)
+            || p.at_keyword(Keyword::Distributed)
+            || p.at_keyword(Keyword::Merges)
+            || p.at_keyword(Keyword::Sends)
+            || p.at_keyword(Keyword::Replicated)
+            || p.at_keyword(Keyword::Fetches)
+            || p.at_keyword(Keyword::Moves)
+            || p.at_keyword(Keyword::Replica)
+            || p.at_keyword(Keyword::Dictionaries)
+            || p.at_keyword(Keyword::Dictionary)
+            || p.at_keyword(Keyword::Config)
+            || p.at_keyword(Keyword::Functions);
+
+        if !is_subcommand_kw {
+            break;
+        }
+
+        p.advance();
+    }
+
+    p.complete(cmd, SyntaxKind::SystemCommand);
+
+    // Optionally parse table identifier for commands that take one
+    if !p.end_of_statement() {
+        common::parse_table_identifier(p);
+    }
+
+    p.complete(m, SyntaxKind::SystemStatement);
+}
+
+// ---------------------------------------------------------------------------
+// KILL statement
+// ---------------------------------------------------------------------------
+
+pub fn at_kill_statement(p: &mut Parser) -> bool {
+    p.at_keyword(Keyword::Kill)
+}
+
+pub fn parse_kill_statement(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Kill);
+
+    // QUERY or MUTATION — wrap in KillTarget
+    let target = p.start();
+    if p.at_keyword(Keyword::Query) {
+        p.advance();
+    } else if p.at_keyword(Keyword::Mutation) {
+        p.advance();
+    } else {
+        p.recover_with_error("Expected QUERY or MUTATION after KILL");
+    }
+    p.complete(target, SyntaxKind::KillTarget);
+
+    // WHERE expression
+    if p.at_keyword(Keyword::Where) {
+        let wm = p.start();
+        p.expect_keyword(Keyword::Where);
+        parse_expression(p);
+        p.complete(wm, SyntaxKind::WhereClause);
+    }
+
+    // Optional SYNC/ASYNC/TEST keyword
+    let _ = p.eat_keyword(Keyword::Sync)
+        || p.eat_keyword(Keyword::Async)
+        || p.eat_keyword(Keyword::Test);
+
+    p.complete(m, SyntaxKind::KillStatement);
+}
+
 #[cfg(test)]
 mod tests {
     use crate::parser::parse;
@@ -851,6 +1331,353 @@ mod tests {
                     'DICTIONARY'
                     TableIdentifier
                       'mydict'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_attach_table() {
+        check(
+            "ATTACH TABLE IF NOT EXISTS db.t ON CLUSTER 'c'",
+            expect![[r#"
+                File
+                  AttachStatement
+                    'ATTACH'
+                    'TABLE'
+                    IfNotExistsClause
+                      'IF'
+                      'NOT'
+                      'EXISTS'
+                    TableIdentifier
+                      'db'
+                      '.'
+                      't'
+                    OnClusterClause
+                      'ON'
+                      'CLUSTER'
+                      ''c''
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_detach_table_permanently() {
+        check(
+            "DETACH TABLE IF EXISTS db.t PERMANENTLY",
+            expect![[r#"
+                File
+                  DetachStatement
+                    'DETACH'
+                    'TABLE'
+                    IfExistsClause
+                      'IF'
+                      'EXISTS'
+                    TableIdentifier
+                      'db'
+                      '.'
+                      't'
+                    'PERMANENTLY'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_exchange_tables() {
+        check(
+            "EXCHANGE TABLES t1 AND t2 ON CLUSTER 'c'",
+            expect![[r#"
+                File
+                  ExchangeStatement
+                    'EXCHANGE'
+                    'TABLES'
+                    TableIdentifier
+                      't1'
+                    'AND'
+                    TableIdentifier
+                      't2'
+                    OnClusterClause
+                      'ON'
+                      'CLUSTER'
+                      ''c''
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_undrop_table() {
+        check(
+            "UNDROP TABLE db.t ON CLUSTER 'c'",
+            expect![[r#"
+                File
+                  UndropStatement
+                    'UNDROP'
+                    'TABLE'
+                    TableIdentifier
+                      'db'
+                      '.'
+                      't'
+                    OnClusterClause
+                      'ON'
+                      'CLUSTER'
+                      ''c''
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_backup_table() {
+        check(
+            "BACKUP TABLE db.t TO Disk('backups', '1.zip')",
+            expect![[r#"
+                File
+                  BackupStatement
+                    'BACKUP'
+                    'TABLE'
+                    TableIdentifier
+                      'db'
+                      '.'
+                      't'
+                    'TO'
+                    FunctionCall
+                      Identifier
+                        'Disk'
+                      ExpressionList
+                        '('
+                        Expression
+                          StringLiteral
+                            ''backups''
+                        ','
+                        Expression
+                          StringLiteral
+                            ''1.zip''
+                        ')'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_restore_table_with_settings() {
+        check(
+            "RESTORE TABLE db.t FROM Disk('backups', '1.zip') SETTINGS allow_non_empty_tables = true",
+            expect![[r#"
+                File
+                  RestoreStatement
+                    'RESTORE'
+                    'TABLE'
+                    TableIdentifier
+                      'db'
+                      '.'
+                      't'
+                    'FROM'
+                    FunctionCall
+                      Identifier
+                        'Disk'
+                      ExpressionList
+                        '('
+                        Expression
+                          StringLiteral
+                            ''backups''
+                        ','
+                        Expression
+                          StringLiteral
+                            ''1.zip''
+                        ')'
+                    SettingsClause
+                      'SETTINGS'
+                      SettingItem
+                        'allow_non_empty_tables'
+                        '='
+                        BooleanLiteral
+                          'true'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_revoke_select() {
+        check(
+            "REVOKE SELECT ON db.t FROM user1",
+            expect![[r#"
+                File
+                  RevokeStatement
+                    'REVOKE'
+                    PrivilegeList
+                      Privilege
+                        'SELECT'
+                    GrantTarget
+                      'ON'
+                      'db'
+                      '.'
+                      't'
+                    'FROM'
+                    'user1'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_system_reload_dictionary_with_table() {
+        check(
+            "SYSTEM RELOAD DICTIONARY db.mydict",
+            expect![[r#"
+                File
+                  SystemStatement
+                    'SYSTEM'
+                    SystemCommand
+                      'RELOAD'
+                      'DICTIONARY'
+                    TableIdentifier
+                      'db'
+                      '.'
+                      'mydict'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_system_drop_dns_cache() {
+        check(
+            "SYSTEM DROP DNS CACHE",
+            expect![[r#"
+                File
+                  SystemStatement
+                    'SYSTEM'
+                    SystemCommand
+                      'DROP'
+                      'DNS'
+                      'CACHE'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_system_flush_distributed() {
+        check(
+            "SYSTEM FLUSH DISTRIBUTED db.t",
+            expect![[r#"
+                File
+                  SystemStatement
+                    'SYSTEM'
+                    SystemCommand
+                      'FLUSH'
+                      'DISTRIBUTED'
+                    TableIdentifier
+                      'db'
+                      '.'
+                      't'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_revoke_all_privileges() {
+        check(
+            "REVOKE ALL PRIVILEGES ON *.* FROM user1",
+            expect![[r#"
+                File
+                  RevokeStatement
+                    'REVOKE'
+                    PrivilegeList
+                      Privilege
+                        'ALL'
+                        'PRIVILEGES'
+                    GrantTarget
+                      'ON'
+                      '*'
+                      '.'
+                      '*'
+                    'FROM'
+                    'user1'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_system_sync_replica() {
+        check(
+            "SYSTEM SYNC REPLICA db.t",
+            expect![[r#"
+                File
+                  SystemStatement
+                    'SYSTEM'
+                    SystemCommand
+                      'SYNC'
+                      'REPLICA'
+                    TableIdentifier
+                      'db'
+                      '.'
+                      't'
+            "#]],
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // KILL statement tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_kill_query() {
+        check(
+            "KILL QUERY WHERE query_id = '123'",
+            expect![[r#"
+                File
+                  KillStatement
+                    'KILL'
+                    KillTarget
+                      'QUERY'
+                    WhereClause
+                      'WHERE'
+                      BinaryExpression
+                        ColumnReference
+                          'query_id'
+                        '='
+                        StringLiteral
+                          ''123''
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_kill_query_sync() {
+        check(
+            "KILL QUERY WHERE query_id = '123' SYNC",
+            expect![[r#"
+                File
+                  KillStatement
+                    'KILL'
+                    KillTarget
+                      'QUERY'
+                    WhereClause
+                      'WHERE'
+                      BinaryExpression
+                        ColumnReference
+                          'query_id'
+                        '='
+                        StringLiteral
+                          ''123''
+                    'SYNC'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_kill_mutation() {
+        check(
+            "KILL MUTATION WHERE mutation_id = '456'",
+            expect![[r#"
+                File
+                  KillStatement
+                    'KILL'
+                    KillTarget
+                      'MUTATION'
+                    WhereClause
+                      'WHERE'
+                      BinaryExpression
+                        ColumnReference
+                          'mutation_id'
+                        '='
+                        StringLiteral
+                          ''456''
             "#]],
         );
     }

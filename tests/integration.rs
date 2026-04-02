@@ -41,11 +41,8 @@ fn check_errors(input: &str, expected: Expect) {
     expected.assert_eq(&actual);
 }
 
-// ===========================================================================
-// 1. Structural invariants — must hold for ALL inputs
-// ===========================================================================
-
-#[test]
+// ====================================================================// 1. Structural invariants — must hold for ALL inputs
+// =============================================================#[test]
 fn parser_never_panics_on_garbage() {
     let inputs = [
         "",
@@ -142,6 +139,15 @@ fn tree_covers_all_input_bytes() {
         "OPTIMIZE TABLE t FINAL DEDUPLICATE",
         "SELECT 1 UNION ALL SELECT 2",
         "SELECT a FROM t EXCEPT SELECT b FROM u",
+        // ATTACH / DETACH / EXCHANGE / UNDROP / BACKUP / RESTORE
+        "ATTACH TABLE t",
+        "DETACH TABLE IF EXISTS db.t PERMANENTLY",
+        "EXCHANGE TABLES t1 AND t2 ON CLUSTER 'c'",
+        "UNDROP TABLE db.t ON CLUSTER 'c'",
+        "BACKUP TABLE db.t TO Disk('backups', '1.zip')",
+        "RESTORE TABLE db.t FROM Disk('backups', '1.zip')",
+        "GRANT SELECT ON db.t TO user1",
+        "REVOKE ALL ON *.* FROM user1",
     ];
     for input in &inputs {
         let result = parse(input);
@@ -282,6 +288,93 @@ fn valid_sql_produces_no_errors() {
         // Query parameters in identifier positions
         "SELECT value FROM {database:Identifier}.{table:Identifier}",
         "SELECT {col:Identifier} FROM t",
+        // Window functions
+        "SELECT sum(x) OVER (PARTITION BY y ORDER BY z)",
+        "SELECT sum(x) OVER (PARTITION BY y ORDER BY z ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
+        "SELECT sum(x) OVER (ORDER BY z RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING)",
+        "SELECT sum(x) OVER w",
+        "SELECT sum(x) OVER w FROM t WINDOW w AS (PARTITION BY y ORDER BY z)",
+        "SELECT sum(x) OVER (PARTITION BY y ORDER BY z ROWS UNBOUNDED PRECEDING)",
+        // SAMPLE
+        "SELECT * FROM t SAMPLE 0.1",
+        "SELECT * FROM t SAMPLE 10000",
+        "SELECT * FROM t SAMPLE 0.1 OFFSET 0.5",
+        // ARRAY JOIN
+        "SELECT * FROM t ARRAY JOIN arr1, arr2",
+        "SELECT * FROM t LEFT ARRAY JOIN arr AS a",
+        "SELECT * FROM t ARRAY JOIN arr1 AS a, arr2 AS b",
+        // WITH FILL
+        "SELECT date, value FROM t ORDER BY date WITH FILL STEP 1",
+        "SELECT date, value FROM t ORDER BY date WITH FILL FROM 0 TO 100 STEP 1",
+        // WINDOW clause with multiple definitions
+        "SELECT sum(x) OVER w1, avg(y) OVER w2 FROM t WINDOW w1 AS (PARTITION BY a), w2 AS (ORDER BY b)",
+        // ATTACH
+        "ATTACH TABLE t",
+        "ATTACH TABLE IF NOT EXISTS t",
+        "ATTACH TABLE db.t ON CLUSTER 'cluster'",
+        "ATTACH DATABASE db",
+        // DETACH
+        "DETACH TABLE t",
+        "DETACH TABLE IF EXISTS t",
+        "DETACH TABLE db.t ON CLUSTER 'cluster'",
+        "DETACH TABLE db.t PERMANENTLY",
+        "DETACH DATABASE db",
+        // EXCHANGE
+        "EXCHANGE TABLES t1 AND t2",
+        "EXCHANGE TABLES db.t1 AND db.t2 ON CLUSTER 'cluster'",
+        // UNDROP
+        "UNDROP TABLE t",
+        "UNDROP TABLE db.t ON CLUSTER 'cluster'",
+        // BACKUP
+        "BACKUP TABLE db.t TO Disk('backups', '1.zip')",
+        "BACKUP DATABASE db TO Disk('backups', '1.zip')",
+        // RESTORE
+        "RESTORE TABLE db.t FROM Disk('backups', '1.zip')",
+        "RESTORE DATABASE db FROM Disk('backups', '1.zip')",
+        // GRANT
+        "GRANT SELECT ON db.t TO user1",
+        "GRANT SELECT, INSERT ON db.t TO user1, user2",
+        "GRANT SELECT(col1, col2) ON db.t TO user1",
+        "GRANT ALL ON *.* TO admin",
+        "GRANT CREATE, ALTER, DROP ON db.* TO developer",
+        "GRANT SELECT ON db.t TO user1 WITH GRANT OPTION",
+        // REVOKE
+        "REVOKE SELECT ON db.t FROM user1",
+        "REVOKE ALL ON *.* FROM user1",
+        "REVOKE ALL PRIVILEGES ON *.* FROM user1",
+        // SYSTEM
+        "SYSTEM RELOAD DICTIONARIES",
+        "SYSTEM RELOAD DICTIONARY db.mydict",
+        "SYSTEM RELOAD CONFIG",
+        "SYSTEM RELOAD FUNCTIONS",
+        "SYSTEM DROP DNS CACHE",
+        "SYSTEM DROP MARK CACHE",
+        "SYSTEM DROP UNCOMPRESSED CACHE",
+        "SYSTEM DROP COMPILED CACHE",
+        "SYSTEM FLUSH LOGS",
+        "SYSTEM FLUSH DISTRIBUTED db.t",
+        "SYSTEM STOP MERGES db.t",
+        "SYSTEM START MERGES db.t",
+        "SYSTEM STOP DISTRIBUTED SENDS db.t",
+        "SYSTEM START DISTRIBUTED SENDS db.t",
+        "SYSTEM STOP REPLICATED SENDS db.t",
+        "SYSTEM START REPLICATED SENDS db.t",
+        "SYSTEM STOP FETCHES db.t",
+        "SYSTEM START FETCHES db.t",
+        "SYSTEM STOP MOVES db.t",
+        "SYSTEM START MOVES db.t",
+        "SYSTEM SYNC REPLICA db.t",
+        // KILL
+        "KILL QUERY WHERE query_id = '123'",
+        "KILL QUERY WHERE query_id = '123' SYNC",
+        "KILL QUERY WHERE query_id = '123' ASYNC",
+        "KILL QUERY WHERE query_id = '123' TEST",
+        "KILL MUTATION WHERE mutation_id = '123'",
+        // CREATE DICTIONARY with structured clauses
+        "CREATE DICTIONARY mydict (id UInt64, name String) PRIMARY KEY id SOURCE(CLICKHOUSE(HOST 'localhost' PORT 9000 TABLE 'source_table' DB 'default')) LAYOUT(HASHED()) LIFETIME(300)",
+        "CREATE DICTIONARY mydict (id UInt64, name String) PRIMARY KEY id SOURCE(CLICKHOUSE(HOST 'localhost')) LAYOUT(FLAT()) LIFETIME(MIN 300 MAX 600)",
+        "CREATE DICTIONARY mydict (id UInt64, start Date, end Date) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(RANGE_HASHED()) RANGE(MIN start MAX end) LIFETIME(0)",
+        "CREATE DICTIONARY mydict (id UInt64) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(COMPLEX_KEY_HASHED()) LIFETIME(300)",
     ];
     for input in &inputs {
         let result = parse(input);
@@ -294,11 +387,8 @@ fn valid_sql_produces_no_errors() {
     }
 }
 
-// ===========================================================================
-// 2. Semicolons and multiple statements
-// ===========================================================================
-
-#[test]
+// ====================================================================// 2. Semicolons and multiple statements
+// =============================================================#[test]
 fn trailing_semicolon() {
     check(
         "SELECT 1;",
@@ -366,11 +456,8 @@ fn only_semicolons() {
     );
 }
 
-// ===========================================================================
-// 3. Empty literals (recent fixes)
-// ===========================================================================
-
-#[test]
+// ====================================================================// 3. Empty literals (recent fixes)
+// =============================================================#[test]
 fn empty_array() {
     check(
         "SELECT []",
@@ -414,11 +501,8 @@ fn empty_parens_no_errors() {
     check_errors("SELECT ()", expect![[""]]);
 }
 
-// ===========================================================================
-// 4. Interval edge cases (recent fix)
-// ===========================================================================
-
-#[test]
+// ====================================================================// 4. Interval edge cases (recent fix)
+// =============================================================#[test]
 fn interval_without_unit_at_eof() {
     check(
         "SELECT INTERVAL 5",
@@ -472,11 +556,8 @@ fn interval_without_unit_does_not_eat_from() {
     );
 }
 
-// ===========================================================================
-// 5. Error recovery — tree structure after errors
-// ===========================================================================
-
-#[test]
+// ====================================================================// 5. Error recovery — tree structure after errors
+// =============================================================#[test]
 fn unclosed_paren_recovery() {
     check(
         "SELECT (1 + 2",
@@ -556,11 +637,8 @@ fn completely_invalid_input() {
     assert_eq!(reconstructed, "!!! @@@ ###");
 }
 
-// ===========================================================================
-// 6. Keywords as function names
-// ===========================================================================
-
-#[test]
+// ====================================================================// 6. Keywords as function names
+// =============================================================#[test]
 fn any_as_function_name() {
     check(
         "SELECT any(col) FROM t",
@@ -623,11 +701,8 @@ fn any_as_join_keyword() {
     );
 }
 
-// ===========================================================================
-// 7. Full integration smoke test (preserved from original)
-// ===========================================================================
-
-#[test]
+// ====================================================================// 7. Full integration smoke test (preserved from original)
+// =============================================================#[test]
 fn test_full_parse() {
     let sql = "
         WITH
@@ -664,11 +739,8 @@ fn test_full_parse() {
     assert_eq!(reconstructed, sql);
 }
 
-// ===========================================================================
-// Tuple element access via dot (e.g. expr.1, expr.2)
-// ===========================================================================
-
-#[test]
+// ====================================================================// Tuple element access via dot (e.g. expr.1, expr.2)
+// =============================================================#[test]
 fn tuple_dot_access_on_parenthesized_expr() {
     check(
         "SELECT (t).1",
@@ -822,11 +894,8 @@ fn named_tuple_cast_dot_access() {
     );
 }
 
-// ===========================================================================
-// Parenthesized subquery in CREATE VIEW AS clause
-// ===========================================================================
-
-#[test]
+// ====================================================================// Parenthesized subquery in CREATE VIEW AS clause
+// =============================================================#[test]
 fn create_view_as_parenthesized_subquery() {
     check(
         "CREATE VIEW v AS (SELECT 1)",
@@ -860,11 +929,8 @@ fn create_view_as_parenthesized_subquery_complex() {
     );
 }
 
-// ===========================================================================
-// Modulo operator
-// ===========================================================================
-
-#[test]
+// ====================================================================// Modulo operator
+// =============================================================#[test]
 fn modulo_operator() {
     check(
         "SELECT a % 5",
@@ -890,11 +956,8 @@ fn modulo_precedence_same_as_multiply() {
     check_errors("SELECT a + b % c * d", expect![[""]]);
 }
 
-// ===========================================================================
-// Cast (::) on arbitrary expressions
-// ===========================================================================
-
-#[test]
+// ====================================================================// Cast (::) on arbitrary expressions
+// =============================================================#[test]
 fn cast_on_function_call() {
     check(
         "SELECT func(x)::UInt32",
@@ -937,11 +1000,8 @@ fn cast_on_parenthesized_expr() {
     check_errors("SELECT (a + b)::Float64", expect![[""]]);
 }
 
-// ===========================================================================
-// Full integration tests
-// ===========================================================================
-
-#[test]
+// ====================================================================// Full integration tests
+// =============================================================#[test]
 fn materialized_view_with_dot_access() {
     // Full integration: MV with expression alias + tuple dot access
     let sql = "\
@@ -955,11 +1015,8 @@ fn materialized_view_with_dot_access() {
     assert_eq!(reconstructed, sql);
 }
 
-// ===========================================================================
-// Error recovery tests
-// ===========================================================================
-
-#[test]
+// ====================================================================// Error recovery tests
+// =============================================================#[test]
 fn recovery_misspelled_where() {
     // WHER should not cause cascading errors
     let result = parse("SELECT 1 FROM t WHER x > 1");
@@ -989,11 +1046,8 @@ fn recovery_misspelled_from_in_show() {
     assert_eq!(collect_text(&result.tree, &result.source), "SHOW TABLES FORM default");
 }
 
-// ===========================================================================
-// Query parameters in identifier positions
-// ===========================================================================
-
-#[test]
+// ====================================================================// Query parameters in identifier positions
+// =============================================================#[test]
 fn query_parameter_as_table_identifier() {
     check("SELECT value FROM {database:Identifier}.{table:Identifier}", expect![[r#"
         File
@@ -1070,4 +1124,751 @@ fn query_parameter_mixed_with_bare_identifier() {
                 '.'
                 'my_table'
     "#]]);
+}
+
+// ====================================================================// ATTACH / DETACH / EXCHANGE / UNDROP / BACKUP / RESTORE statements
+// =============================================================#[test]
+fn attach_table() {
+    check(
+        "ATTACH TABLE t",
+        expect![[r#"
+            File
+              AttachStatement
+                'ATTACH'
+                'TABLE'
+                TableIdentifier
+                  't'
+        "#]],
+    );
+}
+
+#[test]
+fn attach_table_if_not_exists() {
+    check(
+        "ATTACH TABLE IF NOT EXISTS t",
+        expect![[r#"
+            File
+              AttachStatement
+                'ATTACH'
+                'TABLE'
+                IfNotExistsClause
+                  'IF'
+                  'NOT'
+                  'EXISTS'
+                TableIdentifier
+                  't'
+        "#]],
+    );
+}
+
+#[test]
+fn attach_table_on_cluster() {
+    check(
+        "ATTACH TABLE db.t ON CLUSTER 'cluster'",
+        expect![[r#"
+            File
+              AttachStatement
+                'ATTACH'
+                'TABLE'
+                TableIdentifier
+                  'db'
+                  '.'
+                  't'
+                OnClusterClause
+                  'ON'
+                  'CLUSTER'
+                  ''cluster''
+        "#]],
+    );
+}
+
+#[test]
+fn attach_database() {
+    check(
+        "ATTACH DATABASE db",
+        expect![[r#"
+            File
+              AttachStatement
+                'ATTACH'
+                'DATABASE'
+                TableIdentifier
+                  'db'
+        "#]],
+    );
+}
+
+#[test]
+fn detach_table() {
+    check(
+        "DETACH TABLE t",
+        expect![[r#"
+            File
+              DetachStatement
+                'DETACH'
+                'TABLE'
+                TableIdentifier
+                  't'
+        "#]],
+    );
+}
+
+#[test]
+fn detach_table_if_exists() {
+    check(
+        "DETACH TABLE IF EXISTS t",
+        expect![[r#"
+            File
+              DetachStatement
+                'DETACH'
+                'TABLE'
+                IfExistsClause
+                  'IF'
+                  'EXISTS'
+                TableIdentifier
+                  't'
+        "#]],
+    );
+}
+
+#[test]
+fn detach_table_on_cluster() {
+    check(
+        "DETACH TABLE db.t ON CLUSTER 'cluster'",
+        expect![[r#"
+            File
+              DetachStatement
+                'DETACH'
+                'TABLE'
+                TableIdentifier
+                  'db'
+                  '.'
+                  't'
+                OnClusterClause
+                  'ON'
+                  'CLUSTER'
+                  ''cluster''
+        "#]],
+    );
+}
+
+#[test]
+fn detach_table_permanently() {
+    check(
+        "DETACH TABLE db.t PERMANENTLY",
+        expect![[r#"
+            File
+              DetachStatement
+                'DETACH'
+                'TABLE'
+                TableIdentifier
+                  'db'
+                  '.'
+                  't'
+                'PERMANENTLY'
+        "#]],
+    );
+}
+
+#[test]
+fn detach_database() {
+    check(
+        "DETACH DATABASE db",
+        expect![[r#"
+            File
+              DetachStatement
+                'DETACH'
+                'DATABASE'
+                TableIdentifier
+                  'db'
+        "#]],
+    );
+}
+
+#[test]
+fn exchange_tables() {
+    check(
+        "EXCHANGE TABLES t1 AND t2",
+        expect![[r#"
+            File
+              ExchangeStatement
+                'EXCHANGE'
+                'TABLES'
+                TableIdentifier
+                  't1'
+                'AND'
+                TableIdentifier
+                  't2'
+        "#]],
+    );
+}
+
+#[test]
+fn exchange_tables_on_cluster() {
+    check(
+        "EXCHANGE TABLES db.t1 AND db.t2 ON CLUSTER 'cluster'",
+        expect![[r#"
+            File
+              ExchangeStatement
+                'EXCHANGE'
+                'TABLES'
+                TableIdentifier
+                  'db'
+                  '.'
+                  't1'
+                'AND'
+                TableIdentifier
+                  'db'
+                  '.'
+                  't2'
+                OnClusterClause
+                  'ON'
+                  'CLUSTER'
+                  ''cluster''
+        "#]],
+    );
+}
+
+#[test]
+fn undrop_table() {
+    check(
+        "UNDROP TABLE t",
+        expect![[r#"
+            File
+              UndropStatement
+                'UNDROP'
+                'TABLE'
+                TableIdentifier
+                  't'
+        "#]],
+    );
+}
+
+#[test]
+fn undrop_table_on_cluster() {
+    check(
+        "UNDROP TABLE db.t ON CLUSTER 'cluster'",
+        expect![[r#"
+            File
+              UndropStatement
+                'UNDROP'
+                'TABLE'
+                TableIdentifier
+                  'db'
+                  '.'
+                  't'
+                OnClusterClause
+                  'ON'
+                  'CLUSTER'
+                  ''cluster''
+        "#]],
+    );
+}
+
+#[test]
+fn backup_table() {
+    check(
+        "BACKUP TABLE db.t TO Disk('backups', '1.zip')",
+        expect![[r#"
+            File
+              BackupStatement
+                'BACKUP'
+                'TABLE'
+                TableIdentifier
+                  'db'
+                  '.'
+                  't'
+                'TO'
+                FunctionCall
+                  Identifier
+                    'Disk'
+                  ExpressionList
+                    '('
+                    Expression
+                      StringLiteral
+                        ''backups''
+                    ','
+                    Expression
+                      StringLiteral
+                        ''1.zip''
+                    ')'
+        "#]],
+    );
+}
+
+#[test]
+fn backup_database() {
+    check(
+        "BACKUP DATABASE db TO Disk('backups', '1.zip')",
+        expect![[r#"
+            File
+              BackupStatement
+                'BACKUP'
+                'DATABASE'
+                TableIdentifier
+                  'db'
+                'TO'
+                FunctionCall
+                  Identifier
+                    'Disk'
+                  ExpressionList
+                    '('
+                    Expression
+                      StringLiteral
+                        ''backups''
+                    ','
+                    Expression
+                      StringLiteral
+                        ''1.zip''
+                    ')'
+        "#]],
+    );
+}
+
+#[test]
+fn backup_with_settings() {
+    check(
+        "BACKUP TABLE db.t TO Disk('backups', '1.zip') SETTINGS base_backup = Disk('backups', '0.zip')",
+        expect![[r#"
+            File
+              BackupStatement
+                'BACKUP'
+                'TABLE'
+                TableIdentifier
+                  'db'
+                  '.'
+                  't'
+                'TO'
+                FunctionCall
+                  Identifier
+                    'Disk'
+                  ExpressionList
+                    '('
+                    Expression
+                      StringLiteral
+                        ''backups''
+                    ','
+                    Expression
+                      StringLiteral
+                        ''1.zip''
+                    ')'
+                SettingsClause
+                  'SETTINGS'
+                  SettingItem
+                    'base_backup'
+                    '='
+                    FunctionCall
+                      Identifier
+                        'Disk'
+                      ExpressionList
+                        '('
+                        Expression
+                          StringLiteral
+                            ''backups''
+                        ','
+                        Expression
+                          StringLiteral
+                            ''0.zip''
+                        ')'
+        "#]],
+    );
+}
+
+#[test]
+fn restore_table() {
+    check(
+        "RESTORE TABLE db.t FROM Disk('backups', '1.zip')",
+        expect![[r#"
+            File
+              RestoreStatement
+                'RESTORE'
+                'TABLE'
+                TableIdentifier
+                  'db'
+                  '.'
+                  't'
+                'FROM'
+                FunctionCall
+                  Identifier
+                    'Disk'
+                  ExpressionList
+                    '('
+                    Expression
+                      StringLiteral
+                        ''backups''
+                    ','
+                    Expression
+                      StringLiteral
+                        ''1.zip''
+                    ')'
+        "#]],
+    );
+}
+
+#[test]
+fn grant_all_on_wildcard() {
+    check(
+        "GRANT ALL ON *.* TO admin",
+        expect![[r#"
+            File
+              GrantStatement
+                'GRANT'
+                PrivilegeList
+                  Privilege
+                    'ALL'
+                GrantTarget
+                  'ON'
+                  '*'
+                  '.'
+                  '*'
+                'TO'
+                'admin'
+        "#]],
+    );
+}
+
+#[test]
+fn grant_on_db_wildcard() {
+    check(
+        "GRANT CREATE, ALTER, DROP ON db.* TO developer",
+        expect![[r#"
+            File
+              GrantStatement
+                'GRANT'
+                PrivilegeList
+                  Privilege
+                    'CREATE'
+                  ','
+                  Privilege
+                    'ALTER'
+                  ','
+                  Privilege
+                    'DROP'
+                GrantTarget
+                  'ON'
+                  'db'
+                  '.'
+                  '*'
+                'TO'
+                'developer'
+        "#]],
+    );
+}
+
+#[test]
+fn grant_with_grant_option() {
+    check(
+        "GRANT SELECT ON db.t TO user1 WITH GRANT OPTION",
+        expect![[r#"
+            File
+              GrantStatement
+                'GRANT'
+                PrivilegeList
+                  Privilege
+                    'SELECT'
+                GrantTarget
+                  'ON'
+                  'db'
+                  '.'
+                  't'
+                'TO'
+                'user1'
+                'WITH'
+                'GRANT'
+                'OPTION'
+        "#]],
+    );
+}
+
+#[test]
+fn revoke_simple() {
+    check(
+        "REVOKE SELECT ON db.t FROM user1",
+        expect![[r#"
+            File
+              RevokeStatement
+                'REVOKE'
+                PrivilegeList
+                  Privilege
+                    'SELECT'
+                GrantTarget
+                  'ON'
+                  'db'
+                  '.'
+                  't'
+                'FROM'
+                'user1'
+        "#]],
+    );
+}
+
+#[test]
+fn restore_database() {
+    check(
+        "RESTORE DATABASE db FROM Disk('backups', '1.zip')",
+        expect![[r#"
+            File
+              RestoreStatement
+                'RESTORE'
+                'DATABASE'
+                TableIdentifier
+                  'db'
+                'FROM'
+                FunctionCall
+                  Identifier
+                    'Disk'
+                  ExpressionList
+                    '('
+                    Expression
+                      StringLiteral
+                        ''backups''
+                    ','
+                    Expression
+                      StringLiteral
+                        ''1.zip''
+                    ')'
+        "#]],
+    );
+}
+
+#[test]
+fn restore_with_settings() {
+    check(
+        "RESTORE TABLE db.t FROM Disk('backups', '1.zip') SETTINGS allow_non_empty_tables = true",
+        expect![[r#"
+            File
+              RestoreStatement
+                'RESTORE'
+                'TABLE'
+                TableIdentifier
+                  'db'
+                  '.'
+                  't'
+                'FROM'
+                FunctionCall
+                  Identifier
+                    'Disk'
+                  ExpressionList
+                    '('
+                    Expression
+                      StringLiteral
+                        ''backups''
+                    ','
+                    Expression
+                      StringLiteral
+                        ''1.zip''
+                    ')'
+                SettingsClause
+                  'SETTINGS'
+                  SettingItem
+                    'allow_non_empty_tables'
+                    '='
+                    BooleanLiteral
+                      'true'
+        "#]],
+    );
+}
+
+#[test]
+fn revoke_all_privileges() {
+    check(
+        "REVOKE ALL PRIVILEGES ON *.* FROM user1",
+        expect![[r#"
+            File
+              RevokeStatement
+                'REVOKE'
+                PrivilegeList
+                  Privilege
+                    'ALL'
+                    'PRIVILEGES'
+                GrantTarget
+                  'ON'
+                  '*'
+                  '.'
+                  '*'
+                'FROM'
+                'user1'
+        "#]],
+    );
+}
+
+// ====================================================================
+// Dictionary DDL deep parsing
+// ====================================================================
+
+#[test]
+fn dictionary_source_layout_lifetime() {
+    check(
+        "CREATE DICTIONARY d (id UInt64) PRIMARY KEY id SOURCE(CLICKHOUSE(HOST 'localhost' PORT 9000)) LAYOUT(HASHED()) LIFETIME(300)",
+        expect![[r#"
+            File
+              CreateStatement
+                'CREATE'
+                DictionaryDefinition
+                  'DICTIONARY'
+                  TableIdentifier
+                    'd'
+                  ColumnDefinitionList
+                    '('
+                    ColumnDefinition
+                      'id'
+                      DataType
+                        'UInt64'
+                    ')'
+                  PrimaryKeyDefinition
+                    'PRIMARY'
+                    'KEY'
+                    ColumnReference
+                      'id'
+                  DictionarySource
+                    'SOURCE'
+                    '('
+                    DictionarySourceType
+                      'CLICKHOUSE'
+                      '('
+                      DictionaryKeyValue
+                        'HOST'
+                        ''localhost''
+                      DictionaryKeyValue
+                        'PORT'
+                        '9000'
+                      ')'
+                    ')'
+                  DictionaryLayout
+                    'LAYOUT'
+                    '('
+                    DictionaryLayoutType
+                      'HASHED'
+                      '('
+                      ')'
+                    ')'
+                  DictionaryLifetime
+                    'LIFETIME'
+                    '('
+                    '300'
+                    ')'
+        "#]],
+    );
+}
+
+#[test]
+fn dictionary_lifetime_min_max() {
+    check(
+        "CREATE DICTIONARY d (id UInt64) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(FLAT()) LIFETIME(MIN 300 MAX 600)",
+        expect![[r#"
+            File
+              CreateStatement
+                'CREATE'
+                DictionaryDefinition
+                  'DICTIONARY'
+                  TableIdentifier
+                    'd'
+                  ColumnDefinitionList
+                    '('
+                    ColumnDefinition
+                      'id'
+                      DataType
+                        'UInt64'
+                    ')'
+                  PrimaryKeyDefinition
+                    'PRIMARY'
+                    'KEY'
+                    ColumnReference
+                      'id'
+                  DictionarySource
+                    'SOURCE'
+                    '('
+                    DictionarySourceType
+                      'CLICKHOUSE'
+                      '('
+                      ')'
+                    ')'
+                  DictionaryLayout
+                    'LAYOUT'
+                    '('
+                    DictionaryLayoutType
+                      'FLAT'
+                      '('
+                      ')'
+                    ')'
+                  DictionaryLifetime
+                    'LIFETIME'
+                    '('
+                    DictionaryKeyValue
+                      'MIN'
+                      '300'
+                    DictionaryKeyValue
+                      'MAX'
+                      '600'
+                    ')'
+        "#]],
+    );
+}
+
+#[test]
+fn dictionary_range_clause() {
+    check(
+        "CREATE DICTIONARY d (id UInt64, start Date, end Date) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(RANGE_HASHED()) RANGE(MIN start MAX end) LIFETIME(0)",
+        expect![[r#"
+            File
+              CreateStatement
+                'CREATE'
+                DictionaryDefinition
+                  'DICTIONARY'
+                  TableIdentifier
+                    'd'
+                  ColumnDefinitionList
+                    '('
+                    ColumnDefinition
+                      'id'
+                      DataType
+                        'UInt64'
+                    ','
+                    ColumnDefinition
+                      'start'
+                      DataType
+                        'Date'
+                    ','
+                    ColumnDefinition
+                      'end'
+                      DataType
+                        'Date'
+                    ')'
+                  PrimaryKeyDefinition
+                    'PRIMARY'
+                    'KEY'
+                    ColumnReference
+                      'id'
+                  DictionarySource
+                    'SOURCE'
+                    '('
+                    DictionarySourceType
+                      'CLICKHOUSE'
+                      '('
+                      ')'
+                    ')'
+                  DictionaryLayout
+                    'LAYOUT'
+                    '('
+                    DictionaryLayoutType
+                      'RANGE_HASHED'
+                      '('
+                      ')'
+                    ')'
+                  DictionaryRange
+                    'RANGE'
+                    '('
+                    DictionaryKeyValue
+                      'MIN'
+                      'start'
+                    DictionaryKeyValue
+                      'MAX'
+                      'end'
+                    ')'
+                  DictionaryLifetime
+                    'LIFETIME'
+                    '('
+                    '0'
+                    ')'
+        "#]],
+    );
 }

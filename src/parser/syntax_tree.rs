@@ -42,6 +42,7 @@ impl SyntaxChild {
     }
 }
 
+#[allow(dead_code)]
 pub trait SyntaxChildExt {
     fn get_token_with_kind(&self, kind: SyntaxKind) -> Option<&Token>;
     fn get_tree_with_kind(&self, kind: SyntaxKind) -> Option<&SyntaxTree>;

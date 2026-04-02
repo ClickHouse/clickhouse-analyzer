@@ -227,6 +227,15 @@ pub enum Keyword {
     Backup,
     Restore,
 
+    // SYSTEM subcommand keywords
+    Config,
+    Sends,
+    Replicated,
+
+    // Dictionary clause keywords
+    Min,
+    Max,
+
     // Misc
     Local,
     Freeze,
@@ -260,6 +269,11 @@ pub enum Keyword {
     Div,
     Mod,
 
+    // WITH FILL
+    Fill,
+    Step,
+    Interpolate,
+
     // Missing keywords for specific parsers
     Syntax,
     Tree,
@@ -270,6 +284,7 @@ pub enum Keyword {
     Materialize,
     Setting,
     Reset,
+    Option,
 }
 
 impl Keyword {
@@ -451,6 +466,11 @@ impl Keyword {
             Keyword::Transaction => "TRANSACTION",
             Keyword::Backup => "BACKUP",
             Keyword::Restore => "RESTORE",
+            Keyword::Config => "CONFIG",
+            Keyword::Sends => "SENDS",
+            Keyword::Replicated => "REPLICATED",
+            Keyword::Min => "MIN",
+            Keyword::Max => "MAX",
             Keyword::Local => "LOCAL",
             Keyword::Freeze => "FREEZE",
             Keyword::Unfreeze => "UNFREEZE",
@@ -478,6 +498,9 @@ impl Keyword {
             Keyword::Isnull => "ISNULL",
             Keyword::Div => "DIV",
             Keyword::Mod => "MOD",
+            Keyword::Fill => "FILL",
+            Keyword::Step => "STEP",
+            Keyword::Interpolate => "INTERPOLATE",
             Keyword::Syntax => "SYNTAX",
             Keyword::Tree => "TREE",
             Keyword::Override => "OVERRIDE",
@@ -487,6 +510,7 @@ impl Keyword {
             Keyword::Materialize => "MATERIALIZE",
             Keyword::Setting => "SETTING",
             Keyword::Reset => "RESET",
+            Keyword::Option => "OPTION",
         }
     }
 }

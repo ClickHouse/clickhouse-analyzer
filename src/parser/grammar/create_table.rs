@@ -285,45 +285,127 @@ fn parse_create_dictionary(p: &mut Parser) {
         p.complete(m2, SyntaxKind::PrimaryKeyDefinition);
     }
 
-    // SOURCE(...)
-    if p.at_keyword(Keyword::Source) {
-        parse_parenthesized_clause(p);
-    }
-
-    // LAYOUT(...)
-    if p.at_keyword(Keyword::Layout) {
-        parse_parenthesized_clause(p);
-    }
-
-    // LIFETIME(...)
-    if p.at_keyword(Keyword::Lifetime) {
-        parse_parenthesized_clause(p);
+    // Dictionary clauses can appear in any order: SOURCE, LAYOUT, LIFETIME, RANGE
+    loop {
+        if p.at_keyword(Keyword::Source) {
+            parse_dictionary_source(p);
+        } else if p.at_keyword(Keyword::Layout) {
+            parse_dictionary_layout(p);
+        } else if p.at_keyword(Keyword::Lifetime) {
+            parse_dictionary_lifetime(p);
+        } else if p.at_keyword(Keyword::Range) {
+            parse_dictionary_range(p);
+        } else {
+            break;
+        }
     }
 
     p.complete(m, SyntaxKind::DictionaryDefinition);
 }
 
-/// Parse a parenthesized clause like SOURCE(...), LAYOUT(...), LIFETIME(...)
-fn parse_parenthesized_clause(p: &mut Parser) {
+/// Parse SOURCE(TYPE(key value ...))
+/// e.g. SOURCE(CLICKHOUSE(HOST 'localhost' PORT 9000 TABLE 'source_table' DB 'default'))
+fn parse_dictionary_source(p: &mut Parser) {
     let m = p.start();
-    p.advance(); // keyword (SOURCE, LAYOUT, LIFETIME)
+    p.advance(); // SOURCE
     if p.at(SyntaxKind::OpeningRoundBracket) {
-        p.advance(); // (
-        parse_parenthesized_content(p);
-        p.expect(SyntaxKind::ClosingRoundBracket);
+        p.advance(); // outer (
+        // Source type name (e.g. CLICKHOUSE, MYSQL, FILE, etc.)
+        if p.at_identifier() {
+            let tm = p.start();
+            p.advance(); // type name
+            // Inner parens with key-value pairs
+            if p.at(SyntaxKind::OpeningRoundBracket) {
+                p.advance(); // inner (
+                parse_key_value_pairs(p);
+                p.expect(SyntaxKind::ClosingRoundBracket); // inner )
+            }
+            p.complete(tm, SyntaxKind::DictionarySourceType);
+        }
+        p.expect(SyntaxKind::ClosingRoundBracket); // outer )
     }
-    p.complete(m, SyntaxKind::Expression);
+    p.complete(m, SyntaxKind::DictionarySource);
 }
 
-/// Parse content inside parentheses, handling nested parens.
-fn parse_parenthesized_content(p: &mut Parser) {
-    while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
-        if p.at(SyntaxKind::OpeningRoundBracket) {
-            p.advance(); // (
-            parse_parenthesized_content(p);
-            p.expect(SyntaxKind::ClosingRoundBracket);
-        } else {
+/// Parse LAYOUT(TYPE(params...))
+/// e.g. LAYOUT(HASHED()), LAYOUT(COMPLEX_KEY_HASHED()), LAYOUT(RANGE_HASHED(PREALLOCATE 1))
+fn parse_dictionary_layout(p: &mut Parser) {
+    let m = p.start();
+    p.advance(); // LAYOUT
+    if p.at(SyntaxKind::OpeningRoundBracket) {
+        p.advance(); // outer (
+        // Layout type name (e.g. HASHED, FLAT, COMPLEX_KEY_HASHED, etc.)
+        if p.at_identifier() {
+            let tm = p.start();
+            p.advance(); // type name
+            // Inner parens with optional key-value params
+            if p.at(SyntaxKind::OpeningRoundBracket) {
+                p.advance(); // inner (
+                parse_key_value_pairs(p);
+                p.expect(SyntaxKind::ClosingRoundBracket); // inner )
+            }
+            p.complete(tm, SyntaxKind::DictionaryLayoutType);
+        }
+        p.expect(SyntaxKind::ClosingRoundBracket); // outer )
+    }
+    p.complete(m, SyntaxKind::DictionaryLayout);
+}
+
+/// Parse LIFETIME(number) or LIFETIME(MIN number MAX number)
+fn parse_dictionary_lifetime(p: &mut Parser) {
+    let m = p.start();
+    p.advance(); // LIFETIME
+    if p.at(SyntaxKind::OpeningRoundBracket) {
+        p.advance(); // (
+        if p.at_keyword(Keyword::Min) || p.at_keyword(Keyword::Max) {
+            // MIN number MAX number (can appear in either order)
+            parse_key_value_pairs(p);
+        } else if p.at(SyntaxKind::Number) {
+            // Simple form: just a number
             p.advance();
+        } else if !p.at(SyntaxKind::ClosingRoundBracket) {
+            p.advance_with_error("Expected number or MIN/MAX in LIFETIME");
+        }
+        p.expect(SyntaxKind::ClosingRoundBracket);
+    }
+    p.complete(m, SyntaxKind::DictionaryLifetime);
+}
+
+/// Parse RANGE(MIN col MAX col)
+fn parse_dictionary_range(p: &mut Parser) {
+    let m = p.start();
+    p.advance(); // RANGE
+    if p.at(SyntaxKind::OpeningRoundBracket) {
+        p.advance(); // (
+        parse_key_value_pairs(p);
+        p.expect(SyntaxKind::ClosingRoundBracket);
+    }
+    p.complete(m, SyntaxKind::DictionaryRange);
+}
+
+/// Parse key-value pairs inside dictionary clauses.
+/// Each pair is: bareword followed by a literal (string, number, or bareword).
+/// e.g. HOST 'localhost' PORT 9000 TABLE 'source_table'
+/// or: MIN 300 MAX 600
+fn parse_key_value_pairs(p: &mut Parser) {
+    while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
+        if p.at_identifier() {
+            let kv = p.start();
+            p.advance(); // key
+            // value: string, number, or bareword
+            if p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::Number) {
+                p.advance();
+            } else if p.at_identifier()
+                && !p.at(SyntaxKind::ClosingRoundBracket)
+            {
+                // bareword value (e.g. column name in RANGE)
+                p.advance();
+            }
+            // If no value follows the key, that's OK (flags like PREALLOCATE)
+            p.complete(kv, SyntaxKind::DictionaryKeyValue);
+        } else {
+            // Skip unexpected tokens to avoid infinite loop
+            p.advance_with_error("Expected key-value pair in dictionary clause");
         }
     }
 }
@@ -968,5 +1050,66 @@ mod tests {
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DictionaryDefinition"));
         assert!(buf.contains("PrimaryKeyDefinition"));
+        assert!(buf.contains("DictionarySource"));
+        assert!(buf.contains("DictionarySourceType"));
+        assert!(buf.contains("DictionaryLayout"));
+        assert!(buf.contains("DictionaryLayoutType"));
+        assert!(buf.contains("DictionaryLifetime"));
+    }
+
+    #[test]
+    fn test_create_dictionary_no_errors() {
+        let result = parse("CREATE DICTIONARY mydict (id UInt64, name String) PRIMARY KEY id SOURCE(CLICKHOUSE(HOST 'localhost' PORT 9000 TABLE 'source_table' DB 'default')) LAYOUT(HASHED()) LIFETIME(MIN 300 MAX 600)");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    }
+
+    #[test]
+    fn test_create_dictionary_lifetime_simple() {
+        let result = parse("CREATE DICTIONARY d (id UInt64) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(FLAT()) LIFETIME(300)");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0, &result.source);
+        assert!(buf.contains("DictionaryLifetime"));
+    }
+
+    #[test]
+    fn test_create_dictionary_lifetime_min_max() {
+        let result = parse("CREATE DICTIONARY d (id UInt64) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(FLAT()) LIFETIME(MIN 300 MAX 600)");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0, &result.source);
+        assert!(buf.contains("DictionaryLifetime"));
+        assert!(buf.contains("DictionaryKeyValue"));
+    }
+
+    #[test]
+    fn test_create_dictionary_range() {
+        let result = parse("CREATE DICTIONARY d (id UInt64, start Date, end Date) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(RANGE_HASHED()) RANGE(MIN start MAX end) LIFETIME(300)");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0, &result.source);
+        assert!(buf.contains("DictionaryRange"));
+        assert!(buf.contains("DictionaryKeyValue"));
+    }
+
+    #[test]
+    fn test_create_dictionary_source_key_values() {
+        let result = parse("CREATE DICTIONARY d (id UInt64) PRIMARY KEY id SOURCE(CLICKHOUSE(HOST 'localhost' PORT 9000 TABLE 'src' DB 'default' USER 'admin' PASSWORD 'secret')) LAYOUT(HASHED()) LIFETIME(300)");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0, &result.source);
+        assert!(buf.contains("DictionarySource"));
+        assert!(buf.contains("DictionarySourceType"));
+        assert!(buf.contains("DictionaryKeyValue"));
+    }
+
+    #[test]
+    fn test_create_dictionary_complex_layout() {
+        let result = parse("CREATE DICTIONARY d (id UInt64) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(COMPLEX_KEY_HASHED()) LIFETIME(0)");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0, &result.source);
+        assert!(buf.contains("DictionaryLayout"));
+        assert!(buf.contains("DictionaryLayoutType"));
     }
 }

@@ -217,7 +217,7 @@ impl Parser {
         });
         // Point the original node's Open event to the new wrapper
         match &mut self.events[m.index] {
-            Event::Open { forward_parent, .. } => {
+            Event::Open { forward_parent: _, .. } => {
                 // Follow any existing chain to the end
                 let mut target = m.index;
                 loop {
@@ -345,10 +345,12 @@ impl Parser {
         self.nth(0) == kind
     }
 
+    #[allow(dead_code)]
     pub fn at_with_trivia(&mut self, kind: SyntaxKind) -> bool {
         self.nth_with_trivia(0) == kind
     }
 
+    #[allow(dead_code)]
     pub fn at_set(&mut self, set: &TokenSet) -> bool {
         set.contains(self.nth(0))
     }
@@ -408,6 +410,7 @@ impl Parser {
         }
     }
 
+    #[allow(dead_code)]
     pub fn nth_text_with_trivia(&mut self, lookahead: usize) -> &str {
         if self.fuel.get() == 0 {
             return "";

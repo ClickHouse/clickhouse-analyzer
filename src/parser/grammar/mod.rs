@@ -58,6 +58,26 @@ pub fn parse_source(p: &mut Parser) {
             parse_check_statement(p);
         } else if at_optimize_statement(p) {
             parse_optimize_statement(p);
+        } else if at_attach_statement(p) {
+            parse_attach_statement(p);
+        } else if at_detach_statement(p) {
+            parse_detach_statement(p);
+        } else if at_exchange_statement(p) {
+            parse_exchange_statement(p);
+        } else if at_undrop_statement(p) {
+            parse_undrop_statement(p);
+        } else if at_backup_statement(p) {
+            parse_backup_statement(p);
+        } else if at_restore_statement(p) {
+            parse_restore_statement(p);
+        } else if at_grant_statement(p) {
+            parse_grant_statement(p);
+        } else if at_revoke_statement(p) {
+            parse_revoke_statement(p);
+        } else if at_system_statement(p) {
+            parse_system_statement(p);
+        } else if at_kill_statement(p) {
+            parse_kill_statement(p);
         } else if at_select_statement(p) {
             parse_select_statement(p);
         } else if p.at(SyntaxKind::Semicolon) {

@@ -136,6 +136,20 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
                 arg_list(p);
             }
             lhs = p.complete(m, SyntaxKind::FunctionCall);
+            // Window function: func(...) OVER (...)  or  func(...) OVER name
+            if p.at_keyword(Keyword::Over) {
+                let m = p.precede(lhs);
+                p.advance(); // consume OVER
+                if p.at(SyntaxKind::OpeningRoundBracket) {
+                    parse_window_spec(p);
+                } else if p.at_identifier() {
+                    // OVER window_name
+                    p.advance();
+                } else {
+                    p.recover_with_error("Expected window specification or name after OVER");
+                }
+                lhs = p.complete(m, SyntaxKind::WindowExpression);
+            }
         } else if p.at(SyntaxKind::OpeningSquareBracket) {
             let m = p.precede(lhs);
             p.advance(); // consume [
@@ -548,6 +562,110 @@ fn arg(p: &mut Parser) {
     }
 
     p.complete(m, SyntaxKind::Expression);
+}
+
+/// Parses a window specification: ( [PARTITION BY ...] [ORDER BY ...] [frame] )
+///
+/// Called from OVER (...) and WINDOW name AS (...).
+pub fn parse_window_spec(p: &mut Parser) {
+    let m = p.start();
+    p.expect(SyntaxKind::OpeningRoundBracket);
+
+    // Optional PARTITION BY
+    if p.at_keyword(Keyword::Partition) {
+        p.advance(); // PARTITION
+        p.expect_keyword(Keyword::By);
+        // expression list until ORDER/ROWS/RANGE/GROUPS/closing paren
+        let mut first = true;
+        while !p.eof()
+            && !p.at(SyntaxKind::ClosingRoundBracket)
+            && !p.at_keyword(Keyword::Order)
+            && !at_window_frame_keyword(p)
+        {
+            if !first {
+                p.expect(SyntaxKind::Comma);
+            }
+            first = false;
+            parse_expression(p);
+        }
+    }
+
+    // Optional ORDER BY
+    if p.at_keyword(Keyword::Order) {
+        p.advance(); // ORDER
+        p.expect_keyword(Keyword::By);
+        let mut first = true;
+        while !p.eof()
+            && !p.at(SyntaxKind::ClosingRoundBracket)
+            && !at_window_frame_keyword(p)
+        {
+            if !first {
+                p.expect(SyntaxKind::Comma);
+            }
+            first = false;
+            // inline order by item: expr [ASC|DESC] [NULLS FIRST|LAST]
+            parse_expression(p);
+            if p.at_keyword(Keyword::Asc) || p.at_keyword(Keyword::Desc) {
+                p.advance();
+            }
+            if p.at_keyword(Keyword::Nulls) {
+                p.advance();
+                if p.at_keyword(Keyword::First) || p.at_keyword(Keyword::Last) {
+                    p.advance();
+                }
+            }
+        }
+    }
+
+    // Optional frame: ROWS|RANGE|GROUPS BETWEEN bound AND bound
+    //                 or ROWS|RANGE|GROUPS bound
+    if at_window_frame_keyword(p) {
+        let fm = p.start();
+        p.advance(); // consume ROWS/RANGE/GROUPS
+        if p.at_keyword(Keyword::Between) {
+            p.advance(); // consume BETWEEN
+            parse_window_frame_bound(p);
+            p.expect_keyword(Keyword::And);
+            parse_window_frame_bound(p);
+        } else {
+            // single frame bound (shorthand for BETWEEN bound AND CURRENT ROW)
+            parse_window_frame_bound(p);
+        }
+        p.complete(fm, SyntaxKind::WindowFrame);
+    }
+
+    p.expect(SyntaxKind::ClosingRoundBracket);
+    p.complete(m, SyntaxKind::WindowSpec);
+}
+
+fn at_window_frame_keyword(p: &mut Parser) -> bool {
+    p.at_keyword(Keyword::Rows) || p.at_keyword(Keyword::Range) || p.at_keyword(Keyword::Groups)
+}
+
+/// Parses a window frame bound:
+///   UNBOUNDED PRECEDING | UNBOUNDED FOLLOWING
+///   CURRENT ROW
+///   expr PRECEDING | expr FOLLOWING
+fn parse_window_frame_bound(p: &mut Parser) {
+    if p.at_keyword(Keyword::Unbounded) {
+        p.advance(); // UNBOUNDED
+        if p.at_keyword(Keyword::Preceding) || p.at_keyword(Keyword::Following) {
+            p.advance();
+        } else {
+            p.recover_with_error("Expected PRECEDING or FOLLOWING after UNBOUNDED");
+        }
+    } else if p.at_keyword(Keyword::Current) {
+        p.advance(); // CURRENT
+        p.expect_keyword(Keyword::Row);
+    } else {
+        // expr PRECEDING | expr FOLLOWING
+        parse_expression(p);
+        if p.at_keyword(Keyword::Preceding) || p.at_keyword(Keyword::Following) {
+            p.advance();
+        } else {
+            p.recover_with_error("Expected PRECEDING or FOLLOWING");
+        }
+    }
 }
 
 #[cfg(test)]

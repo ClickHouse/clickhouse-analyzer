@@ -3,3 +3,5 @@
 # novel cases are generated.
 cc 6fcaf98a552887a63b2b74c45ef45de31e299c47bd1b4913e640e89ce55b8fea # shrinks to input = "''\"\"\"\".0Ea"
 cc 8db04aff7d41dbdea7900cfcf25e4ccc0bb08eaf6521a8c15952b7fed2c4862c # shrinks to input = "SET(SELECTGROUP BY<SELECT"
+cc eceff60c69655a941d82759177d7edf482c0c3eb26c9569ff9b96427c66b7688 # shrinks to input = "-\t-\"\n\"\"\tA"
+cc 51423d560a6ce18c4a7aa80ff06e75fba1d6af65ec79f9fcd3c7a1faedfec403 # shrinks to input = "''-\t- "

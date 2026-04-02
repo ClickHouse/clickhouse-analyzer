@@ -405,6 +405,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// Read binary digits (0 and 1), including underscore separators
+    #[allow(dead_code)]
     fn read_binary_digits(&mut self) {
         let mut start_of_block = true;
 
@@ -584,6 +585,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// Tokenize up to a specific position
+    #[allow(dead_code)]
     pub fn tokenize_up_to_position(&mut self, position: usize) -> Vec<Token> {
         let mut tokens = Vec::new();
 
@@ -613,6 +615,7 @@ pub fn tokenize_with_whitespace(sql: &str) -> Vec<Token> {
 }
 
 /// Helper function to tokenize a SQL string, excluding whitespace
+#[allow(dead_code)]
 pub fn tokenize(sql: &str) -> Vec<Token> {
     let mut tokenizer = Tokenizer::new(sql);
     tokenizer.set_include_whitespace(false);
@@ -620,6 +623,7 @@ pub fn tokenize(sql: &str) -> Vec<Token> {
 }
 
 /// Helper function to tokenize up to a position, excluding whitespace
+#[allow(dead_code)]
 pub fn tokenize_up_to(sql: &str, position: usize) -> Vec<Token> {
     let mut tokenizer = Tokenizer::new(sql);
     tokenizer.set_include_whitespace(false);

@@ -8,6 +8,7 @@ use crate::parser::syntax_kind::SyntaxKind;
 #[allow(dead_code)]
 pub struct TokenSet(u128, u128);
 
+#[allow(dead_code)]
 impl TokenSet {
     pub const EMPTY: TokenSet = TokenSet(0, 0);
 

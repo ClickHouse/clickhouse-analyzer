@@ -40,6 +40,8 @@ pub enum SyntaxKind {
     DetachStatement,
     ExchangeStatement,
     UndropStatement,
+    BackupStatement,
+    RestoreStatement,
 
     // =======================================================================
     // SELECT clauses
@@ -62,6 +64,9 @@ pub enum SyntaxKind {
     WindowClause,
     WindowDefinition,
     WindowFrame,
+    WindowSpec,
+    SampleClause,
+    WithFillClause,
 
     // =======================================================================
     // CREATE TABLE components
@@ -82,6 +87,17 @@ pub enum SyntaxKind {
     IfNotExistsClause,
     IfExistsClause,
     AsClause,
+
+    // =======================================================================
+    // Dictionary components
+    // =======================================================================
+    DictionarySource,
+    DictionarySourceType,
+    DictionaryLayout,
+    DictionaryLayoutType,
+    DictionaryLifetime,
+    DictionaryRange,
+    DictionaryKeyValue,
 
     // =======================================================================
     // Column definitions

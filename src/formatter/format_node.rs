@@ -40,6 +40,8 @@ const KEYWORDS: &[&str] = &[
     "PRECEDING", "FOLLOWING", "CURRENT", "DIV", "MOD", "DESC",
     "SYNTAX", "TREE", "OVERRIDE", "ENGINES", "FOR", "PART",
     "MATERIALIZE", "SETTING", "RESET", "ILIKE",
+    "FILL", "STEP", "INTERPOLATE",
+    "MATERIALIZE", "SETTING", "RESET", "ILIKE", "OPTION",
 ];
 
 fn is_keyword(text: &str) -> bool {
@@ -124,6 +126,13 @@ pub fn format_node(tree: &SyntaxTree, ctx: &mut FormatterContext) {
         SyntaxKind::WithClause => format_with_clause(tree, ctx),
         SyntaxKind::JoinClause => format_join_clause(tree, ctx),
         SyntaxKind::ArrayJoinClause => format_simple_clause(tree, ctx),
+        SyntaxKind::WindowClause => format_simple_clause(tree, ctx),
+        SyntaxKind::WindowDefinition => format_inline(tree, ctx),
+        SyntaxKind::WindowFrame => format_inline(tree, ctx),
+        SyntaxKind::WindowSpec => format_inline(tree, ctx),
+        SyntaxKind::WindowExpression => format_inline(tree, ctx),
+        SyntaxKind::SampleClause => format_inline(tree, ctx),
+        SyntaxKind::WithFillClause => format_inline(tree, ctx),
         SyntaxKind::JoinType => format_inline(tree, ctx),
         SyntaxKind::JoinConstraint => format_inline(tree, ctx),
         SyntaxKind::ColumnList => format_comma_list(tree, ctx),
@@ -196,6 +205,13 @@ pub fn format_node(tree: &SyntaxTree, ctx: &mut FormatterContext) {
         SyntaxKind::ViewDefinition => format_create_statement(tree, ctx),
         SyntaxKind::MaterializedViewDefinition => format_create_statement(tree, ctx),
         SyntaxKind::DictionaryDefinition => format_create_statement(tree, ctx),
+        SyntaxKind::DictionarySource => format_inline_tight_parens(tree, ctx),
+        SyntaxKind::DictionarySourceType => format_inline_tight_parens(tree, ctx),
+        SyntaxKind::DictionaryLayout => format_inline_tight_parens(tree, ctx),
+        SyntaxKind::DictionaryLayoutType => format_inline_tight_parens(tree, ctx),
+        SyntaxKind::DictionaryLifetime => format_inline_tight_parens(tree, ctx),
+        SyntaxKind::DictionaryRange => format_inline_tight_parens(tree, ctx),
+        SyntaxKind::DictionaryKeyValue => format_inline(tree, ctx),
         SyntaxKind::FunctionDefinition => format_inline(tree, ctx),
         SyntaxKind::IndexDefinition => format_inline_tight_parens(tree, ctx),
         SyntaxKind::ProjectionDefinition => format_inline(tree, ctx),
@@ -240,9 +256,24 @@ pub fn format_node(tree: &SyntaxTree, ctx: &mut FormatterContext) {
         | SyntaxKind::CheckStatement
         | SyntaxKind::RenameStatement
         | SyntaxKind::OptimizeStatement
-        | SyntaxKind::DeleteStatement => format_simple_clause(tree, ctx),
+        | SyntaxKind::DeleteStatement
+        | SyntaxKind::AttachStatement
+        | SyntaxKind::DetachStatement
+        | SyntaxKind::ExchangeStatement
+        | SyntaxKind::UndropStatement
+        | SyntaxKind::BackupStatement
+        | SyntaxKind::RestoreStatement => format_simple_clause(tree, ctx),
+        | SyntaxKind::GrantStatement
+        | SyntaxKind::RevokeStatement => format_simple_clause(tree, ctx),
+        | SyntaxKind::SystemStatement
+        | SyntaxKind::KillStatement => format_simple_clause(tree, ctx),
+        SyntaxKind::SystemCommand => format_inline(tree, ctx),
+        SyntaxKind::KillTarget => format_inline(tree, ctx),
         SyntaxKind::SetStatement => format_set_statement(tree, ctx),
         SyntaxKind::RenameItem => format_inline(tree, ctx),
+        SyntaxKind::PrivilegeList => format_inline_comma_list(tree, ctx),
+        SyntaxKind::Privilege => format_inline(tree, ctx),
+        SyntaxKind::GrantTarget => format_inline(tree, ctx),
         SyntaxKind::IdentifierList => format_inline_comma_list(tree, ctx),
         SyntaxKind::PartitionExpression => format_inline(tree, ctx),
         SyntaxKind::Assignment => format_inline(tree, ctx),
@@ -272,6 +303,14 @@ pub fn format_node(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 // ---------------------------------------------------------------------------
 
 fn format_file(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    // If any direct children are Error nodes, emit the entire file verbatim.
+    // Error tokens at file level intermixed with whitespace can change meaning
+    // when whitespace is dropped (e.g., '-' + whitespace + '- ' → '--' comment).
+    if has_error_child(tree) {
+        format_error_verbatim(tree, ctx);
+        return;
+    }
+
     let mut had_statement = false;
     for child in &tree.children {
         match child {
@@ -288,10 +327,6 @@ fn format_file(tree: &SyntaxTree, ctx: &mut FormatterContext) {
                 ctx.write_token(";");
             }
             SyntaxChild::Token(t) => emit_token(t, ctx),
-            SyntaxChild::Tree(subtree) if subtree.kind == SyntaxKind::Error => {
-                // Error nodes at file level: emit verbatim, no statement separation
-                format_error_verbatim(subtree, ctx);
-            }
             SyntaxChild::Tree(subtree) => {
                 if had_statement {
                     ctx.write_newline();
@@ -1619,7 +1654,6 @@ fn format_alter_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 }
 
 fn format_alter_command_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
-    let mut after_comma = false;
     for child in &tree.children {
         match child {
             SyntaxChild::Token(t) if t.kind == SyntaxKind::Whitespace => {
@@ -1628,11 +1662,9 @@ fn format_alter_command_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
             SyntaxChild::Token(t) if t.kind == SyntaxKind::Comma => {
                 ctx.write_token(",");
                 ctx.write_newline();
-                after_comma = true;
             }
             SyntaxChild::Token(t) => emit_token(t, ctx),
             SyntaxChild::Tree(subtree) => {
-                after_comma = false;
                 format_node(subtree, ctx);
             }
         }
@@ -1709,7 +1741,6 @@ fn format_union_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 // ---------------------------------------------------------------------------
 
 fn format_explain_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
-    let mut had_kind = false;
     for child in &tree.children {
         match child {
             SyntaxChild::Token(t) if t.kind == SyntaxKind::Whitespace => {
@@ -1722,7 +1753,6 @@ fn format_explain_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
             SyntaxChild::Token(t) => emit_token(t, ctx),
             SyntaxChild::Tree(subtree) if subtree.kind == SyntaxKind::ExplainKind => {
                 format_node(subtree, ctx);
-                had_kind = true;
             }
             SyntaxChild::Tree(subtree) if subtree.kind == SyntaxKind::SelectStatement
                 || subtree.kind == SyntaxKind::ShowStatement

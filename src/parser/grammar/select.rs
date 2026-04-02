@@ -1,6 +1,6 @@
 use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::common;
-use crate::parser::grammar::expressions::parse_expression;
+use crate::parser::grammar::expressions::{parse_expression, parse_window_spec};
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
 
@@ -82,6 +82,13 @@ pub fn parse_select_statement(p: &mut Parser) {
 
     skip_to_clause_keyword(p);
 
+    // WINDOW (named window definitions)
+    if p.at_keyword(Keyword::Window) {
+        parse_window_clause(p);
+    }
+
+    skip_to_clause_keyword(p);
+
     // ORDER BY
     if p.at_keyword(Keyword::Order) {
         parse_order_by_clause(p);
@@ -156,7 +163,7 @@ const SELECT_CLAUSE_KEYWORDS: &[Keyword] = &[
     Keyword::Select, Keyword::From, Keyword::Where, Keyword::Order,
     Keyword::Limit, Keyword::Group, Keyword::Having, Keyword::Prewhere,
     Keyword::Settings, Keyword::Format, Keyword::Union, Keyword::Except,
-    Keyword::Intersect,
+    Keyword::Intersect, Keyword::Window, Keyword::Sample,
 ];
 
 /// True if the parser is positioned at a clause keyword that can appear
@@ -339,6 +346,11 @@ fn parse_table_reference(p: &mut Parser) {
             p.complete(m, SyntaxKind::TableIdentifier);
         }
 
+        // SAMPLE n [OFFSET m]
+        if p.at_keyword(Keyword::Sample) {
+            parse_sample_clause(p);
+        }
+
         // FINAL
         p.eat_keyword(Keyword::Final);
 
@@ -349,6 +361,18 @@ fn parse_table_reference(p: &mut Parser) {
         p.advance_with_error("Expected table reference");
         p.complete(m, SyntaxKind::TableIdentifier);
     }
+}
+
+/// Parses: SAMPLE expr [OFFSET expr]
+fn parse_sample_clause(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Sample);
+    parse_expression(p);
+    if p.at_keyword(Keyword::Offset) {
+        p.advance(); // OFFSET
+        parse_expression(p);
+    }
+    p.complete(m, SyntaxKind::SampleClause);
 }
 
 /// Parses: (SELECT ...) as a table reference
@@ -412,12 +436,34 @@ fn parse_join_clause(p: &mut Parser) {
         p.advance();
     }
 
-    // ARRAY JOIN is special
+    // ARRAY JOIN is special — supports: [LEFT] ARRAY JOIN expr [AS alias], ...
     if p.at_keyword(Keyword::Array) {
-        p.advance();
+        p.advance(); // ARRAY
         p.expect_keyword(Keyword::Join);
-        // Array join has expression list, not table ref
-        parse_expression(p);
+        // Comma-separated expression list with optional aliases
+        let mut first = true;
+        while !p.eof() && !p.end_of_statement() && !at_clause_keyword(p) && !at_join_keyword(p) {
+            if !first {
+                p.expect(SyntaxKind::Comma);
+            }
+            first = false;
+            parse_expression(p);
+            // Optional alias: AS alias or bare identifier alias
+            if p.at_keyword(Keyword::As) {
+                let am = p.start();
+                p.advance(); // AS
+                if p.at_identifier() && !at_clause_keyword(p) {
+                    p.advance();
+                } else {
+                    p.recover_with_error("Expected alias after AS");
+                }
+                p.complete(am, SyntaxKind::ColumnAlias);
+            } else if p.at(SyntaxKind::BareWord) && !at_clause_keyword(p) && !at_join_keyword(p) {
+                let am = p.start();
+                p.advance();
+                p.complete(am, SyntaxKind::ColumnAlias);
+            }
+        }
         p.complete(m, SyntaxKind::ArrayJoinClause);
         return;
     }
@@ -506,7 +552,39 @@ fn at_group_by_terminator(p: &mut Parser) -> bool {
         || p.at_keyword(Keyword::Where)
         || p.at_keyword(Keyword::Prewhere)
         || p.at_keyword(Keyword::With)
+        || p.at_keyword(Keyword::Window)
         || at_join_keyword(p)
+}
+
+// ========== WINDOW ==========
+
+/// Parses: WINDOW name AS ( window_spec ) [, name AS ( window_spec ) ...]
+fn parse_window_clause(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Window);
+
+    let mut first = true;
+    while !p.eof() && !p.end_of_statement() && !at_order_by_terminator(p)
+        && !p.at_keyword(Keyword::Window)
+    {
+        if !first {
+            p.expect(SyntaxKind::Comma);
+        }
+        first = false;
+
+        let wm = p.start();
+        // window name
+        if p.at_identifier() {
+            p.advance();
+        } else {
+            p.recover_with_error("Expected window name");
+        }
+        p.expect_keyword(Keyword::As);
+        parse_window_spec(p);
+        p.complete(wm, SyntaxKind::WindowDefinition);
+    }
+
+    p.complete(m, SyntaxKind::WindowClause);
 }
 
 // ========== ORDER BY ==========
@@ -549,7 +627,63 @@ fn parse_order_by_item(p: &mut Parser) {
         }
     }
 
+    // WITH FILL [FROM expr] [TO expr] [STEP expr] [INTERPOLATE (expr, ...)]
+    if p.at_keyword(Keyword::With) && at_with_fill(p) {
+        parse_with_fill_clause(p);
+    }
+
     p.complete(m, SyntaxKind::OrderByItem);
+}
+
+/// Check if we're at WITH FILL (not WITH TOTALS/ROLLUP/CUBE)
+fn at_with_fill(p: &mut Parser) -> bool {
+    p.at_keyword(Keyword::With)
+        && p.nth(1) == SyntaxKind::BareWord
+        && p.nth_text(1).eq_ignore_ascii_case("FILL")
+}
+
+/// Parses: WITH FILL [FROM expr] [TO expr] [STEP expr] [INTERPOLATE (expr, ...)]
+fn parse_with_fill_clause(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::With);
+    p.expect_keyword(Keyword::Fill);
+
+    // Optional FROM expr
+    if p.at_keyword(Keyword::From) {
+        p.advance();
+        parse_expression(p);
+    }
+
+    // Optional TO expr
+    if p.at_keyword(Keyword::To) {
+        p.advance();
+        parse_expression(p);
+    }
+
+    // Optional STEP expr
+    if p.at_keyword(Keyword::Step) {
+        p.advance();
+        parse_expression(p);
+    }
+
+    // Optional INTERPOLATE (expr, ...)
+    if p.at_keyword(Keyword::Interpolate) {
+        p.advance();
+        if p.at(SyntaxKind::OpeningRoundBracket) {
+            p.advance(); // (
+            let mut first = true;
+            while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() && !p.end_of_statement() {
+                if !first {
+                    p.expect(SyntaxKind::Comma);
+                }
+                first = false;
+                parse_expression(p);
+            }
+            p.expect(SyntaxKind::ClosingRoundBracket);
+        }
+    }
+
+    p.complete(m, SyntaxKind::WithFillClause);
 }
 
 /// Keywords that terminate an ORDER BY item list.
@@ -1849,6 +1983,273 @@ mod tests {
                 FormatClause
                   'FORMAT'
                   'CSV'
+        "#]]);
+    }
+
+    #[test]
+    fn window_over_clause() {
+        check("SELECT sum(x) OVER (PARTITION BY y ORDER BY z)", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    WindowExpression
+                      FunctionCall
+                        Identifier
+                          'sum'
+                        ExpressionList
+                          '('
+                          Expression
+                            ColumnReference
+                              'x'
+                          ')'
+                      'OVER'
+                      WindowSpec
+                        '('
+                        'PARTITION'
+                        'BY'
+                        ColumnReference
+                          'y'
+                        'ORDER'
+                        'BY'
+                        ColumnReference
+                          'z'
+                        ')'
+        "#]]);
+    }
+
+    #[test]
+    fn window_over_name() {
+        check("SELECT sum(x) OVER w FROM t", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    WindowExpression
+                      FunctionCall
+                        Identifier
+                          'sum'
+                        ExpressionList
+                          '('
+                          Expression
+                            ColumnReference
+                              'x'
+                          ')'
+                      'OVER'
+                      'w'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+        "#]]);
+    }
+
+    #[test]
+    fn window_with_frame() {
+        check("SELECT sum(x) OVER (ORDER BY z ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    WindowExpression
+                      FunctionCall
+                        Identifier
+                          'sum'
+                        ExpressionList
+                          '('
+                          Expression
+                            ColumnReference
+                              'x'
+                          ')'
+                      'OVER'
+                      WindowSpec
+                        '('
+                        'ORDER'
+                        'BY'
+                        ColumnReference
+                          'z'
+                        WindowFrame
+                          'ROWS'
+                          'BETWEEN'
+                          'UNBOUNDED'
+                          'PRECEDING'
+                          'AND'
+                          'CURRENT'
+                          'ROW'
+                        ')'
+        "#]]);
+    }
+
+    #[test]
+    fn window_clause() {
+        check("SELECT sum(x) OVER w FROM t WINDOW w AS (ORDER BY z)", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    WindowExpression
+                      FunctionCall
+                        Identifier
+                          'sum'
+                        ExpressionList
+                          '('
+                          Expression
+                            ColumnReference
+                              'x'
+                          ')'
+                      'OVER'
+                      'w'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                WindowClause
+                  'WINDOW'
+                  WindowDefinition
+                    'w'
+                    'AS'
+                    WindowSpec
+                      '('
+                      'ORDER'
+                      'BY'
+                      ColumnReference
+                        'z'
+                      ')'
+        "#]]);
+    }
+
+    #[test]
+    fn sample_clause() {
+        check("SELECT * FROM t SAMPLE 0.1", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    Asterisk
+                      '*'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                  SampleClause
+                    'SAMPLE'
+                    NumberLiteral
+                      '0.1'
+        "#]]);
+    }
+
+    #[test]
+    fn sample_with_offset() {
+        check("SELECT * FROM t SAMPLE 0.1 OFFSET 0.5", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    Asterisk
+                      '*'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                  SampleClause
+                    'SAMPLE'
+                    NumberLiteral
+                      '0.1'
+                    'OFFSET'
+                    NumberLiteral
+                      '0.5'
+        "#]]);
+    }
+
+    #[test]
+    fn array_join_multiple() {
+        check("SELECT * FROM t ARRAY JOIN arr1, arr2", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    Asterisk
+                      '*'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                ArrayJoinClause
+                  'ARRAY'
+                  'JOIN'
+                  ColumnReference
+                    'arr1'
+                  ','
+                  ColumnReference
+                    'arr2'
+        "#]]);
+    }
+
+    #[test]
+    fn left_array_join_with_alias() {
+        check("SELECT * FROM t LEFT ARRAY JOIN arr AS a", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    Asterisk
+                      '*'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                ArrayJoinClause
+                  'LEFT'
+                  'ARRAY'
+                  'JOIN'
+                  ColumnReference
+                    'arr'
+                  ColumnAlias
+                    'AS'
+                    'a'
+        "#]]);
+    }
+
+    #[test]
+    fn with_fill_clause() {
+        check("SELECT date FROM t ORDER BY date WITH FILL FROM 0 TO 100 STEP 1", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnReference
+                      'date'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                OrderByClause
+                  'ORDER'
+                  'BY'
+                  OrderByItem
+                    ColumnReference
+                      'date'
+                    WithFillClause
+                      'WITH'
+                      'FILL'
+                      'FROM'
+                      NumberLiteral
+                        '0'
+                      'TO'
+                      NumberLiteral
+                        '100'
+                      'STEP'
+                      NumberLiteral
+                        '1'
         "#]]);
     }
 }

@@ -3,3 +3,4 @@
 CLAUDE.md
 *.sql
 *.log
+.claude/worktrees/
