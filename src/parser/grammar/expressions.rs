@@ -1,11 +1,10 @@
-use crate::lexer::token::TokenKind;
+use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::select::{at_end_of_column_list, at_select_statement, parse_select_statement};
 use crate::parser::grammar::types::parse_column_type;
 use crate::parser::interval_unit::IntervalUnit;
 use crate::parser::keyword::Keyword;
 use crate::parser::marker::CompletedMarker;
 use crate::parser::parser::Parser;
-use crate::parser::syntax_kind::SyntaxKind;
 
 /// Binding power for prefix unary minus, above all binary operators.
 const UNARY_PREFIX_BP: u8 = 7;
@@ -45,17 +44,17 @@ impl BinOp {
             return Some(BinOp::Or);
         }
         match p.nth(0) {
-            TokenKind::Plus => Some(BinOp::Plus),
-            TokenKind::Minus => Some(BinOp::Minus),
-            TokenKind::Asterisk => Some(BinOp::Asterisk),
-            TokenKind::Slash => Some(BinOp::Slash),
-            TokenKind::Percent => Some(BinOp::Percent),
-            TokenKind::Equals => Some(BinOp::Equals),
-            TokenKind::NotEquals => Some(BinOp::NotEquals),
-            TokenKind::Less => Some(BinOp::Less),
-            TokenKind::Greater => Some(BinOp::Greater),
-            TokenKind::LessOrEquals => Some(BinOp::LessOrEquals),
-            TokenKind::GreaterOrEquals => Some(BinOp::GreaterOrEquals),
+            SyntaxKind::Plus => Some(BinOp::Plus),
+            SyntaxKind::Minus => Some(BinOp::Minus),
+            SyntaxKind::Star => Some(BinOp::Asterisk),
+            SyntaxKind::Slash => Some(BinOp::Slash),
+            SyntaxKind::Percent => Some(BinOp::Percent),
+            SyntaxKind::Equals => Some(BinOp::Equals),
+            SyntaxKind::NotEquals => Some(BinOp::NotEquals),
+            SyntaxKind::Less => Some(BinOp::Less),
+            SyntaxKind::Greater => Some(BinOp::Greater),
+            SyntaxKind::LessOrEquals => Some(BinOp::LessOrEquals),
+            SyntaxKind::GreaterOrEquals => Some(BinOp::GreaterOrEquals),
             _ => None,
         }
     }
@@ -80,13 +79,13 @@ pub fn parse_expression(p: &mut Parser) {
 /// expressions (ClickHouse expression-level aliases).
 fn parse_expression_alias(p: &mut Parser) {
     if p.at_keyword(Keyword::As)
-        && (p.nth(1) == TokenKind::BareWord || p.nth(1) == TokenKind::QuotedIdentifier)
+        && (p.nth(1) == SyntaxKind::BareWord || p.nth(1) == SyntaxKind::QuotedIdentifier)
     {
         let am = p.start();
         p.eat_keyword(Keyword::As);
         // Consume the alias identifier (skip trivia handled by eat/at)
-        if !p.eat(TokenKind::BareWord) {
-            p.eat(TokenKind::QuotedIdentifier);
+        if !p.eat(SyntaxKind::BareWord) {
+            p.eat(SyntaxKind::QuotedIdentifier);
         }
         p.complete(am, SyntaxKind::ColumnAlias);
     }
@@ -106,7 +105,7 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
     }
 
     // Handle prefix unary minus: highest precedence (7)
-    if p.at(TokenKind::Minus) {
+    if p.at(SyntaxKind::Minus) {
         let m = p.start();
         p.advance(); // consume -
         parse_expression_rec(p, UNARY_PREFIX_BP);
@@ -122,7 +121,7 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
 
     // Postfix operators that chain: function calls `f(x)` and array access `a[k]`
     loop {
-        if p.at(TokenKind::OpeningRoundBracket) {
+        if p.at(SyntaxKind::OpeningRoundBracket) {
             // The LHS is a function name, not a column reference.
             // Change ColumnReference → Identifier so the tree is semantically accurate.
             if p.kind_of(lhs) == SyntaxKind::ColumnReference {
@@ -133,23 +132,23 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
             // Parametric functions like quantile(0.5)(x) have two argument
             // lists.  Keep consuming `(...)` groups as siblings inside the
             // same FunctionCall node instead of nesting.
-            while p.at(TokenKind::OpeningRoundBracket) {
+            while p.at(SyntaxKind::OpeningRoundBracket) {
                 arg_list(p);
             }
             lhs = p.complete(m, SyntaxKind::FunctionCall);
-        } else if p.at(TokenKind::OpeningSquareBracket) {
+        } else if p.at(SyntaxKind::OpeningSquareBracket) {
             let m = p.precede(lhs);
             p.advance(); // consume [
             parse_expression(p);
-            p.expect(TokenKind::ClosingSquareBracket);
+            p.expect(SyntaxKind::ClosingSquareBracket);
             lhs = p.complete(m, SyntaxKind::ArrayAccessExpression);
-        } else if p.at(TokenKind::DoubleColon) {
+        } else if p.at(SyntaxKind::DoubleColon) {
             // Cast: expr::Type
             let m = p.precede(lhs);
             p.advance(); // consume ::
             parse_column_type(p);
             lhs = p.complete(m, SyntaxKind::CastExpression);
-        } else if p.at(TokenKind::Dot) {
+        } else if p.at(SyntaxKind::Dot) {
             // Dot access (tuple element / field access).  The ColumnReference
             // loop in expr_delimited already consumed contiguous identifier
             // chains, so any dot we see here is either:
@@ -158,9 +157,9 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
             let m = p.precede(lhs);
             p.advance(); // consume .
             // RHS: identifier (field name) or number (tuple index)
-            if !p.eat(TokenKind::BareWord)
-                && !p.eat(TokenKind::QuotedIdentifier)
-                && !p.eat(TokenKind::Number)
+            if !p.eat(SyntaxKind::BareWord)
+                && !p.eat(SyntaxKind::QuotedIdentifier)
+                && !p.eat(SyntaxKind::Number)
             {
                 p.advance_with_error("expected field name or tuple index after '.'");
             }
@@ -271,7 +270,7 @@ fn parse_expression_postfix(p: &mut Parser, mut lhs: CompletedMarker, min_bp: u8
 fn is_not_followed_by_postfix_op(p: &mut Parser) -> bool {
     // We know p is at NOT. We need to peek past NOT to see what follows.
     // The parser skips trivia on nth(), so nth(1) looks at the next non-trivia token after current.
-    if p.nth(0) != TokenKind::BareWord {
+    if p.nth(0) != SyntaxKind::BareWord {
         return false;
     }
     // Look at the token after NOT (skipping whitespace between them)
@@ -283,7 +282,7 @@ fn is_not_followed_by_postfix_op(p: &mut Parser) -> bool {
     // Now check what's after NOT — we need to look at position 1
     // nth(1) should give us the next non-trivia token
     let next = p.nth(1);
-    if next != TokenKind::BareWord {
+    if next != SyntaxKind::BareWord {
         return false;
     }
     let next_text = p.nth_text(1);
@@ -294,9 +293,9 @@ fn is_not_followed_by_postfix_op(p: &mut Parser) -> bool {
 
 /// Parse the right-hand side of an IN expression: (expr, ...) or (subquery)
 fn parse_in_rhs(p: &mut Parser) {
-    if p.at(TokenKind::OpeningRoundBracket) {
-        p.expect(TokenKind::OpeningRoundBracket);
-        if !p.at(TokenKind::ClosingRoundBracket) {
+    if p.at(SyntaxKind::OpeningRoundBracket) {
+        p.expect(SyntaxKind::OpeningRoundBracket);
+        if !p.at(SyntaxKind::ClosingRoundBracket) {
             // Check if it's a subquery
             if at_select_statement(p) {
                 let m = p.start();
@@ -304,13 +303,13 @@ fn parse_in_rhs(p: &mut Parser) {
                 p.complete(m, SyntaxKind::SubqueryExpression);
             } else {
                 parse_expression(p);
-                while p.at(TokenKind::Comma) && !p.eof() {
+                while p.at(SyntaxKind::Comma) && !p.eof() {
                     p.advance();
                     parse_expression(p);
                 }
             }
         }
-        p.expect(TokenKind::ClosingRoundBracket);
+        p.expect(SyntaxKind::ClosingRoundBracket);
     } else {
         // Could be a table name or other expression
         parse_expression_rec(p, 4);
@@ -324,22 +323,22 @@ fn parse_in_rhs(p: &mut Parser) {
 /// Postfix: `::` cast operator.
 fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
     let result = match p.nth(0) {
-        TokenKind::Asterisk => {
+        SyntaxKind::Star => {
             let m = p.start();
             p.advance();
             p.complete(m, SyntaxKind::Asterisk)
         }
-        TokenKind::StringLiteral => {
+        SyntaxKind::StringToken => {
             let m = p.start();
             p.advance();
             p.complete(m, SyntaxKind::StringLiteral)
         }
-        TokenKind::Number => {
+        SyntaxKind::Number => {
             let m = p.start();
             p.advance();
             p.complete(m, SyntaxKind::NumberLiteral)
         }
-        TokenKind::BareWord | TokenKind::QuotedIdentifier => {
+        SyntaxKind::BareWord | SyntaxKind::QuotedIdentifier => {
             // NULL literal
             if p.at_keyword(Keyword::Null) {
                 let m = p.start();
@@ -376,9 +375,9 @@ fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
             else if !at_end_of_column_list(p) {
                 let m = p.start();
                 p.advance();
-                while p.at(TokenKind::Dot)
-                    && (p.nth(1) == TokenKind::BareWord
-                        || p.nth(1) == TokenKind::QuotedIdentifier)
+                while p.at(SyntaxKind::Dot)
+                    && (p.nth(1) == SyntaxKind::BareWord
+                        || p.nth(1) == SyntaxKind::QuotedIdentifier)
                     && !p.eof()
                 {
                     p.advance(); // consume .
@@ -390,17 +389,17 @@ fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
             }
         }
         // Parenthesized expression or tuple: (expr) or (expr, expr, ...)
-        TokenKind::OpeningRoundBracket => {
+        SyntaxKind::OpeningRoundBracket => {
             let m = p.start();
-            p.expect(TokenKind::OpeningRoundBracket);
+            p.expect(SyntaxKind::OpeningRoundBracket);
             let mut count = 0;
-            if !p.at(TokenKind::ClosingRoundBracket) {
+            if !p.at(SyntaxKind::ClosingRoundBracket) {
                 parse_expression(p);
                 // ClickHouse allows expression aliases inside parens:
                 // (expr AS alias).field
                 parse_expression_alias(p);
                 count += 1;
-                while p.at(TokenKind::Comma) && !p.eof() {
+                while p.at(SyntaxKind::Comma) && !p.eof() {
                     p.advance();
                     parse_expression(p);
                     parse_expression_alias(p);
@@ -408,7 +407,7 @@ fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
                 }
             }
 
-            p.expect(TokenKind::ClosingRoundBracket);
+            p.expect(SyntaxKind::ClosingRoundBracket);
             if count > 1 {
                 p.complete(m, SyntaxKind::TupleExpression)
             } else {
@@ -416,20 +415,20 @@ fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
             }
         }
         // Array literal: [expr, expr, ...] or []
-        TokenKind::OpeningSquareBracket => {
+        SyntaxKind::OpeningSquareBracket => {
             let m = p.start();
-            p.expect(TokenKind::OpeningSquareBracket);
+            p.expect(SyntaxKind::OpeningSquareBracket);
 
-            if !p.at(TokenKind::ClosingSquareBracket) {
+            if !p.at(SyntaxKind::ClosingSquareBracket) {
                 parse_expression(p);
 
-                while p.at(TokenKind::Comma) && !p.eof() {
+                while p.at(SyntaxKind::Comma) && !p.eof() {
                     p.advance();
                     parse_expression(p);
                 }
             }
 
-            p.expect(TokenKind::ClosingSquareBracket);
+            p.expect(SyntaxKind::ClosingSquareBracket);
             p.complete(m, SyntaxKind::ArrayExpression)
         }
         // Query parameter: {name:Type} or Map literal: {key: value, ...} or {}
@@ -437,33 +436,33 @@ fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
         // Query parameters use bare identifier keys: {o:UInt32}, {ts:DateTime64(3)}
         // Map literals use expression keys (typically strings): {'key': value}
         // We distinguish by checking: { BareWord : ... means query parameter.
-        TokenKind::OpeningCurlyBrace => {
-            if p.nth(1) == TokenKind::BareWord && p.nth(2) == TokenKind::Colon {
+        SyntaxKind::OpeningCurlyBrace => {
+            if super::common::at_query_parameter(p) {
                 let m = p.start();
-                p.expect(TokenKind::OpeningCurlyBrace);
+                p.expect(SyntaxKind::OpeningCurlyBrace);
                 p.advance(); // parameter name
-                p.expect(TokenKind::Colon);
+                p.expect(SyntaxKind::Colon);
                 parse_column_type(p); // type (may be complex: DateTime64(3), Array(UInt32), etc.)
-                p.expect(TokenKind::ClosingCurlyBrace);
+                p.expect(SyntaxKind::ClosingCurlyBrace);
                 p.complete(m, SyntaxKind::QueryParameterExpression)
             } else {
                 let m = p.start();
-                p.expect(TokenKind::OpeningCurlyBrace);
+                p.expect(SyntaxKind::OpeningCurlyBrace);
 
-                if !p.at(TokenKind::ClosingCurlyBrace) {
+                if !p.at(SyntaxKind::ClosingCurlyBrace) {
                     parse_expression(p);
-                    p.expect(TokenKind::Colon);
+                    p.expect(SyntaxKind::Colon);
                     parse_expression(p);
 
-                    while p.at(TokenKind::Comma) && !p.eof() {
+                    while p.at(SyntaxKind::Comma) && !p.eof() {
                         p.advance();
                         parse_expression(p);
-                        p.expect(TokenKind::Colon);
+                        p.expect(SyntaxKind::Colon);
                         parse_expression(p);
                     }
                 }
 
-                p.expect(TokenKind::ClosingCurlyBrace);
+                p.expect(SyntaxKind::ClosingCurlyBrace);
                 p.complete(m, SyntaxKind::MapExpression)
             }
         }
@@ -503,7 +502,7 @@ fn parse_case_expression(p: &mut Parser) -> CompletedMarker {
 }
 
 fn at_interval_unit(p: &mut Parser) -> bool {
-    p.nth(0) == TokenKind::BareWord && IntervalUnit::from_str(p.nth_text(0)).is_some()
+    p.nth(0) == SyntaxKind::BareWord && IntervalUnit::from_str(p.nth_text(0)).is_some()
 }
 
 /// Parses: INTERVAL expr UNIT
@@ -523,15 +522,15 @@ fn arg_list(p: &mut Parser) {
     let m = p.start();
 
     let mut first = true;
-    p.expect(TokenKind::OpeningRoundBracket);
-    while !p.at(TokenKind::ClosingRoundBracket) && !p.eof() {
+    p.expect(SyntaxKind::OpeningRoundBracket);
+    while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
         if !first {
-            p.expect(TokenKind::Comma);
+            p.expect(SyntaxKind::Comma);
         }
         arg(p);
         first = false;
     }
-    p.expect(TokenKind::ClosingRoundBracket);
+    p.expect(SyntaxKind::ClosingRoundBracket);
 
     p.complete(m, SyntaxKind::ExpressionList);
 }
@@ -541,7 +540,7 @@ fn arg(p: &mut Parser) {
     let m = p.start();
     parse_expression(p);
 
-    if p.at(TokenKind::Arrow) {
+    if p.at(SyntaxKind::Arrow) {
         p.advance();
         parse_expression(p);
         p.complete(m, SyntaxKind::LambdaExpression);
@@ -559,7 +558,7 @@ mod tests {
     fn check(input: &str, expected: Expect) {
         let result = parse(input);
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         expected.assert_eq(&buf);
     }
 

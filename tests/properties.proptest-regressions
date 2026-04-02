@@ -1,0 +1,5 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+cc 6fcaf98a552887a63b2b74c45ef45de31e299c47bd1b4913e640e89ce55b8fea # shrinks to input = "''\"\"\"\".0Ea"
+cc 8db04aff7d41dbdea7900cfcf25e4ccc0bb08eaf6521a8c15952b7fed2c4862c # shrinks to input = "SET(SELECTGROUP BY<SELECT"

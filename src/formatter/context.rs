@@ -2,6 +2,7 @@ use super::FormatConfig;
 
 pub struct FormatterContext<'a> {
     config: &'a FormatConfig,
+    pub source: &'a str,
     buf: String,
     indent_level: usize,
     at_line_start: bool,
@@ -14,9 +15,10 @@ pub struct FormatterContext<'a> {
 }
 
 impl<'a> FormatterContext<'a> {
-    pub fn new(config: &'a FormatConfig) -> Self {
+    pub fn new(config: &'a FormatConfig, source: &'a str) -> Self {
         Self {
             config,
+            source,
             buf: String::new(),
             indent_level: 0,
             at_line_start: true,
@@ -104,6 +106,7 @@ impl<'a> FormatterContext<'a> {
     pub fn child(&self) -> FormatterContext<'a> {
         FormatterContext {
             config: self.config,
+            source: self.source,
             buf: String::new(),
             indent_level: self.indent_level,
             at_line_start: true,
@@ -124,6 +127,21 @@ impl<'a> FormatterContext<'a> {
 
     pub fn dedent(&mut self) {
         self.indent_level = self.indent_level.saturating_sub(1);
+    }
+
+    /// Write raw text directly to the buffer with no indent or spacing logic.
+    /// Used for error node verbatim output.
+    pub fn write_raw(&mut self, text: &str) {
+        self.buf.push_str(text);
+        if text.ends_with('\n') {
+            self.at_line_start = true;
+            self.needs_space = false;
+        } else {
+            self.at_line_start = false;
+            self.needs_space = false;
+        }
+        self.pending_newline = false;
+        self.pending_blank_line = false;
     }
 
     pub fn finish(self) -> String {

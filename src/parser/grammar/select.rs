@@ -1,9 +1,8 @@
-use crate::lexer::token::TokenKind;
+use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
-use crate::parser::syntax_kind::SyntaxKind;
 
 /// Parses a full SELECT statement:
 ///   [WITH ...] [FROM ... [FINAL] [AS alias]] [JOIN ...]
@@ -225,17 +224,17 @@ fn parse_select_clause(p: &mut Parser) {
     if p.eat_keyword(Keyword::Distinct) {
         if p.at_keyword(Keyword::On) {
             p.advance(); // consume ON
-            p.expect(TokenKind::OpeningRoundBracket);
+            p.expect(SyntaxKind::OpeningRoundBracket);
             // parse comma-separated column list inside parens
             let mut first = true;
-            while !p.at(TokenKind::ClosingRoundBracket) && !p.eof() && !p.end_of_statement() {
+            while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() && !p.end_of_statement() {
                 if !first {
-                    p.expect(TokenKind::Comma);
+                    p.expect(SyntaxKind::Comma);
                 }
                 first = false;
                 parse_expression(p);
             }
-            p.expect(TokenKind::ClosingRoundBracket);
+            p.expect(SyntaxKind::ClosingRoundBracket);
         }
     }
 
@@ -251,15 +250,15 @@ pub fn parse_column_list(p: &mut Parser) {
     let mut first = true;
     while !at_end_of_column_list(p) && !p.end_of_statement() {
         if !first {
-            p.expect(TokenKind::Comma);
+            p.expect(SyntaxKind::Comma);
         }
         first = false;
 
         parse_expression(p);
 
         if p.at_keyword(Keyword::As)
-            || (!at_end_of_column_list(p) && p.at(TokenKind::BareWord))
-            || p.at(TokenKind::QuotedIdentifier)
+            || (!at_end_of_column_list(p) && p.at(SyntaxKind::BareWord))
+            || p.at(SyntaxKind::QuotedIdentifier)
         {
             let m = p.start();
             if p.at_keyword(Keyword::As) {
@@ -293,40 +292,48 @@ fn parse_from_clause(p: &mut Parser) {
 ///   - identifier(args) [[AS] alias]  (table function)
 fn parse_table_reference(p: &mut Parser) {
     // Subquery: (SELECT ...)
-    if p.at(TokenKind::OpeningRoundBracket) {
+    if p.at(SyntaxKind::OpeningRoundBracket) {
         parse_subquery_table_ref(p);
         parse_optional_table_alias(p);
         return;
     }
 
-    if p.at_identifier()
+    if (p.at_identifier() || common::at_query_parameter(p))
         && !at_end_of_column_list(p)
     {
         let m = p.start();
-        p.advance();
-
-        if p.at(TokenKind::Dot) {
+        if common::at_query_parameter(p) {
+            common::parse_query_parameter(p);
+        } else {
             p.advance();
-            if p.at_identifier() {
-                p.advance();
+        }
+
+        if p.at(SyntaxKind::Dot) {
+            p.advance();
+            if p.at_identifier() || common::at_query_parameter(p) {
+                if common::at_query_parameter(p) {
+                    common::parse_query_parameter(p);
+                } else {
+                    p.advance();
+                }
             } else {
                 p.advance_with_error("Expected table name after dot");
             }
         }
 
         // Check for table function: identifier(...)
-        if p.at(TokenKind::OpeningRoundBracket) {
+        if p.at(SyntaxKind::OpeningRoundBracket) {
             // Table function call
-            p.expect(TokenKind::OpeningRoundBracket);
+            p.expect(SyntaxKind::OpeningRoundBracket);
             let mut first = true;
-            while !p.at(TokenKind::ClosingRoundBracket) && !p.eof() && !p.end_of_statement() {
+            while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() && !p.end_of_statement() {
                 if !first {
-                    p.expect(TokenKind::Comma);
+                    p.expect(SyntaxKind::Comma);
                 }
                 first = false;
                 parse_expression(p);
             }
-            p.expect(TokenKind::ClosingRoundBracket);
+            p.expect(SyntaxKind::ClosingRoundBracket);
             p.complete(m, SyntaxKind::TableFunction);
         } else {
             p.complete(m, SyntaxKind::TableIdentifier);
@@ -347,13 +354,13 @@ fn parse_table_reference(p: &mut Parser) {
 /// Parses: (SELECT ...) as a table reference
 fn parse_subquery_table_ref(p: &mut Parser) {
     let m = p.start();
-    p.expect(TokenKind::OpeningRoundBracket);
+    p.expect(SyntaxKind::OpeningRoundBracket);
     if at_select_statement(p) {
         parse_select_statement(p);
     } else {
         p.recover_with_error("Expected subquery");
     }
-    p.expect(TokenKind::ClosingRoundBracket);
+    p.expect(SyntaxKind::ClosingRoundBracket);
     p.complete(m, SyntaxKind::SubqueryExpression);
 }
 
@@ -369,7 +376,7 @@ fn parse_optional_table_alias(p: &mut Parser) {
             p.recover_with_error("Expected table alias");
         }
         p.complete(m, SyntaxKind::TableAlias);
-    } else if p.at(TokenKind::BareWord) && !at_clause_keyword(p) && !at_join_keyword(p) && !p.at_keyword(Keyword::On) && !p.at_keyword(Keyword::Using) && !p.at_keyword(Keyword::Final) {
+    } else if p.at(SyntaxKind::BareWord) && !at_clause_keyword(p) && !at_join_keyword(p) && !p.at_keyword(Keyword::On) && !p.at_keyword(Keyword::Using) && !p.at_keyword(Keyword::Final) {
         let m = p.start();
         p.advance();
         p.complete(m, SyntaxKind::TableAlias);
@@ -432,17 +439,17 @@ fn parse_join_clause(p: &mut Parser) {
     } else if p.at_keyword(Keyword::Using) {
         p.advance();
         // USING (col, col) or USING col
-        if p.at(TokenKind::OpeningRoundBracket) {
+        if p.at(SyntaxKind::OpeningRoundBracket) {
             p.advance(); // consume (
             let mut first = true;
-            while !p.at(TokenKind::ClosingRoundBracket) && !p.eof() && !p.end_of_statement() {
+            while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() && !p.end_of_statement() {
                 if !first {
-                    p.expect(TokenKind::Comma);
+                    p.expect(SyntaxKind::Comma);
                 }
                 first = false;
                 parse_expression(p);
             }
-            p.expect(TokenKind::ClosingRoundBracket);
+            p.expect(SyntaxKind::ClosingRoundBracket);
         } else {
             // USING col (without parens)
             parse_expression(p);
@@ -464,7 +471,7 @@ fn parse_group_by_clause(p: &mut Parser) {
     let mut first = true;
     while !p.eof() && !p.end_of_statement() && !at_group_by_terminator(p) {
         if !first {
-            p.expect(TokenKind::Comma);
+            p.expect(SyntaxKind::Comma);
         }
         first = false;
         parse_expression(p);
@@ -513,7 +520,7 @@ fn parse_order_by_clause(p: &mut Parser) {
     let mut first = true;
     while !p.eof() && !p.end_of_statement() && !at_order_by_terminator(p) {
         if !first {
-            p.expect(TokenKind::Comma);
+            p.expect(SyntaxKind::Comma);
         }
         first = false;
         parse_order_by_item(p);
@@ -582,13 +589,13 @@ fn parse_limit_or_limit_by(p: &mut Parser) {
         let mut first = true;
         while !p.eof() && !p.end_of_statement() && !at_limit_by_terminator(p) {
             if !first {
-                p.expect(TokenKind::Comma);
+                p.expect(SyntaxKind::Comma);
             }
             first = false;
             parse_expression(p);
         }
         p.complete(m, SyntaxKind::LimitByClause);
-    } else if p.at(TokenKind::Comma) {
+    } else if p.at(SyntaxKind::Comma) {
         // LIMIT m, n syntax (offset, count)
         p.advance(); // consume comma
         parse_expression(p);
@@ -608,7 +615,7 @@ fn parse_limit_clause(p: &mut Parser) {
     if p.at_keyword(Keyword::Offset) {
         p.advance();
         parse_expression(p);
-    } else if p.at(TokenKind::Comma) {
+    } else if p.at(SyntaxKind::Comma) {
         p.advance();
         parse_expression(p);
     }
@@ -641,7 +648,7 @@ fn parse_settings_clause(p: &mut Parser) {
         && !p.at_keyword(Keyword::Format)
     {
         if !first {
-            p.expect(TokenKind::Comma);
+            p.expect(SyntaxKind::Comma);
         }
         first = false;
 
@@ -659,7 +666,7 @@ mod tests {
     fn check(input: &str, expected: Expect) {
         let result = parse(input);
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         expected.assert_eq(&buf);
     }
 

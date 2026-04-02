@@ -56,7 +56,7 @@ mod tests {
         let sql = "DELETE FROM my_table WHERE id = 1";
         let result = parse(sql);
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DeleteStatement"));
         assert!(buf.contains("TableIdentifier"));
         assert!(buf.contains("WhereClause"));
@@ -67,7 +67,7 @@ mod tests {
         let sql = "DELETE FROM my_db.my_table WHERE id > 100";
         let result = parse(sql);
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DeleteStatement"));
         assert!(buf.contains("TableIdentifier"));
     }
@@ -77,7 +77,7 @@ mod tests {
         let sql = "DELETE FROM my_table ON CLUSTER my_cluster WHERE status = 'inactive'";
         let result = parse(sql);
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DeleteStatement"));
         assert!(buf.contains("OnClusterClause"));
         assert!(buf.contains("WhereClause"));
@@ -88,7 +88,7 @@ mod tests {
         let sql = "DELETE FROM my_table";
         let result = parse(sql);
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DeleteStatement"));
         assert!(buf.contains("Error"));
     }
@@ -98,7 +98,7 @@ mod tests {
         let sql = "DELETE my_table WHERE id = 1";
         let result = parse(sql);
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DeleteStatement"));
         assert!(buf.contains("Error"));
     }

@@ -1,11 +1,10 @@
-use crate::lexer::token::TokenKind;
+use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::grammar::select::{at_select_statement, parse_select_statement};
 use crate::parser::grammar::types::parse_column_type;
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
-use crate::parser::syntax_kind::SyntaxKind;
 
 const CREATE_TABLE_KEYWORDS: &[Keyword] = &[
     Keyword::Engine, Keyword::Order, Keyword::Partition, Keyword::Primary,
@@ -73,7 +72,7 @@ fn parse_create_table(p: &mut Parser) {
     common::parse_on_cluster(p);
 
     // UUID (optional, skip string literal)
-    if p.at_keyword(Keyword::As) && !p.at(TokenKind::OpeningRoundBracket) {
+    if p.at_keyword(Keyword::As) && !p.at(SyntaxKind::OpeningRoundBracket) {
         // Could be CREATE TABLE ... AS other_table or CREATE TABLE ... AS SELECT
         // Check if next token after AS is a SELECT keyword
         parse_as_clause(p);
@@ -86,7 +85,7 @@ fn parse_create_table(p: &mut Parser) {
     }
 
     // Column definition list
-    if p.at(TokenKind::OpeningRoundBracket) {
+    if p.at(SyntaxKind::OpeningRoundBracket) {
         parse_column_definition_list(p);
     }
 
@@ -140,7 +139,7 @@ fn parse_create_database(p: &mut Parser) {
     if p.at_keyword(Keyword::Comment) {
         let m2 = p.start();
         p.advance(); // COMMENT
-        if p.at(TokenKind::StringLiteral) {
+        if p.at(SyntaxKind::StringToken) {
             p.advance();
         } else {
             p.recover_with_error("Expected string literal after COMMENT");
@@ -199,7 +198,7 @@ fn parse_create_materialized_view(p: &mut Parser) {
     }
 
     // Column definition list (optional)
-    if p.at(TokenKind::OpeningRoundBracket) {
+    if p.at(SyntaxKind::OpeningRoundBracket) {
         parse_column_definition_list(p);
     }
 
@@ -246,7 +245,7 @@ fn parse_create_function(p: &mut Parser) {
     // Parse the lambda body: expression, then check for ->
     let lm = p.start();
     parse_expression(p);
-    if p.at(TokenKind::Arrow) {
+    if p.at(SyntaxKind::Arrow) {
         p.advance(); // ->
         parse_expression(p);
         p.complete(lm, SyntaxKind::LambdaExpression);
@@ -273,7 +272,7 @@ fn parse_create_dictionary(p: &mut Parser) {
     common::parse_on_cluster(p);
 
     // Column definition list
-    if p.at(TokenKind::OpeningRoundBracket) {
+    if p.at(SyntaxKind::OpeningRoundBracket) {
         parse_column_definition_list(p);
     }
 
@@ -308,21 +307,21 @@ fn parse_create_dictionary(p: &mut Parser) {
 fn parse_parenthesized_clause(p: &mut Parser) {
     let m = p.start();
     p.advance(); // keyword (SOURCE, LAYOUT, LIFETIME)
-    if p.at(TokenKind::OpeningRoundBracket) {
+    if p.at(SyntaxKind::OpeningRoundBracket) {
         p.advance(); // (
         parse_parenthesized_content(p);
-        p.expect(TokenKind::ClosingRoundBracket);
+        p.expect(SyntaxKind::ClosingRoundBracket);
     }
     p.complete(m, SyntaxKind::Expression);
 }
 
 /// Parse content inside parentheses, handling nested parens.
 fn parse_parenthesized_content(p: &mut Parser) {
-    while !p.at(TokenKind::ClosingRoundBracket) && !p.eof() {
-        if p.at(TokenKind::OpeningRoundBracket) {
+    while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
+        if p.at(SyntaxKind::OpeningRoundBracket) {
             p.advance(); // (
             parse_parenthesized_content(p);
-            p.expect(TokenKind::ClosingRoundBracket);
+            p.expect(SyntaxKind::ClosingRoundBracket);
         } else {
             p.advance();
         }
@@ -336,11 +335,11 @@ fn parse_as_clause(p: &mut Parser) {
 
     if at_select_statement(p) {
         parse_select_statement(p);
-    } else if p.at(TokenKind::OpeningRoundBracket) {
+    } else if p.at(SyntaxKind::OpeningRoundBracket) {
         // Parenthesized subquery: AS (SELECT ...)
         p.advance(); // consume (
         parse_select_statement(p);
-        p.expect(TokenKind::ClosingRoundBracket);
+        p.expect(SyntaxKind::ClosingRoundBracket);
     } else if p.at_identifier() {
         common::parse_table_identifier(p);
     } else {
@@ -354,16 +353,16 @@ fn parse_as_clause(p: &mut Parser) {
 pub fn parse_column_definition_list(p: &mut Parser) {
     let m = p.start();
 
-    p.expect(TokenKind::OpeningRoundBracket);
+    p.expect(SyntaxKind::OpeningRoundBracket);
 
     let mut first = true;
-    while !p.at(TokenKind::ClosingRoundBracket) && !p.eof() {
+    while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
         if !first {
-            p.expect(TokenKind::Comma);
+            p.expect(SyntaxKind::Comma);
         }
         first = false;
 
-        if p.at(TokenKind::ClosingRoundBracket) {
+        if p.at(SyntaxKind::ClosingRoundBracket) {
             break;
         }
 
@@ -379,7 +378,7 @@ pub fn parse_column_definition_list(p: &mut Parser) {
         }
     }
 
-    p.expect(TokenKind::ClosingRoundBracket);
+    p.expect(SyntaxKind::ClosingRoundBracket);
 
     p.complete(m, SyntaxKind::ColumnDefinitionList);
 }
@@ -413,8 +412,8 @@ fn parse_column_definition(p: &mut Parser) {
         p.advance(); // the keyword
         // Expression (optional for EPHEMERAL)
         if !at_column_constraint_start(p)
-            && !p.at(TokenKind::Comma)
-            && !p.at(TokenKind::ClosingRoundBracket)
+            && !p.at(SyntaxKind::Comma)
+            && !p.at(SyntaxKind::ClosingRoundBracket)
             && !p.eof()
         {
             parse_expression(p);
@@ -426,10 +425,10 @@ fn parse_column_definition(p: &mut Parser) {
     if p.at_keyword(Keyword::Codec) {
         let m2 = p.start();
         p.advance(); // CODEC
-        if p.at(TokenKind::OpeningRoundBracket) {
+        if p.at(SyntaxKind::OpeningRoundBracket) {
             p.advance();
             parse_codec_args(p);
-            p.expect(TokenKind::ClosingRoundBracket);
+            p.expect(SyntaxKind::ClosingRoundBracket);
         }
         p.complete(m2, SyntaxKind::ColumnCodec);
     }
@@ -446,7 +445,7 @@ fn parse_column_definition(p: &mut Parser) {
     if p.at_keyword(Keyword::Comment) {
         let m2 = p.start();
         p.advance(); // COMMENT
-        if p.at(TokenKind::StringLiteral) {
+        if p.at(SyntaxKind::StringToken) {
             p.advance();
         } else {
             p.recover_with_error("Expected string literal after COMMENT");
@@ -485,26 +484,26 @@ fn at_column_constraint_start(p: &mut Parser) -> bool {
 
 /// Parse CODEC arguments (comma-separated identifiers with optional params)
 fn parse_codec_args(p: &mut Parser) {
-    while !p.at(TokenKind::ClosingRoundBracket) && !p.eof() {
+    while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
         if p.at_identifier() {
             p.advance();
             // Optional parameters
-            if p.at(TokenKind::OpeningRoundBracket) {
+            if p.at(SyntaxKind::OpeningRoundBracket) {
                 p.advance();
                 // Parse codec parameters
                 let mut first = true;
-                while !p.at(TokenKind::ClosingRoundBracket) && !p.eof() {
+                while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
                     if !first {
-                        p.expect(TokenKind::Comma);
+                        p.expect(SyntaxKind::Comma);
                     }
                     first = false;
-                    if !p.at(TokenKind::ClosingRoundBracket) {
+                    if !p.at(SyntaxKind::ClosingRoundBracket) {
                         parse_expression(p);
                     }
                 }
-                p.expect(TokenKind::ClosingRoundBracket);
+                p.expect(SyntaxKind::ClosingRoundBracket);
             }
-        } else if p.at(TokenKind::Comma) {
+        } else if p.at(SyntaxKind::Comma) {
             p.advance();
         } else {
             p.advance_with_error("Expected codec name");
@@ -534,17 +533,17 @@ fn parse_index_definition(p: &mut Parser) {
         if p.at_identifier() {
             p.advance();
             // Optional parameters
-            if p.at(TokenKind::OpeningRoundBracket) {
+            if p.at(SyntaxKind::OpeningRoundBracket) {
                 p.advance();
                 let mut first = true;
-                while !p.at(TokenKind::ClosingRoundBracket) && !p.eof() {
+                while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
                     if !first {
-                        p.expect(TokenKind::Comma);
+                        p.expect(SyntaxKind::Comma);
                     }
                     first = false;
                     parse_expression(p);
                 }
-                p.expect(TokenKind::ClosingRoundBracket);
+                p.expect(SyntaxKind::ClosingRoundBracket);
             }
         } else {
             p.recover_with_error("Expected index type name");
@@ -574,14 +573,14 @@ fn parse_projection_definition(p: &mut Parser) {
     }
 
     // (SELECT ...)
-    if p.at(TokenKind::OpeningRoundBracket) {
+    if p.at(SyntaxKind::OpeningRoundBracket) {
         p.advance(); // (
         if at_select_statement(p) {
             parse_select_statement(p);
         } else {
             p.recover_with_error("Expected SELECT inside PROJECTION");
         }
-        p.expect(TokenKind::ClosingRoundBracket);
+        p.expect(SyntaxKind::ClosingRoundBracket);
     } else {
         p.recover_with_error("Expected ( after projection name");
     }
@@ -618,7 +617,7 @@ fn parse_engine_clause(p: &mut Parser) {
     let m = p.start();
 
     p.expect_keyword(Keyword::Engine);
-    p.expect(TokenKind::Equals);
+    p.expect(SyntaxKind::Equals);
 
     // Engine name
     if p.at_identifier() {
@@ -630,19 +629,19 @@ fn parse_engine_clause(p: &mut Parser) {
     }
 
     // Optional arguments
-    if p.at(TokenKind::OpeningRoundBracket) {
+    if p.at(SyntaxKind::OpeningRoundBracket) {
         p.advance(); // (
         let mut first = true;
-        while !p.at(TokenKind::ClosingRoundBracket) && !p.eof() {
+        while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
             if !first {
-                p.expect(TokenKind::Comma);
+                p.expect(SyntaxKind::Comma);
             }
             first = false;
-            if !p.at(TokenKind::ClosingRoundBracket) {
+            if !p.at(SyntaxKind::ClosingRoundBracket) {
                 parse_expression(p);
             }
         }
-        p.expect(TokenKind::ClosingRoundBracket);
+        p.expect(SyntaxKind::ClosingRoundBracket);
     }
 
     p.complete(m, SyntaxKind::EngineClause);
@@ -687,7 +686,7 @@ fn parse_table_clauses(p: &mut Parser) {
         } else if p.at_keyword(Keyword::Comment) {
             let m = p.start();
             p.advance(); // COMMENT
-            if p.at(TokenKind::StringLiteral) {
+            if p.at(SyntaxKind::StringToken) {
                 p.advance();
             } else {
                 p.recover_with_error("Expected string literal after COMMENT");
@@ -718,7 +717,7 @@ fn parse_settings_clause(p: &mut Parser) {
         }
 
         if !first {
-            if !p.eat(TokenKind::Comma) {
+            if !p.eat(SyntaxKind::Comma) {
                 break;
             }
         }
@@ -738,7 +737,7 @@ mod tests {
     fn test_create_table_basic() {
         let result = parse("CREATE TABLE test (id UInt64, name String) ENGINE = MergeTree() ORDER BY id");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         // Just verify it parses without panic and has CreateStatement
         assert!(buf.contains("CreateStatement"));
         assert!(buf.contains("TableDefinition"));
@@ -752,7 +751,7 @@ mod tests {
     fn test_create_table_if_not_exists() {
         let result = parse("CREATE TABLE IF NOT EXISTS db.test (id UInt64) ENGINE = MergeTree() ORDER BY id");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("IfNotExistsClause"));
         assert!(buf.contains("TableIdentifier"));
     }
@@ -761,7 +760,7 @@ mod tests {
     fn test_create_table_on_cluster() {
         let result = parse("CREATE TABLE test ON CLUSTER my_cluster (id UInt64) ENGINE = MergeTree() ORDER BY id");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("OnClusterClause"));
     }
 
@@ -769,7 +768,7 @@ mod tests {
     fn test_create_table_column_defaults() {
         let result = parse("CREATE TABLE test (id UInt64 DEFAULT 0, name String ALIAS 'hello', ts DateTime CODEC(Delta, ZSTD)) ENGINE = MergeTree() ORDER BY id");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("ColumnDefault"));
         assert!(buf.contains("ColumnCodec"));
     }
@@ -778,7 +777,7 @@ mod tests {
     fn test_create_table_column_comment() {
         let result = parse("CREATE TABLE test (id UInt64 COMMENT 'primary key') ENGINE = MergeTree() ORDER BY id");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("ColumnComment"));
     }
 
@@ -786,7 +785,7 @@ mod tests {
     fn test_create_table_index() {
         let result = parse("CREATE TABLE test (id UInt64, INDEX idx id TYPE minmax GRANULARITY 3) ENGINE = MergeTree() ORDER BY id");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("IndexDefinition"));
     }
 
@@ -794,7 +793,7 @@ mod tests {
     fn test_create_table_constraint() {
         let result = parse("CREATE TABLE test (id UInt64, CONSTRAINT c1 CHECK id > 0) ENGINE = MergeTree() ORDER BY id");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("ConstraintDefinition"));
     }
 
@@ -802,7 +801,7 @@ mod tests {
     fn test_create_table_as_select() {
         let result = parse("CREATE TABLE test AS SELECT 1");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("CreateStatement"));
         assert!(buf.contains("AsClause"));
         assert!(buf.contains("SelectStatement"));
@@ -812,7 +811,7 @@ mod tests {
     fn test_create_table_as_other_table() {
         let result = parse("CREATE TABLE test AS other_table");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("AsClause"));
         assert!(buf.contains("TableIdentifier"));
     }
@@ -821,7 +820,7 @@ mod tests {
     fn test_create_table_with_engine_as_select() {
         let result = parse("CREATE TABLE test ENGINE = MergeTree() ORDER BY id AS SELECT 1");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("EngineClause"));
         assert!(buf.contains("AsClause"));
     }
@@ -830,7 +829,7 @@ mod tests {
     fn test_create_or_replace_table() {
         let result = parse("CREATE OR REPLACE TABLE test (id UInt64) ENGINE = MergeTree() ORDER BY id");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("CreateStatement"));
         assert!(buf.contains("TableDefinition"));
     }
@@ -839,7 +838,7 @@ mod tests {
     fn test_create_temporary_table() {
         let result = parse("CREATE TEMPORARY TABLE test (id UInt64) ENGINE = Memory()");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("CreateStatement"));
         assert!(buf.contains("TableDefinition"));
     }
@@ -848,7 +847,7 @@ mod tests {
     fn test_create_database() {
         let result = parse("CREATE DATABASE IF NOT EXISTS mydb ENGINE = Atomic() COMMENT 'test db'");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DatabaseDefinition"));
         assert!(buf.contains("IfNotExistsClause"));
         assert!(buf.contains("EngineClause"));
@@ -858,7 +857,7 @@ mod tests {
     fn test_create_view() {
         let result = parse("CREATE VIEW myview AS SELECT 1");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("ViewDefinition"));
         assert!(buf.contains("AsClause"));
     }
@@ -867,7 +866,7 @@ mod tests {
     fn test_create_materialized_view() {
         let result = parse("CREATE MATERIALIZED VIEW myview TO dest_table AS SELECT 1");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("MaterializedViewDefinition"));
     }
 
@@ -875,7 +874,7 @@ mod tests {
     fn test_create_function() {
         let result = parse("CREATE FUNCTION myFunc AS (x) -> x + 1");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("FunctionDefinition"));
         assert!(buf.contains("LambdaExpression"));
     }
@@ -885,7 +884,7 @@ mod tests {
         let result = parse("CREATE FUNCTION IF NOT EXISTS myFunc AS (x) -> x + 1");
         assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("FunctionDefinition"));
         assert!(buf.contains("IfNotExistsClause"));
         assert!(buf.contains("LambdaExpression"));
@@ -896,7 +895,7 @@ mod tests {
         let result = parse("CREATE FUNCTION IF NOT EXISTS testfn AS (param_a) -> bitAnd(param_a, 123)");
         assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("FunctionDefinition"));
         assert!(buf.contains("IfNotExistsClause"));
         assert!(buf.contains("LambdaExpression"));
@@ -909,7 +908,7 @@ mod tests {
             "CREATE TABLE test (id UInt64) ENGINE = MergeTree() ORDER BY id PARTITION BY id PRIMARY KEY id SAMPLE BY id TTL id SETTINGS index_granularity = 8192 COMMENT 'test'"
         );
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("OrderByDefinition"));
         assert!(buf.contains("PartitionByDefinition"));
         assert!(buf.contains("PrimaryKeyDefinition"));
@@ -923,7 +922,7 @@ mod tests {
     fn test_create_table_projection() {
         let result = parse("CREATE TABLE test (id UInt64, PROJECTION p1 (SELECT id ORDER BY id)) ENGINE = MergeTree() ORDER BY id");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("ProjectionDefinition"));
     }
 
@@ -931,7 +930,7 @@ mod tests {
     fn test_create_table_complex_types() {
         let result = parse("CREATE TABLE test (id UInt64, data Array(String), nested Tuple(a UInt32, b String)) ENGINE = MergeTree() ORDER BY id");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DataType"));
     }
 
@@ -939,7 +938,7 @@ mod tests {
     fn test_create_table_ttl_column() {
         let result = parse("CREATE TABLE test (id UInt64, ts DateTime TTL ts + 1) ENGINE = MergeTree() ORDER BY id");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("ColumnTtl"));
     }
 
@@ -948,7 +947,7 @@ mod tests {
         // Should parse without panic even without ENGINE
         let result = parse("CREATE TABLE test (id UInt64)");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("CreateStatement"));
         assert!(buf.contains("TableDefinition"));
     }
@@ -958,7 +957,7 @@ mod tests {
         // Should not panic
         let result = parse("CREATE TABLE");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("CreateStatement"));
     }
 
@@ -966,7 +965,7 @@ mod tests {
     fn test_create_dictionary() {
         let result = parse("CREATE DICTIONARY mydict (id UInt64, name String) PRIMARY KEY id SOURCE(CLICKHOUSE(host 'localhost')) LAYOUT(HASHED()) LIFETIME(300)");
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DictionaryDefinition"));
         assert!(buf.contains("PrimaryKeyDefinition"));
     }

@@ -1,5 +1,6 @@
 use super::types::Diagnostic;
-use crate::parser::syntax_tree::{SyntaxTree, SyntaxChild};
+use crate::parser::syntax_tree::SyntaxTree;
+use crate::parser::syntax_tree::SyntaxChild;
 use crate::parser::syntax_kind::SyntaxKind;
 
 /// Find the innermost node with a display name that contains the given byte range.
@@ -13,15 +14,13 @@ fn find_enclosing_impl(
     range: (usize, usize),
     current_best: Option<SyntaxKind>,
 ) -> Option<SyntaxKind> {
-    let (tree_start, tree_end) = tree_range(tree);
-
-    // Empty trees (no tokens) have start=MAX, end=0; skip them
-    if tree_start > tree_end {
+    // Empty trees have start=MAX, end=0; skip them
+    if tree.start > tree.end {
         return current_best;
     }
 
     // Check if the range falls within this tree
-    if range.0 < tree_start || range.1 > tree_end {
+    if range.0 < tree.start as usize || range.1 > tree.end as usize {
         return current_best;
     }
 
@@ -43,32 +42,6 @@ fn find_enclosing_impl(
     }
 
     best
-}
-
-/// Compute the byte range of a tree node from its tokens.
-fn tree_range(tree: &SyntaxTree) -> (usize, usize) {
-    let mut start = usize::MAX;
-    let mut end = 0;
-    collect_range(tree, &mut start, &mut end);
-    (start, end)
-}
-
-fn collect_range(tree: &SyntaxTree, start: &mut usize, end: &mut usize) {
-    for child in &tree.children {
-        match child {
-            SyntaxChild::Token(token) => {
-                if token.start < *start {
-                    *start = token.start;
-                }
-                if token.end > *end {
-                    *end = token.end;
-                }
-            }
-            SyntaxChild::Tree(subtree) => {
-                collect_range(subtree, start, end);
-            }
-        }
-    }
 }
 
 fn kind_display_name(kind: SyntaxKind) -> Option<&'static str> {

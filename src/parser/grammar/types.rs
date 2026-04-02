@@ -1,7 +1,6 @@
-use crate::lexer::token::TokenKind;
+use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::parser::Parser;
-use crate::parser::syntax_kind::SyntaxKind;
 
 /// Parses a data type with optional parameters:
 ///   `Int32`, `String`, `Array(UInt64)`, `Tuple(Int32, String)`, `Nullable(Float64)`
@@ -9,25 +8,25 @@ use crate::parser::syntax_kind::SyntaxKind;
 pub fn parse_column_type(p: &mut Parser) {
     let m = p.start();
 
-    if p.at(TokenKind::BareWord) {
+    if p.at(SyntaxKind::BareWord) {
         p.advance();
     } else {
         p.advance_with_error("Expected type name");
     }
 
-    if p.at(TokenKind::OpeningRoundBracket) {
+    if p.at(SyntaxKind::OpeningRoundBracket) {
         let m = p.start();
-        p.expect(TokenKind::OpeningRoundBracket);
+        p.expect(SyntaxKind::OpeningRoundBracket);
 
-        if !p.at(TokenKind::ClosingRoundBracket) {
+        if !p.at(SyntaxKind::ClosingRoundBracket) {
             parse_type_parameter(p);
-            while p.at(TokenKind::Comma) && !p.eof() {
-                p.expect(TokenKind::Comma);
+            while p.at(SyntaxKind::Comma) && !p.eof() {
+                p.expect(SyntaxKind::Comma);
                 parse_type_parameter(p);
             }
         }
 
-        p.expect(TokenKind::ClosingRoundBracket);
+        p.expect(SyntaxKind::ClosingRoundBracket);
         p.complete(m, SyntaxKind::DataTypeParameters);
     }
 
@@ -40,8 +39,8 @@ pub fn parse_column_type(p: &mut Parser) {
 /// field name precedes the type.  Disambiguated by checking whether two
 /// consecutive BareWords appear — if so the first is a field name.
 fn parse_type_parameter(p: &mut Parser) {
-    if p.at(TokenKind::BareWord) {
-        if p.nth(1) == TokenKind::BareWord {
+    if p.at(SyntaxKind::BareWord) {
+        if p.nth(1) == SyntaxKind::BareWord {
             // Named field: `name Type` — consume the name, then parse the type.
             p.advance(); // field name
             parse_column_type(p);
@@ -49,7 +48,7 @@ fn parse_type_parameter(p: &mut Parser) {
             // Nested type like Array(String), Nullable(UInt64)
             parse_column_type(p);
         }
-    } else if !p.at(TokenKind::ClosingRoundBracket) && !p.eof() {
+    } else if !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
         // Numeric/string parameter like DateTime64(9), FixedString(100), Enum8('a' = 1)
         parse_expression(p);
     }
@@ -63,7 +62,7 @@ mod tests {
     fn check(input: &str, expected: Expect) {
         let result = parse(input);
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         expected.assert_eq(&buf);
     }
 

@@ -1,10 +1,9 @@
-use crate::lexer::token::TokenKind;
+use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::grammar::types::parse_column_type;
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
-use crate::parser::syntax_kind::SyntaxKind;
 
 pub fn at_alter_statement(p: &mut Parser) -> bool {
     p.at_keyword(Keyword::Alter)
@@ -34,7 +33,7 @@ fn parse_alter_command_list(p: &mut Parser) {
     let mut first = true;
     while !p.end_of_statement() {
         if !first {
-            if p.at(TokenKind::Comma) {
+            if p.at(SyntaxKind::Comma) {
                 p.advance();
             } else {
                 break;
@@ -93,7 +92,7 @@ fn skip_unknown_command(p: &mut Parser) {
     if !p.eof() {
         p.advance();
     }
-    while !p.at(TokenKind::Comma) && !p.end_of_statement()
+    while !p.at(SyntaxKind::Comma) && !p.end_of_statement()
         && !common::at_any_keyword(p, ALTER_COMMAND_KEYWORDS)
     {
         p.advance();
@@ -153,17 +152,17 @@ fn parse_add_command(p: &mut Parser) {
         }
 
         // Optional parameters in parens
-        if p.at(TokenKind::OpeningRoundBracket) {
+        if p.at(SyntaxKind::OpeningRoundBracket) {
             p.advance();
-            while !p.at(TokenKind::ClosingRoundBracket) && !p.eof() {
+            while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
                 p.advance();
             }
-            p.expect(TokenKind::ClosingRoundBracket);
+            p.expect(SyntaxKind::ClosingRoundBracket);
         }
 
         // GRANULARITY val
         p.expect_keyword(Keyword::Granularity);
-        if p.at(TokenKind::Number) {
+        if p.at(SyntaxKind::Number) {
             p.advance();
         } else {
             p.recover_with_error("Expected granularity value");
@@ -195,10 +194,10 @@ fn parse_add_command(p: &mut Parser) {
         }
 
         // (SELECT ...)
-        if p.at(TokenKind::OpeningRoundBracket) {
+        if p.at(SyntaxKind::OpeningRoundBracket) {
             p.advance();
             parse_select_statement(p);
-            p.expect(TokenKind::ClosingRoundBracket);
+            p.expect(SyntaxKind::ClosingRoundBracket);
         } else {
             p.recover_with_error("Expected opening parenthesis for projection definition");
         }
@@ -421,7 +420,7 @@ fn parse_comment_column(p: &mut Parser) {
     }
 
     // comment string
-    if p.at(TokenKind::StringLiteral) {
+    if p.at(SyntaxKind::StringToken) {
         p.advance();
     } else {
         p.recover_with_error("Expected comment string");
@@ -553,7 +552,7 @@ fn parse_assignment_list(p: &mut Parser) {
     let mut first = true;
     loop {
         if !first {
-            if p.at(TokenKind::Comma) {
+            if p.at(SyntaxKind::Comma) {
                 p.advance();
             } else {
                 break;
@@ -582,7 +581,7 @@ fn parse_assignment(p: &mut Parser) {
         p.recover_with_error("Expected column name in assignment");
     }
 
-    p.expect(TokenKind::Equals);
+    p.expect(SyntaxKind::Equals);
     parse_expression(p);
 
     p.complete(m, SyntaxKind::Assignment);
@@ -602,7 +601,7 @@ fn parse_reset_setting(p: &mut Parser) {
         p.recover_with_error("Expected setting name");
     }
 
-    while p.at(TokenKind::Comma) && !p.end_of_statement() {
+    while p.at(SyntaxKind::Comma) && !p.end_of_statement() {
         p.advance();
         if p.at_identifier() {
             p.advance();
@@ -619,7 +618,7 @@ fn parse_reset_setting(p: &mut Parser) {
 fn parse_setting_list(p: &mut Parser) {
     common::parse_setting_item(p);
 
-    while p.at(TokenKind::Comma) && !p.end_of_statement() {
+    while p.at(SyntaxKind::Comma) && !p.end_of_statement() {
         p.advance();
         common::parse_setting_item(p);
     }
@@ -652,12 +651,12 @@ fn parse_column_definition(p: &mut Parser) {
     // Optional CODEC(...)
     if p.at_keyword(Keyword::Codec) {
         p.advance();
-        if p.at(TokenKind::OpeningRoundBracket) {
+        if p.at(SyntaxKind::OpeningRoundBracket) {
             p.advance();
-            while !p.at(TokenKind::ClosingRoundBracket) && !p.eof() {
+            while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
                 p.advance();
             }
-            p.expect(TokenKind::ClosingRoundBracket);
+            p.expect(SyntaxKind::ClosingRoundBracket);
         }
     }
 
@@ -670,7 +669,7 @@ fn parse_column_definition(p: &mut Parser) {
     // Optional COMMENT 'string'
     if p.at_keyword(Keyword::Comment) {
         p.advance();
-        if p.at(TokenKind::StringLiteral) {
+        if p.at(SyntaxKind::StringToken) {
             p.advance();
         } else {
             p.recover_with_error("Expected comment string");
@@ -691,7 +690,7 @@ mod tests {
     fn parse_to_string(input: &str) -> String {
         let result = parse(input);
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         buf
     }
 

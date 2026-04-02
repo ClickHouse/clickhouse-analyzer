@@ -31,11 +31,11 @@ fn main() {
 
     if format_mode {
         let formatted =
-            clickhouse_analyzer::format(&result.tree, &clickhouse_analyzer::FormatConfig::default());
+            clickhouse_analyzer::format(&result.tree, &clickhouse_analyzer::FormatConfig::default(), &result.source);
         print!("{formatted}");
     } else {
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         print!("{buf}");
     }
 

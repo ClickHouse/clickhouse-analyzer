@@ -1,9 +1,8 @@
-use crate::lexer::token::TokenKind;
+use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
-use crate::parser::syntax_kind::SyntaxKind;
 
 /// Parse optional PARTITION expr, wrapping in PartitionExpression.
 fn parse_partition(p: &mut Parser) {
@@ -51,7 +50,7 @@ pub fn parse_set_statement(p: &mut Parser) {
     let mut first = true;
     while !p.end_of_statement() {
         if !first {
-            p.expect(TokenKind::Comma);
+            p.expect(SyntaxKind::Comma);
         }
         first = false;
 
@@ -150,10 +149,10 @@ pub fn parse_rename_statement(p: &mut Parser) {
     let mut first = true;
     loop {
         if !first {
-            if !p.at(TokenKind::Comma) {
+            if !p.at(SyntaxKind::Comma) {
                 break;
             }
-            p.expect(TokenKind::Comma);
+            p.expect(SyntaxKind::Comma);
         }
         first = false;
 
@@ -267,7 +266,7 @@ pub fn parse_optimize_statement(p: &mut Parser) {
             // Parse comma-separated expression list
             let m = p.start();
             parse_expression(p);
-            while p.at(TokenKind::Comma) && !p.end_of_statement() {
+            while p.at(SyntaxKind::Comma) && !p.end_of_statement() {
                 p.advance();
                 parse_expression(p);
             }
@@ -286,7 +285,7 @@ mod tests {
     fn check(input: &str, expected_tree: Expect) {
         let result = parse(input);
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         expected_tree.assert_eq(&buf);
     }
 

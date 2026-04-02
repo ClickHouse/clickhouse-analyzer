@@ -15,7 +15,8 @@ use crate::parser::diagnostic::Parse;
 
 pub fn parse(text: &str) -> Parse {
     let tokens = tokenize_with_whitespace(text);
-    let mut p = parser::Parser::new(tokens);
+    let source = text.to_string();
+    let mut p = parser::Parser::new(tokens, source);
     grammar::parse_source(&mut p);
     p.build_tree()
 }

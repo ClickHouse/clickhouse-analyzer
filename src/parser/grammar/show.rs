@@ -1,10 +1,9 @@
-use crate::lexer::token::TokenKind;
+use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::grammar::select::{at_select_statement, parse_select_statement};
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
-use crate::parser::syntax_kind::SyntaxKind;
 
 const SHOW_KEYWORDS: &[Keyword] = &[
     Keyword::From, Keyword::Like, Keyword::Ilike, Keyword::Limit,
@@ -396,7 +395,7 @@ fn parse_like_clause(p: &mut Parser) {
         p.advance();
     }
 
-    if p.at(TokenKind::StringLiteral) {
+    if p.at(SyntaxKind::StringToken) {
         p.advance();
     } else {
         p.recover_with_error("Expected string pattern after LIKE/ILIKE");
@@ -449,7 +448,7 @@ fn parse_table_ref(p: &mut Parser) {
     p.advance();
 
     // Check for db.table syntax
-    if p.at(TokenKind::Dot) {
+    if p.at(SyntaxKind::Dot) {
         p.advance(); // consume dot
         if p.at_identifier() {
             p.advance();
@@ -457,17 +456,17 @@ fn parse_table_ref(p: &mut Parser) {
             p.recover_with_error("Expected table name after dot");
         }
         p.complete(m, SyntaxKind::TableIdentifier);
-    } else if p.at(TokenKind::OpeningRoundBracket) {
+    } else if p.at(SyntaxKind::OpeningRoundBracket) {
         // table_function(args)
         p.advance(); // (
-        while !p.eof() && !p.at(TokenKind::ClosingRoundBracket) {
-            if p.at(TokenKind::Comma) {
+        while !p.eof() && !p.at(SyntaxKind::ClosingRoundBracket) {
+            if p.at(SyntaxKind::Comma) {
                 p.advance();
             } else {
                 parse_expression(p);
             }
         }
-        p.expect(TokenKind::ClosingRoundBracket);
+        p.expect(SyntaxKind::ClosingRoundBracket);
         p.complete(m, SyntaxKind::TableFunction);
     } else {
         p.complete(m, SyntaxKind::TableIdentifier);
@@ -488,7 +487,7 @@ fn parse_settings_list(p: &mut Parser) {
         && !at_describe_statement(p)
     {
         if !first {
-            if !p.eat(TokenKind::Comma) {
+            if !p.eat(SyntaxKind::Comma) {
                 break;
             }
         }
@@ -502,7 +501,7 @@ fn parse_settings_list(p: &mut Parser) {
             break;
         }
         // =
-        p.expect(TokenKind::Equals);
+        p.expect(SyntaxKind::Equals);
         // value
         parse_expression(p);
         p.complete(item_m, SyntaxKind::SettingItem);
@@ -523,7 +522,7 @@ mod tests {
     fn check(input: &str, expected: Expect) {
         let result = parse(input);
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         expected.assert_eq(&buf);
     }
 
@@ -538,24 +537,24 @@ mod tests {
 
     fn check_roundtrip(input: &str) {
         let result = parse(input);
-        let reconstructed = collect_text(&result.tree);
+        let reconstructed = collect_text(&result.tree, &result.source);
         assert_eq!(
             reconstructed, input,
             "CST does not reconstruct original input"
         );
     }
 
-    fn collect_text(tree: &crate::SyntaxTree) -> String {
+    fn collect_text(tree: &crate::SyntaxTree, source: &str) -> String {
         let mut buf = String::new();
-        collect_text_rec(tree, &mut buf);
+        collect_text_rec(tree, &mut buf, source);
         buf
     }
 
-    fn collect_text_rec(tree: &crate::SyntaxTree, buf: &mut String) {
+    fn collect_text_rec(tree: &crate::SyntaxTree, buf: &mut String, source: &str) {
         for child in &tree.children {
             match child {
-                crate::SyntaxChild::Token(token) => buf.push_str(&token.text),
-                crate::SyntaxChild::Tree(subtree) => collect_text_rec(subtree, buf),
+                crate::SyntaxChild::Token(token) => buf.push_str(token.text(source)),
+                crate::SyntaxChild::Tree(subtree) => collect_text_rec(subtree, buf, source),
             }
         }
     }

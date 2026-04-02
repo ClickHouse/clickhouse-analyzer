@@ -1,10 +1,9 @@
-use crate::lexer::token::TokenKind;
+use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::grammar::select::{at_select_statement, parse_select_statement};
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
-use crate::parser::syntax_kind::SyntaxKind;
 
 const INSERT_KEYWORDS: &[Keyword] = &[
     Keyword::Values, Keyword::Format, Keyword::Settings,
@@ -32,7 +31,7 @@ pub fn parse_insert_statement(p: &mut Parser) {
     }
 
     // Optional column list: (col1, col2, ...)
-    if p.at(TokenKind::OpeningRoundBracket) {
+    if p.at(SyntaxKind::OpeningRoundBracket) {
         parse_insert_columns(p);
     }
 
@@ -71,17 +70,17 @@ fn parse_table_function(p: &mut Parser) {
     }
 
     // Parse argument list
-    if p.at(TokenKind::OpeningRoundBracket) {
-        p.expect(TokenKind::OpeningRoundBracket);
+    if p.at(SyntaxKind::OpeningRoundBracket) {
+        p.expect(SyntaxKind::OpeningRoundBracket);
         let mut first = true;
-        while !p.at(TokenKind::ClosingRoundBracket) && !p.eof() {
+        while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
             if !first {
-                p.expect(TokenKind::Comma);
+                p.expect(SyntaxKind::Comma);
             }
             first = false;
             parse_expression(p);
         }
-        p.expect(TokenKind::ClosingRoundBracket);
+        p.expect(SyntaxKind::ClosingRoundBracket);
     }
 
     p.complete(m, SyntaxKind::TableFunction);
@@ -91,12 +90,12 @@ fn parse_table_function(p: &mut Parser) {
 fn parse_insert_columns(p: &mut Parser) {
     let m = p.start();
 
-    p.expect(TokenKind::OpeningRoundBracket);
+    p.expect(SyntaxKind::OpeningRoundBracket);
 
     let mut first = true;
-    while !p.at(TokenKind::ClosingRoundBracket) && !p.eof() {
+    while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
         if !first {
-            p.expect(TokenKind::Comma);
+            p.expect(SyntaxKind::Comma);
         }
         first = false;
 
@@ -107,7 +106,7 @@ fn parse_insert_columns(p: &mut Parser) {
         }
     }
 
-    p.expect(TokenKind::ClosingRoundBracket);
+    p.expect(SyntaxKind::ClosingRoundBracket);
 
     p.complete(m, SyntaxKind::InsertColumnsClause);
 }
@@ -125,7 +124,7 @@ fn parse_settings_clause(p: &mut Parser) {
         && !at_select_statement(p)
     {
         if !first {
-            p.expect(TokenKind::Comma);
+            p.expect(SyntaxKind::Comma);
         }
         first = false;
 
@@ -142,11 +141,11 @@ fn parse_values_clause(p: &mut Parser) {
     p.expect_keyword(Keyword::Values);
 
     // Parse value rows
-    while p.at(TokenKind::OpeningRoundBracket) && !p.eof() {
+    while p.at(SyntaxKind::OpeningRoundBracket) && !p.eof() {
         parse_value_row(p);
 
         // Optional comma between rows
-        if p.at(TokenKind::Comma) {
+        if p.at(SyntaxKind::Comma) {
             p.advance();
         }
     }
@@ -158,19 +157,19 @@ fn parse_values_clause(p: &mut Parser) {
 fn parse_value_row(p: &mut Parser) {
     let m = p.start();
 
-    p.expect(TokenKind::OpeningRoundBracket);
+    p.expect(SyntaxKind::OpeningRoundBracket);
 
     let mut first = true;
-    while !p.at(TokenKind::ClosingRoundBracket) && !p.eof() {
+    while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
         if !first {
-            p.expect(TokenKind::Comma);
+            p.expect(SyntaxKind::Comma);
         }
         first = false;
 
         parse_expression(p);
     }
 
-    p.expect(TokenKind::ClosingRoundBracket);
+    p.expect(SyntaxKind::ClosingRoundBracket);
 
     p.complete(m, SyntaxKind::ValueRow);
 }
@@ -198,7 +197,7 @@ mod tests {
     fn check(input: &str, expected_tree: Expect) {
         let result = parse(input);
         let mut buf = String::new();
-        result.tree.print(&mut buf, 0);
+        result.tree.print(&mut buf, 0, &result.source);
         expected_tree.assert_eq(&buf);
     }
 

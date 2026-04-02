@@ -13,6 +13,7 @@ pub struct SyntaxError {
 pub struct Parse {
     pub tree: super::syntax_tree::SyntaxTree,
     pub errors: Vec<SyntaxError>,
+    pub source: String,
 }
 
 #[cfg(test)]

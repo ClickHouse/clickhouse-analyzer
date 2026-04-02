@@ -1,4 +1,5 @@
-use crate::lexer::token::{Token, TokenKind};
+use crate::lexer::token::Token;
+use crate::parser::syntax_kind::SyntaxKind;
 
 /// Maximum query size (can be configured)
 const MAX_QUERY_SIZE: usize = 1_000_000; // 1MB
@@ -9,8 +10,6 @@ pub struct Tokenizer<'a> {
     chars: std::str::Chars<'a>,
     position: usize,
     start: usize,
-    line: usize,
-    column: usize,
     include_whitespace: bool,
 }
 
@@ -28,8 +27,6 @@ impl<'a> Tokenizer<'a> {
             chars: input.chars(),
             position: 0,
             start: 0,
-            line: 1,
-            column: 1,
             include_whitespace: true, // Default to including whitespace
         }
     }
@@ -46,7 +43,7 @@ impl<'a> Tokenizer<'a> {
 
         // Check for max query size
         if self.input.len() > MAX_QUERY_SIZE {
-            tokens.push(self.error_token(TokenKind::ErrorMaxQuerySizeExceeded));
+            tokens.push(self.error_token(SyntaxKind::ErrorMaxQuerySizeExceeded));
             tokens.push(self.eof_token());
             return tokens;
         }
@@ -56,12 +53,12 @@ impl<'a> Tokenizer<'a> {
 
             // Skip whitespace if not included
             if !self.include_whitespace
-                && (token.kind == TokenKind::Whitespace || token.kind == TokenKind::Comment)
+                && (token.kind == SyntaxKind::Whitespace || token.kind == SyntaxKind::Comment)
             {
                 continue;
             }
 
-            if token.kind == TokenKind::EndOfStream {
+            if token.kind == SyntaxKind::EndOfStream {
                 break;
             }
 
@@ -107,106 +104,106 @@ impl<'a> Tokenizer<'a> {
             // String literals and quoted identifiers
             '\'' => self.read_string(
                 '\'',
-                TokenKind::StringLiteral,
-                TokenKind::ErrorSingleQuoteIsNotClosed,
+                SyntaxKind::StringToken,
+                SyntaxKind::ErrorSingleQuoteIsNotClosed,
             ),
             '"' => self.read_string(
                 '"',
-                TokenKind::QuotedIdentifier,
-                TokenKind::ErrorDoubleQuoteIsNotClosed,
+                SyntaxKind::QuotedIdentifier,
+                SyntaxKind::ErrorDoubleQuoteIsNotClosed,
             ),
             '`' => self.read_string(
                 '`',
-                TokenKind::QuotedIdentifier,
-                TokenKind::ErrorBackQuoteIsNotClosed,
+                SyntaxKind::QuotedIdentifier,
+                SyntaxKind::ErrorBackQuoteIsNotClosed,
             ),
 
             // Brackets
-            '(' => self.create_token(TokenKind::OpeningRoundBracket),
-            ')' => self.create_token(TokenKind::ClosingRoundBracket),
-            '[' => self.create_token(TokenKind::OpeningSquareBracket),
-            ']' => self.create_token(TokenKind::ClosingSquareBracket),
-            '{' => self.create_token(TokenKind::OpeningCurlyBrace),
-            '}' => self.create_token(TokenKind::ClosingCurlyBrace),
+            '(' => self.create_token(SyntaxKind::OpeningRoundBracket),
+            ')' => self.create_token(SyntaxKind::ClosingRoundBracket),
+            '[' => self.create_token(SyntaxKind::OpeningSquareBracket),
+            ']' => self.create_token(SyntaxKind::ClosingSquareBracket),
+            '{' => self.create_token(SyntaxKind::OpeningCurlyBrace),
+            '}' => self.create_token(SyntaxKind::ClosingCurlyBrace),
 
             // Punctuation
-            ',' => self.create_token(TokenKind::Comma),
-            ';' => self.create_token(TokenKind::Semicolon),
-            '.' => self.create_token(TokenKind::Dot),
+            ',' => self.create_token(SyntaxKind::Comma),
+            ';' => self.create_token(SyntaxKind::Semicolon),
+            '.' => self.create_token(SyntaxKind::Dot),
 
             // Operators and symbols
-            '*' => self.create_token(TokenKind::Asterisk),
-            '$' => self.create_token(TokenKind::DollarSign),
-            '+' => self.create_token(TokenKind::Plus),
+            '*' => self.create_token(SyntaxKind::Star),
+            '$' => self.create_token(SyntaxKind::DollarSign),
+            '+' => self.create_token(SyntaxKind::Plus),
             '-' => {
                 if self.match_char('>') {
-                    self.create_token(TokenKind::Arrow)
+                    self.create_token(SyntaxKind::Arrow)
                 } else {
-                    self.create_token(TokenKind::Minus)
+                    self.create_token(SyntaxKind::Minus)
                 }
             }
-            '/' => self.create_token(TokenKind::Slash),
-            '%' => self.create_token(TokenKind::Percent),
-            '?' => self.create_token(TokenKind::QuestionMark),
+            '/' => self.create_token(SyntaxKind::Slash),
+            '%' => self.create_token(SyntaxKind::Percent),
+            '?' => self.create_token(SyntaxKind::QuestionMark),
             ':' => {
                 if self.match_char(':') {
-                    self.create_token(TokenKind::DoubleColon)
+                    self.create_token(SyntaxKind::DoubleColon)
                 } else {
-                    self.create_token(TokenKind::Colon)
+                    self.create_token(SyntaxKind::Colon)
                 }
             }
-            '^' => self.create_token(TokenKind::Caret),
+            '^' => self.create_token(SyntaxKind::Caret),
             '=' => {
                 if self.match_char('>') {
                     if self.match_char('<') {
-                        self.create_token(TokenKind::Spaceship)
+                        self.create_token(SyntaxKind::Spaceship)
                     } else {
                         // Invalid, but treat as equals for now
-                        self.create_token(TokenKind::Equals)
+                        self.create_token(SyntaxKind::Equals)
                     }
                 } else {
-                    self.create_token(TokenKind::Equals)
+                    self.create_token(SyntaxKind::Equals)
                 }
             }
             '!' => {
                 if self.match_char('=') {
-                    self.create_token(TokenKind::NotEquals)
+                    self.create_token(SyntaxKind::NotEquals)
                 } else {
-                    self.create_token(TokenKind::ErrorSingleExclamationMark)
+                    self.create_token(SyntaxKind::ErrorSingleExclamationMark)
                 }
             }
             '<' => {
                 if self.match_char('=') {
                     if self.match_char('>') {
-                        self.create_token(TokenKind::Spaceship)
+                        self.create_token(SyntaxKind::Spaceship)
                     } else {
-                        self.create_token(TokenKind::LessOrEquals)
+                        self.create_token(SyntaxKind::LessOrEquals)
                     }
                 } else if self.match_char('>') {
-                    self.create_token(TokenKind::NotEquals)
+                    self.create_token(SyntaxKind::NotEquals)
                 } else {
-                    self.create_token(TokenKind::Less)
+                    self.create_token(SyntaxKind::Less)
                 }
             }
             '>' => {
                 if self.match_char('=') {
-                    self.create_token(TokenKind::GreaterOrEquals)
+                    self.create_token(SyntaxKind::GreaterOrEquals)
                 } else {
-                    self.create_token(TokenKind::Greater)
+                    self.create_token(SyntaxKind::Greater)
                 }
             }
             '|' => {
                 if self.match_char('|') {
-                    self.create_token(TokenKind::Concatenation)
+                    self.create_token(SyntaxKind::Concatenation)
                 } else {
-                    self.create_token(TokenKind::ErrorSinglePipeMark)
+                    self.create_token(SyntaxKind::ErrorSinglePipeMark)
                 }
             }
             '@' => {
                 if self.match_char('@') {
-                    self.create_token(TokenKind::DoubleAt)
+                    self.create_token(SyntaxKind::DoubleAt)
                 } else {
-                    self.create_token(TokenKind::At)
+                    self.create_token(SyntaxKind::At)
                 }
             }
 
@@ -216,14 +213,14 @@ impl<'a> Tokenizer<'a> {
             // Catch vertical delimiter - ClickHouse specific
             '\\' => {
                 if self.match_char('G') || self.match_char('g') {
-                    self.create_token(TokenKind::VerticalDelimiter)
+                    self.create_token(SyntaxKind::VerticalDelimiter)
                 } else {
-                    self.create_token(TokenKind::Error)
+                    self.create_token(SyntaxKind::ErrorToken)
                 }
             }
 
             // Anything else is an error
-            _ => self.create_token(TokenKind::Error),
+            _ => self.create_token(SyntaxKind::ErrorToken),
         }
     }
 
@@ -237,7 +234,7 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        self.create_token(TokenKind::Whitespace)
+        self.create_token(SyntaxKind::Whitespace)
     }
 
     /// Read a single-line comment
@@ -249,7 +246,7 @@ impl<'a> Tokenizer<'a> {
             self.advance();
         }
 
-        self.create_token(TokenKind::Comment)
+        self.create_token(SyntaxKind::Comment)
     }
 
     /// Read a multi-line comment
@@ -265,11 +262,11 @@ impl<'a> Tokenizer<'a> {
                 }
             } else {
                 // Unclosed comment
-                return self.create_token(TokenKind::ErrorMultilineCommentIsNotClosed);
+                return self.create_token(SyntaxKind::ErrorMultilineCommentIsNotClosed);
             }
         }
 
-        self.create_token(TokenKind::Comment)
+        self.create_token(SyntaxKind::Comment)
     }
 
     /// Read a number (integer, float, hex, etc.)
@@ -339,7 +336,7 @@ impl<'a> Tokenizer<'a> {
 
                     // Exponent is always decimal
                     if !self.current_char_is_digit() {
-                        return self.create_token(TokenKind::ErrorWrongNumber);
+                        return self.create_token(SyntaxKind::ErrorWrongNumber);
                     }
 
                     self.read_digits();
@@ -352,7 +349,7 @@ impl<'a> Tokenizer<'a> {
             return self.read_identifier_starting_with_number();
         }
 
-        self.create_token(TokenKind::Number)
+        self.create_token(SyntaxKind::Number)
     }
 
     /// Read hex digits, including underscore separators
@@ -456,9 +453,9 @@ impl<'a> Tokenizer<'a> {
         }
 
         if is_valid_identifier {
-            self.create_token(TokenKind::BareWord)
+            self.create_token(SyntaxKind::BareWord)
         } else {
-            self.create_token(TokenKind::ErrorWrongNumber)
+            self.create_token(SyntaxKind::ErrorWrongNumber)
         }
     }
 
@@ -466,8 +463,8 @@ impl<'a> Tokenizer<'a> {
     fn read_string(
         &mut self,
         quote: char,
-        success_type: TokenKind,
-        error_type: TokenKind,
+        success_type: SyntaxKind,
+        error_type: SyntaxKind,
     ) -> Token {
         let mut escaped = false;
 
@@ -513,85 +510,28 @@ impl<'a> Tokenizer<'a> {
         }
 
         // Check if it's a keyword (for information only, still returns BareWord)
-        self.create_token(TokenKind::BareWord)
+        self.create_token(SyntaxKind::BareWord)
     }
 
     /// Create a token with the current lexeme
-    fn create_token(&self, kind: TokenKind) -> Token {
-        let lexeme = &self.input[self.start..self.position];
-
-        // For multi-line tokens, we need special handling for column calculation
-        let is_multiline = lexeme.contains('\n');
-
-        let token_column = if is_multiline {
-            // For multi-line tokens, set column to start of the token
-            // Calculate the column at the start of the token
-            let mut col = 1;
-            let mut current_pos = 0;
-
-            // Find the last line break before start
-            for (i, c) in self.input[..self.start].char_indices() {
-                if c == '\n' {
-                    current_pos = i + 1; // Position after line break
-                    col = 1; // Reset column count
-                } else {
-                    col += 1;
-                }
-            }
-
-            col
-        } else {
-            // For single-line tokens, use the current column minus lexeme length
-            // This might need adjustment if you have UTF-8 characters
-            self.column - lexeme.len()
-        };
-
-        Token::new(
-            kind,
-            lexeme.to_string(),
-            self.start,
-            self.position,
-            self.line - lexeme.chars().filter(|&c| c == '\n').count(), // Adjust line for token's start
-            token_column,
-        )
+    fn create_token(&self, kind: SyntaxKind) -> Token {
+        Token::new(kind, self.start as u32, self.position as u32)
     }
 
     /// Create an error token
-    fn error_token(&self, kind: TokenKind) -> Token {
-        Token::new(
-            kind,
-            "".to_string(),
-            self.position,
-            self.position,
-            self.line,
-            self.column,
-        )
+    fn error_token(&self, kind: SyntaxKind) -> Token {
+        Token::new(kind, self.position as u32, self.position as u32)
     }
 
     /// Create an EOF token
     fn eof_token(&self) -> Token {
-        Token::new(
-            TokenKind::EndOfStream,
-            "".to_string(),
-            self.position,
-            self.position,
-            self.line,
-            self.column,
-        )
+        Token::new(SyntaxKind::EndOfStream, self.position as u32, self.position as u32)
     }
 
     /// Advance to the next character
     fn advance(&mut self) -> Option<char> {
         if let Some(c) = self.chars.next() {
             self.position += c.len_utf8();
-
-            if c == '\n' {
-                self.line += 1;
-                self.column = 1;
-            } else {
-                self.column += 1;
-            }
-
             Some(c)
         } else {
             None
@@ -650,13 +590,13 @@ impl<'a> Tokenizer<'a> {
         while !self.is_at_end() && self.position < position {
             let token = self.next_token();
 
-            if !self.include_whitespace && token.kind == TokenKind::Whitespace {
+            if !self.include_whitespace && token.kind == SyntaxKind::Whitespace {
                 continue;
             }
 
             tokens.push(token.clone());
 
-            if token.kind == TokenKind::EndOfStream {
+            if token.kind == SyntaxKind::EndOfStream {
                 break;
             }
         }
@@ -698,41 +638,41 @@ mod tests {
 
         assert_eq!(tokens.len(), 12);
 
-        assert_eq!(tokens[0].kind, TokenKind::BareWord);
-        assert_eq!(tokens[0].text, "SELECT");
+        assert_eq!(tokens[0].kind, SyntaxKind::BareWord);
+        assert_eq!(tokens[0].text(sql), "SELECT");
 
-        assert_eq!(tokens[1].kind, TokenKind::Asterisk);
-        assert_eq!(tokens[1].text, "*");
+        assert_eq!(tokens[1].kind, SyntaxKind::Star);
+        assert_eq!(tokens[1].text(sql), "*");
 
-        assert_eq!(tokens[2].kind, TokenKind::BareWord);
-        assert_eq!(tokens[2].text, "FROM");
+        assert_eq!(tokens[2].kind, SyntaxKind::BareWord);
+        assert_eq!(tokens[2].text(sql), "FROM");
 
-        assert_eq!(tokens[3].kind, TokenKind::BareWord);
-        assert_eq!(tokens[3].text, "system");
+        assert_eq!(tokens[3].kind, SyntaxKind::BareWord);
+        assert_eq!(tokens[3].text(sql), "system");
 
-        assert_eq!(tokens[4].kind, TokenKind::Dot);
-        assert_eq!(tokens[4].text, ".");
+        assert_eq!(tokens[4].kind, SyntaxKind::Dot);
+        assert_eq!(tokens[4].text(sql), ".");
 
-        assert_eq!(tokens[5].kind, TokenKind::BareWord);
-        assert_eq!(tokens[5].text, "numbers");
+        assert_eq!(tokens[5].kind, SyntaxKind::BareWord);
+        assert_eq!(tokens[5].text(sql), "numbers");
 
-        assert_eq!(tokens[6].kind, TokenKind::BareWord);
-        assert_eq!(tokens[6].text, "WHERE");
+        assert_eq!(tokens[6].kind, SyntaxKind::BareWord);
+        assert_eq!(tokens[6].text(sql), "WHERE");
 
-        assert_eq!(tokens[7].kind, TokenKind::BareWord);
-        assert_eq!(tokens[7].text, "number");
+        assert_eq!(tokens[7].kind, SyntaxKind::BareWord);
+        assert_eq!(tokens[7].text(sql), "number");
 
-        assert_eq!(tokens[8].kind, TokenKind::Greater);
-        assert_eq!(tokens[8].text, ">");
+        assert_eq!(tokens[8].kind, SyntaxKind::Greater);
+        assert_eq!(tokens[8].text(sql), ">");
 
-        assert_eq!(tokens[9].kind, TokenKind::Number);
-        assert_eq!(tokens[9].text, "1");
+        assert_eq!(tokens[9].kind, SyntaxKind::Number);
+        assert_eq!(tokens[9].text(sql), "1");
 
-        assert_eq!(tokens[10].kind, TokenKind::BareWord);
-        assert_eq!(tokens[10].text, "LIMIT");
+        assert_eq!(tokens[10].kind, SyntaxKind::BareWord);
+        assert_eq!(tokens[10].text(sql), "LIMIT");
 
-        assert_eq!(tokens[11].kind, TokenKind::Number);
-        assert_eq!(tokens[11].text, "5");
+        assert_eq!(tokens[11].kind, SyntaxKind::Number);
+        assert_eq!(tokens[11].text(sql), "5");
     }
 
     #[test]
@@ -741,11 +681,11 @@ mod tests {
         let tokens = tokenize_with_whitespace(sql);
 
         assert_eq!(tokens.len(), 5); // SELECT, WS, *, WS, FROM, EndOfStream
-        assert_eq!(tokens[0].kind, TokenKind::BareWord);
-        assert_eq!(tokens[1].kind, TokenKind::Whitespace);
-        assert_eq!(tokens[2].kind, TokenKind::Asterisk);
-        assert_eq!(tokens[3].kind, TokenKind::Whitespace);
-        assert_eq!(tokens[4].kind, TokenKind::BareWord);
+        assert_eq!(tokens[0].kind, SyntaxKind::BareWord);
+        assert_eq!(tokens[1].kind, SyntaxKind::Whitespace);
+        assert_eq!(tokens[2].kind, SyntaxKind::Star);
+        assert_eq!(tokens[3].kind, SyntaxKind::Whitespace);
+        assert_eq!(tokens[4].kind, SyntaxKind::BareWord);
     }
 
     #[test]
@@ -757,19 +697,19 @@ mod tests {
         // Find string literal
         let string_token = tokens
             .iter()
-            .find(|t| t.kind == TokenKind::StringLiteral)
+            .find(|t| t.kind == SyntaxKind::StringToken)
             .unwrap();
-        assert_eq!(string_token.text, "'string literal'");
+        assert_eq!(string_token.text(sql), "'string literal'");
 
         // Find quoted identifiers
         let quoted_tokens: Vec<&Token> = tokens
             .iter()
-            .filter(|t| t.kind == TokenKind::QuotedIdentifier)
+            .filter(|t| t.kind == SyntaxKind::QuotedIdentifier)
             .collect();
 
         assert_eq!(quoted_tokens.len(), 2);
-        assert_eq!(quoted_tokens[0].text, "\"quoted identifier\"");
-        assert_eq!(quoted_tokens[1].text, "`backtick identifier`");
+        assert_eq!(quoted_tokens[0].text(sql), "\"quoted identifier\"");
+        assert_eq!(quoted_tokens[1].text(sql), "`backtick identifier`");
     }
 
     #[test]
@@ -780,16 +720,16 @@ mod tests {
 
         let number_tokens: Vec<&Token> = tokens
             .iter()
-            .filter(|t| t.kind == TokenKind::Number)
+            .filter(|t| t.kind == SyntaxKind::Number)
             .collect();
 
         assert_eq!(number_tokens.len(), 6);
-        assert_eq!(number_tokens[0].text, "123");
-        assert_eq!(number_tokens[1].text, "123.456");
-        assert_eq!(number_tokens[2].text, "1.23e4");
-        assert_eq!(number_tokens[3].text, "1.23E-4");
-        assert_eq!(number_tokens[4].text, "0xFF");
-        assert_eq!(number_tokens[5].text, "0b101");
+        assert_eq!(number_tokens[0].text(sql), "123");
+        assert_eq!(number_tokens[1].text(sql), "123.456");
+        assert_eq!(number_tokens[2].text(sql), "1.23e4");
+        assert_eq!(number_tokens[3].text(sql), "1.23E-4");
+        assert_eq!(number_tokens[4].text(sql), "0xFF");
+        assert_eq!(number_tokens[5].text(sql), "0b101");
     }
 
     #[test]
@@ -800,19 +740,19 @@ mod tests {
         let tokens = tokenize(sql);
 
         // Comments should be excluded from the output
-        assert!(!tokens.iter().any(|t| t.kind == TokenKind::Comment));
+        assert!(!tokens.iter().any(|t| t.kind == SyntaxKind::Comment));
 
         // Test with whitespace and comments included
         let tokens_with_comments = tokenize_with_whitespace(sql);
 
         let comment_tokens: Vec<&Token> = tokens_with_comments
             .iter()
-            .filter(|t| t.kind == TokenKind::Comment)
+            .filter(|t| t.kind == SyntaxKind::Comment)
             .collect();
 
         assert_eq!(comment_tokens.len(), 2);
-        assert_eq!(comment_tokens[0].text, "-- This is a comment");
-        assert_eq!(comment_tokens[1].text, "/* Multi\nline\ncomment */");
+        assert_eq!(comment_tokens[0].text(sql), "-- This is a comment");
+        assert_eq!(comment_tokens[1].text(sql), "/* Multi\nline\ncomment */");
     }
 
     #[test]
@@ -822,29 +762,29 @@ mod tests {
         let tokens = tokenize(sql);
 
         // Spot check a few operators
-        let plus_token = tokens.iter().find(|t| t.kind == TokenKind::Plus).unwrap();
-        assert_eq!(plus_token.text, "+");
+        let plus_token = tokens.iter().find(|t| t.kind == SyntaxKind::Plus).unwrap();
+        assert_eq!(plus_token.text(sql), "+");
 
-        let minus_token = tokens.iter().find(|t| t.kind == TokenKind::Minus).unwrap();
-        assert_eq!(minus_token.text, "-");
+        let minus_token = tokens.iter().find(|t| t.kind == SyntaxKind::Minus).unwrap();
+        assert_eq!(minus_token.text(sql), "-");
 
         let concat_token = tokens
             .iter()
-            .find(|t| t.kind == TokenKind::Concatenation)
+            .find(|t| t.kind == SyntaxKind::Concatenation)
             .unwrap();
-        assert_eq!(concat_token.text, "||");
+        assert_eq!(concat_token.text(sql), "||");
 
         let spaceship_token = tokens
             .iter()
-            .find(|t| t.kind == TokenKind::Spaceship)
+            .find(|t| t.kind == SyntaxKind::Spaceship)
             .unwrap();
-        assert_eq!(spaceship_token.text, "<=>");
+        assert_eq!(spaceship_token.text(sql), "<=>");
 
         let not_equals_token = tokens
             .iter()
-            .find(|t| t.kind == TokenKind::NotEquals)
+            .find(|t| t.kind == SyntaxKind::NotEquals)
             .unwrap();
-        assert_eq!(not_equals_token.text, "!=");
+        assert_eq!(not_equals_token.text(sql), "!=");
     }
 
     #[test]
@@ -855,9 +795,9 @@ mod tests {
 
         let error_token = tokens
             .iter()
-            .find(|t| t.kind == TokenKind::ErrorSingleQuoteIsNotClosed)
+            .find(|t| t.kind == SyntaxKind::ErrorSingleQuoteIsNotClosed)
             .unwrap();
-        assert_eq!(error_token.text, "'unterminated string");
+        assert_eq!(error_token.text(sql), "'unterminated string");
 
         // Unterminated multi-line comment
         let sql = "SELECT /* unterminated comment";
@@ -865,9 +805,9 @@ mod tests {
 
         let error_token = tokens
             .iter()
-            .find(|t| t.kind == TokenKind::ErrorMultilineCommentIsNotClosed)
+            .find(|t| t.kind == SyntaxKind::ErrorMultilineCommentIsNotClosed)
             .unwrap();
-        assert_eq!(error_token.text, "/* unterminated comment");
+        assert_eq!(error_token.text(sql), "/* unterminated comment");
 
         // Invalid use of pipe
         let sql = "SELECT column | other";
@@ -875,9 +815,9 @@ mod tests {
 
         let error_token = tokens
             .iter()
-            .find(|t| t.kind == TokenKind::ErrorSinglePipeMark)
+            .find(|t| t.kind == SyntaxKind::ErrorSinglePipeMark)
             .unwrap();
-        assert_eq!(error_token.text, "|");
+        assert_eq!(error_token.text(sql), "|");
     }
 
     #[test]
@@ -889,11 +829,11 @@ mod tests {
 
         // Should contain just SELECT, *, FROM (no whitespace)
         assert_eq!(tokens.len(), 3);
-        assert_eq!(tokens[0].kind, TokenKind::BareWord);
-        assert_eq!(tokens[0].text, "SELECT");
-        assert_eq!(tokens[1].kind, TokenKind::Asterisk);
-        assert_eq!(tokens[2].kind, TokenKind::BareWord);
-        assert_eq!(tokens[2].text, "FROM");
+        assert_eq!(tokens[0].kind, SyntaxKind::BareWord);
+        assert_eq!(tokens[0].text(sql), "SELECT");
+        assert_eq!(tokens[1].kind, SyntaxKind::Star);
+        assert_eq!(tokens[2].kind, SyntaxKind::BareWord);
+        assert_eq!(tokens[2].text(sql), "FROM");
     }
 
     #[test]
@@ -904,9 +844,9 @@ mod tests {
 
         let vdelim_token = tokens
             .iter()
-            .find(|t| t.kind == TokenKind::VerticalDelimiter)
+            .find(|t| t.kind == SyntaxKind::VerticalDelimiter)
             .unwrap();
-        assert_eq!(vdelim_token.text, "\\G");
+        assert_eq!(vdelim_token.text(sql), "\\G");
 
         // Here-doc (if your implementation supports it)
         // let sql = "SELECT <<<EOF\nsome text\nEOF";
@@ -923,13 +863,13 @@ mod tests {
 
         let quoted_identifiers: Vec<&Token> = tokens
             .iter()
-            .filter(|t| t.kind == TokenKind::QuotedIdentifier)
+            .filter(|t| t.kind == SyntaxKind::QuotedIdentifier)
             .collect();
 
         assert_eq!(quoted_identifiers.len(), 3);
-        assert_eq!(quoted_identifiers[0].text, "`column.with.dots`");
-        assert_eq!(quoted_identifiers[1].text, "\"another.column\"");
-        assert_eq!(quoted_identifiers[2].text, "`table.name`");
+        assert_eq!(quoted_identifiers[0].text(sql), "`column.with.dots`");
+        assert_eq!(quoted_identifiers[1].text(sql), "\"another.column\"");
+        assert_eq!(quoted_identifiers[2].text(sql), "`table.name`");
     }
 
     #[test]
@@ -940,11 +880,11 @@ mod tests {
 
         let string_literals: Vec<&Token> = tokens
             .iter()
-            .filter(|t| t.kind == TokenKind::StringLiteral)
+            .filter(|t| t.kind == SyntaxKind::StringToken)
             .collect();
 
         assert_eq!(string_literals.len(), 2);
-        assert_eq!(string_literals[0].text, "'it\\'s a string'");
-        assert_eq!(string_literals[1].text, "'it''s another string'");
+        assert_eq!(string_literals[0].text(sql), "'it\\'s a string'");
+        assert_eq!(string_literals[1].text(sql), "'it''s another string'");
     }
 }

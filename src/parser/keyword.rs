@@ -1,6 +1,6 @@
 /// SQL keywords recognized by the parser.
 ///
-/// The lexer emits all identifiers as `TokenKind::BareWord`. The parser uses
+/// The lexer emits all identifiers as `SyntaxKind::BareWord`. The parser uses
 /// `Parser::at_keyword()` with case-insensitive comparison to distinguish
 /// keywords from regular identifiers. This enum lists every keyword the
 /// parser currently needs to recognize.

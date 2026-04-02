@@ -1,0 +1,20 @@
+[package]
+name = "clickhouse-analyzer-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+clickhouse-analyzer = { path = ".." }
+
+[[bin]]
+name = "parse"
+path = "fuzz_targets/parse.rs"
+doc = false
+
+[workspace]
+members = ["."]

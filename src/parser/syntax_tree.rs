@@ -1,15 +1,18 @@
-use crate::lexer::token::{Token, TokenKind};
+use crate::lexer::token::Token;
 use crate::parser::syntax_kind::SyntaxKind;
-use serde::Serialize;
-use std::fmt::{self, Write};
+use std::fmt::Write;
 
-#[derive(Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct SyntaxTree {
     pub kind: SyntaxKind,
     pub children: Vec<SyntaxChild>,
+    /// Byte offset of the first token in this subtree (u32::MAX if empty).
+    pub start: u32,
+    /// Byte offset of the end of the last token in this subtree (0 if empty).
+    pub end: u32,
 }
 
-#[derive(Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum SyntaxChild {
     Token(Token),
     Tree(SyntaxTree),
@@ -24,7 +27,7 @@ impl SyntaxChild {
         matches!(self, SyntaxChild::Tree(_))
     }
 
-    pub fn get_token_with_kind(&self, kind: TokenKind) -> Option<&Token> {
+    pub fn get_token_with_kind(&self, kind: SyntaxKind) -> Option<&Token> {
         match self {
             SyntaxChild::Token(token) if token.kind == kind => Some(token),
             _ => None,
@@ -40,12 +43,12 @@ impl SyntaxChild {
 }
 
 pub trait SyntaxChildExt {
-    fn get_token_with_kind(&self, kind: TokenKind) -> Option<&Token>;
+    fn get_token_with_kind(&self, kind: SyntaxKind) -> Option<&Token>;
     fn get_tree_with_kind(&self, kind: SyntaxKind) -> Option<&SyntaxTree>;
 }
 
 impl SyntaxChildExt for Option<&SyntaxChild> {
-    fn get_token_with_kind(&self, kind: TokenKind) -> Option<&Token> {
+    fn get_token_with_kind(&self, kind: SyntaxKind) -> Option<&Token> {
         match self {
             Some(SyntaxChild::Token(token)) if token.kind == kind => Some(token),
             _ => None,
@@ -61,31 +64,23 @@ impl SyntaxChildExt for Option<&SyntaxChild> {
 }
 
 impl SyntaxTree {
-    pub fn print(&self, buf: &mut String, level: usize) {
+    pub fn print(&self, buf: &mut String, level: usize, source: &str) {
         let indent = "  ".repeat(level);
         let _ = writeln!(buf, "{indent}{:?}", self.kind);
         for child in &self.children {
             match child {
                 SyntaxChild::Token(token) => {
-                    if token.kind == TokenKind::Whitespace {
+                    if token.kind == SyntaxKind::Whitespace {
                         continue;
                     }
-                    let _ = writeln!(buf, "{indent}  '{}'", token.text);
+                    let _ = writeln!(buf, "{indent}  '{}'", token.text(source));
                 }
-                SyntaxChild::Tree(tree) => tree.print(buf, level + 1),
+                SyntaxChild::Tree(tree) => tree.print(buf, level + 1, source),
             }
         }
         // Invariant: print always ends with a newline (from writeln above).
         // Use debug_assert to catch violations during development without
         // crashing production callers.
         debug_assert!(buf.ends_with('\n'));
-    }
-}
-
-impl fmt::Debug for SyntaxTree {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut buf = String::new();
-        self.print(&mut buf, 0);
-        write!(f, "{}", buf)
     }
 }

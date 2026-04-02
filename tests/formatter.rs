@@ -3,15 +3,15 @@ use expect_test::{expect, Expect};
 
 fn check_format(input: &str, expected: Expect) {
     let result = parse(input);
-    let formatted = format(&result.tree, &FormatConfig::default());
+    let formatted = format(&result.tree, &FormatConfig::default(), &result.source);
     expected.assert_eq(&formatted);
 }
 
 fn check_idempotent(input: &str) {
     let result = parse(input);
-    let formatted = format(&result.tree, &FormatConfig::default());
+    let formatted = format(&result.tree, &FormatConfig::default(), &result.source);
     let result2 = parse(&formatted);
-    let formatted2 = format(&result2.tree, &FormatConfig::default());
+    let formatted2 = format(&result2.tree, &FormatConfig::default(), &result2.source);
     assert_eq!(formatted, formatted2, "Formatting is not idempotent");
 }
 
@@ -417,7 +417,7 @@ fn lowercase_keywords() {
         indent_width: 4,
         uppercase_keywords: false,
     };
-    let formatted = format(&result.tree, &config);
+    let formatted = format(&result.tree, &config, &result.source);
     assert!(formatted.contains("select"));
     assert!(formatted.contains("from"));
     assert!(formatted.contains("where"));
@@ -435,7 +435,7 @@ fn custom_indent_width() {
         indent_width: 2,
         uppercase_keywords: true,
     };
-    let formatted = format(&result.tree, &config);
+    let formatted = format(&result.tree, &config, &result.source);
     assert!(formatted.contains("  a,"), "Expected 2-space indent, got:\n{formatted}");
 }
 
@@ -491,21 +491,21 @@ fn idempotent_case() {
 fn formatter_handles_parse_errors() {
     // Invalid SQL should not panic, and should produce some output
     let result = parse("select from where");
-    let formatted = format(&result.tree, &FormatConfig::default());
+    let formatted = format(&result.tree, &FormatConfig::default(), &result.source);
     assert!(!formatted.is_empty(), "Formatter should produce output even for invalid SQL");
 }
 
 #[test]
 fn formatter_handles_garbage() {
     let result = parse("!@#$%");
-    let formatted = format(&result.tree, &FormatConfig::default());
+    let formatted = format(&result.tree, &FormatConfig::default(), &result.source);
     assert!(!formatted.is_empty(), "Formatter should handle garbage input");
 }
 
 #[test]
 fn formatter_handles_empty_input() {
     let result = parse("");
-    let formatted = format(&result.tree, &FormatConfig::default());
+    let formatted = format(&result.tree, &FormatConfig::default(), &result.source);
     assert_eq!(formatted, "");
 }
 
@@ -656,7 +656,7 @@ fn show_tables() {
 fn union_all() {
     // Use UPDATE_EXPECT=1 to auto-update if formatting changes
     let result = parse("select 1 union all select 2");
-    let formatted = format(&result.tree, &FormatConfig::default());
+    let formatted = format(&result.tree, &FormatConfig::default(), &result.source);
     // Just verify it contains the right structure
     assert!(formatted.contains("SELECT"), "Should contain SELECT");
     assert!(formatted.contains("UNION"), "Should contain UNION");

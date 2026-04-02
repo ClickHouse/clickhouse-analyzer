@@ -1,4 +1,4 @@
-use crate::lexer::token::{Token, TokenKind};
+use crate::lexer::token::Token;
 use crate::parser::diagnostic::{Parse, SyntaxError};
 use crate::parser::event::Event;
 use crate::parser::keyword::Keyword;
@@ -16,16 +16,18 @@ pub struct Parser {
     fuel: Cell<u32>,
     events: Vec<Event>,
     errors: Vec<SyntaxError>,
+    source: String,
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Parser {
+    pub fn new(tokens: Vec<Token>, source: String) -> Parser {
         Parser {
             tokens,
             pos: 0,
             fuel: Cell::new(FUEL_LIMIT),
             events: Vec::new(),
             errors: Vec::new(),
+            source,
         }
     }
 
@@ -33,9 +35,9 @@ impl Parser {
     /// or the end-of-input position if at EOF.
     fn current_range(&self) -> (usize, usize) {
         if let Some(token) = self.tokens.get(self.pos) {
-            (token.start, token.end)
+            (token.start as usize, token.end as usize)
         } else if let Some(last) = self.tokens.last() {
-            (last.end, last.end)
+            (last.end as usize, last.end as usize)
         } else {
             (0, 0)
         }
@@ -51,24 +53,80 @@ impl Parser {
 
     pub fn build_tree(self) -> Parse {
         let errors = self.errors;
+        let source = self.source;
         let mut tokens = self.tokens.into_iter();
-        let mut events = self.events;
+        let events = self.events;
+        let event_count = events.len();
 
-        // Pop trailing Close for root node
-        if matches!(events.last(), Some(Event::Close)) {
-            events.pop();
+        // Track which event indices were already opened via forward_parent chains
+        let mut opened_via_fp: Vec<bool> = vec![false; event_count];
+
+        // Pre-scan: mark all forward_parent targets so we skip them during linear walk
+        for i in 0..event_count {
+            if let Event::Open { forward_parent: Some(_), .. } = &events[i] {
+                let mut cur = i;
+                loop {
+                    match &events[cur] {
+                        Event::Open { forward_parent: Some(next), .. } => {
+                            opened_via_fp[*next as usize] = true;
+                            cur = *next as usize;
+                        }
+                        _ => break,
+                    }
+                }
+            }
         }
 
         let mut stack: Vec<SyntaxTree> = Vec::new();
-        for event in events {
-            match event {
-                Event::Open { kind } => {
-                    stack.push(SyntaxTree {
-                        kind,
-                        children: Vec::new(),
-                    });
+        for i in 0..event_count {
+            match &events[i] {
+                Event::Open { kind, forward_parent } => {
+                    // Skip events that were already opened as part of a forward_parent chain
+                    if opened_via_fp[i] {
+                        continue;
+                    }
+
+                    if forward_parent.is_some() {
+                        // Collect the chain: self -> fp1 -> fp2 -> ... -> last
+                        let mut chain = vec![i];
+                        let mut cur = i;
+                        loop {
+                            match &events[cur] {
+                                Event::Open { forward_parent: Some(next), .. } => {
+                                    chain.push(*next as usize);
+                                    cur = *next as usize;
+                                }
+                                _ => break,
+                            }
+                        }
+                        // Open wrapper nodes from outermost (end of chain) to innermost,
+                        // then the original node last
+                        for &idx in chain.iter().rev() {
+                            let k = match &events[idx] {
+                                Event::Open { kind, .. } => *kind,
+                                _ => SyntaxKind::Error,
+                            };
+                            stack.push(SyntaxTree {
+                                kind: k,
+                                children: Vec::new(),
+                                start: u32::MAX,
+                                end: 0,
+                            });
+                        }
+                    } else {
+                        stack.push(SyntaxTree {
+                            kind: *kind,
+                            children: Vec::new(),
+                            start: u32::MAX,
+                            end: 0,
+                        });
+                    }
                 }
                 Event::Close => {
+                    // Skip the final Close for the root node
+                    if i == event_count - 1 {
+                        continue;
+                    }
                     let Some(tree) = stack.pop() else {
                         continue;
                     };
@@ -76,6 +134,13 @@ impl Parser {
                         stack.push(tree);
                         continue;
                     };
+                    // Propagate child range to parent
+                    if tree.start < parent.start {
+                        parent.start = tree.start;
+                    }
+                    if tree.end > parent.end {
+                        parent.end = tree.end;
+                    }
                     parent.children.push(SyntaxChild::Tree(tree));
                 }
                 Event::Advance => {
@@ -85,6 +150,13 @@ impl Parser {
                     let Some(parent) = stack.last_mut() else {
                         continue;
                     };
+                    // Update parent range from token
+                    if token.start < parent.start {
+                        parent.start = token.start;
+                    }
+                    if token.end > parent.end {
+                        parent.end = token.end;
+                    }
                     parent.children.push(SyntaxChild::Token(token));
                 }
             }
@@ -93,19 +165,33 @@ impl Parser {
         let mut tree = stack.pop().unwrap_or(SyntaxTree {
             kind: SyntaxKind::File,
             children: Vec::new(),
+            start: u32::MAX,
+            end: 0,
         });
 
         // Fold any orphaned stack entries into root
         while let Some(orphan) = stack.pop() {
+            if orphan.start < tree.start {
+                tree.start = orphan.start;
+            }
+            if orphan.end > tree.end {
+                tree.end = orphan.end;
+            }
             tree.children.insert(0, SyntaxChild::Tree(orphan));
         }
 
         // Attach any unconsumed tokens
         for token in tokens {
+            if token.start < tree.start {
+                tree.start = token.start;
+            }
+            if token.end > tree.end {
+                tree.end = token.end;
+            }
             tree.children.push(SyntaxChild::Token(token));
         }
 
-        Parse { tree, errors }
+        Parse { tree, errors, source }
     }
 
     pub fn start(&mut self) -> Marker {
@@ -114,42 +200,73 @@ impl Parser {
         };
         self.events.push(Event::Open {
             kind: SyntaxKind::Error,
+            forward_parent: None,
         });
         mark
     }
 
+    /// Wrap an already-completed node in a new parent node.
+    /// Instead of inserting into the middle of the events vec (which would
+    /// invalidate all subsequent marker indices), we append the new Open event
+    /// at the end and set a forward_parent pointer on the original node.
     pub fn precede(&mut self, m: CompletedMarker) -> Marker {
-        let mark = Marker { index: m.index };
-        self.events.insert(
-            m.index,
-            Event::Open {
-                kind: SyntaxKind::Error,
-            },
-        );
-        mark
+        let new_index = self.events.len();
+        self.events.push(Event::Open {
+            kind: SyntaxKind::Error,
+            forward_parent: None,
+        });
+        // Point the original node's Open event to the new wrapper
+        match &mut self.events[m.index] {
+            Event::Open { forward_parent, .. } => {
+                // Follow any existing chain to the end
+                let mut target = m.index;
+                loop {
+                    match &self.events[target] {
+                        Event::Open { forward_parent: Some(next), .. } => {
+                            target = *next as usize;
+                        }
+                        _ => break,
+                    }
+                }
+                match &mut self.events[target] {
+                    Event::Open { forward_parent, .. } => {
+                        *forward_parent = Some(new_index as u32);
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+        Marker { index: new_index }
     }
 
     /// Retroactively change the SyntaxKind of an already-completed node.
     pub fn change_kind(&mut self, m: CompletedMarker, kind: SyntaxKind) {
-        self.events[m.index] = Event::Open { kind };
+        match &mut self.events[m.index] {
+            Event::Open { kind: k, .. } => *k = kind,
+            _ => {}
+        }
     }
 
     /// Returns the SyntaxKind of an already-completed node.
     pub fn kind_of(&self, m: CompletedMarker) -> SyntaxKind {
         match &self.events[m.index] {
-            Event::Open { kind } => *kind,
+            Event::Open { kind, .. } => *kind,
             _ => SyntaxKind::Error,
         }
     }
 
     pub fn complete(&mut self, m: Marker, kind: SyntaxKind) -> CompletedMarker {
-        self.events[m.index] = Event::Open { kind };
+        match &mut self.events[m.index] {
+            Event::Open { kind: k, .. } => *k = kind,
+            _ => {}
+        }
         self.events.push(Event::Close);
         CompletedMarker { index: m.index }
     }
 
     pub fn skip_trivia(&mut self) {
-        while self.at_any_with_trivia(&[TokenKind::Whitespace, TokenKind::Comment]) && !self.eof() {
+        while self.at_any_with_trivia(&[SyntaxKind::Whitespace, SyntaxKind::Comment]) && !self.eof() {
             self.advance();
         }
     }
@@ -183,26 +300,26 @@ impl Parser {
     }
 
     pub fn end_of_statement(&mut self) -> bool {
-        self.at(TokenKind::ClosingRoundBracket) || self.at(TokenKind::Semicolon) || self.eof()
+        self.at(SyntaxKind::ClosingRoundBracket) || self.at(SyntaxKind::Semicolon) || self.eof()
     }
 
-    pub fn nth(&mut self, lookahead: usize) -> TokenKind {
+    pub fn nth(&mut self, lookahead: usize) -> SyntaxKind {
         self.skip_trivia();
         if self.fuel.get() == 0 {
-            return TokenKind::EndOfStream;
+            return SyntaxKind::EndOfStream;
         }
         self.fuel.set(self.fuel.get() - 1);
         if lookahead == 0 {
             self.tokens
                 .get(self.pos)
-                .map_or(TokenKind::EndOfStream, |it| it.kind)
+                .map_or(SyntaxKind::EndOfStream, |it| it.kind)
         } else {
             // Skip trivia tokens for lookahead > 0
             let mut count = 0;
             let mut i = self.pos + 1;
             while i < self.tokens.len() {
                 let kind = self.tokens[i].kind;
-                if kind != TokenKind::Whitespace && kind != TokenKind::Comment {
+                if kind != SyntaxKind::Whitespace && kind != SyntaxKind::Comment {
                     count += 1;
                     if count == lookahead {
                         return kind;
@@ -210,25 +327,25 @@ impl Parser {
                 }
                 i += 1;
             }
-            TokenKind::EndOfStream
+            SyntaxKind::EndOfStream
         }
     }
 
-    pub fn nth_with_trivia(&self, lookahead: usize) -> TokenKind {
+    pub fn nth_with_trivia(&self, lookahead: usize) -> SyntaxKind {
         if self.fuel.get() == 0 {
-            return TokenKind::EndOfStream;
+            return SyntaxKind::EndOfStream;
         }
         self.fuel.set(self.fuel.get() - 1);
         self.tokens
             .get(self.pos + lookahead)
-            .map_or(TokenKind::EndOfStream, |it| it.kind)
+            .map_or(SyntaxKind::EndOfStream, |it| it.kind)
     }
 
-    pub fn at(&mut self, kind: TokenKind) -> bool {
+    pub fn at(&mut self, kind: SyntaxKind) -> bool {
         self.nth(0) == kind
     }
 
-    pub fn at_with_trivia(&mut self, kind: TokenKind) -> bool {
+    pub fn at_with_trivia(&mut self, kind: SyntaxKind) -> bool {
         self.nth_with_trivia(0) == kind
     }
 
@@ -236,19 +353,19 @@ impl Parser {
         set.contains(self.nth(0))
     }
 
-    pub fn at_any(&mut self, kinds: &[TokenKind]) -> bool {
+    pub fn at_any(&mut self, kinds: &[SyntaxKind]) -> bool {
         kinds.contains(&self.nth(0))
     }
 
     pub fn at_identifier(&mut self) -> bool {
-        self.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier])
+        self.at_any(&[SyntaxKind::BareWord, SyntaxKind::QuotedIdentifier])
     }
 
-    pub fn at_any_with_trivia(&mut self, kinds: &[TokenKind]) -> bool {
+    pub fn at_any_with_trivia(&mut self, kinds: &[SyntaxKind]) -> bool {
         kinds.contains(&self.nth_with_trivia(0))
     }
 
-    pub fn eat(&mut self, kind: TokenKind) -> bool {
+    pub fn eat(&mut self, kind: SyntaxKind) -> bool {
         if self.at(kind) {
             self.advance();
             true
@@ -257,7 +374,7 @@ impl Parser {
         }
     }
 
-    pub fn expect(&mut self, kind: TokenKind) {
+    pub fn expect(&mut self, kind: SyntaxKind) {
         if self.eat(kind) {
             return;
         }
@@ -273,16 +390,16 @@ impl Parser {
         if lookahead == 0 {
             self.tokens
                 .get(self.pos)
-                .map_or("", |it| it.text.as_str())
+                .map_or("", |it| it.text(&self.source))
         } else {
             let mut count = 0;
             let mut i = self.pos + 1;
             while i < self.tokens.len() {
                 let kind = self.tokens[i].kind;
-                if kind != TokenKind::Whitespace && kind != TokenKind::Comment {
+                if kind != SyntaxKind::Whitespace && kind != SyntaxKind::Comment {
                     count += 1;
                     if count == lookahead {
-                        return self.tokens[i].text.as_str();
+                        return self.tokens[i].text(&self.source);
                     }
                 }
                 i += 1;
@@ -298,18 +415,18 @@ impl Parser {
         self.fuel.set(self.fuel.get() - 1);
         self.tokens
             .get(self.pos + lookahead)
-            .map_or("", |it| it.text.as_str())
+            .map_or("", |it| it.text(&self.source))
     }
 
     pub fn at_keyword(&mut self, keyword: Keyword) -> bool {
-        self.nth(0) == TokenKind::BareWord
+        self.nth(0) == SyntaxKind::BareWord
             && self.nth_text(0).eq_ignore_ascii_case(keyword.as_str())
     }
 
     /// True if the current (non-trivia) token is followed by '('.
     /// Useful to disambiguate keywords that can also be function names.
     pub fn at_followed_by_paren(&mut self) -> bool {
-        self.nth(1) == TokenKind::OpeningRoundBracket
+        self.nth(1) == SyntaxKind::OpeningRoundBracket
     }
 
     pub fn eat_keyword(&mut self, keyword: Keyword) -> bool {

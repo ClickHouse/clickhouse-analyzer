@@ -1,6 +1,7 @@
-use serde::Serialize;
+use std::fmt;
 
-#[derive(Debug, PartialEq, Copy, Clone, Serialize)]
+#[derive(Debug, PartialEq, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[repr(u16)]
 #[allow(dead_code)]
 pub enum SyntaxKind {
@@ -268,9 +269,85 @@ pub enum SyntaxKind {
     Assignment,
 
     // =======================================================================
-    // Trivia
+    // Token kinds
     // =======================================================================
+
+    // Trivia
     Whitespace,
-    LineComment,
-    BlockComment,
+    Comment,
+
+    // Identifiers and literals
+    BareWord,
+    Number,
+    StringToken,
+    QuotedIdentifier,
+
+    // Brackets
+    OpeningRoundBracket,
+    ClosingRoundBracket,
+    OpeningSquareBracket,
+    ClosingSquareBracket,
+    OpeningCurlyBrace,
+    ClosingCurlyBrace,
+
+    // Punctuation
+    Comma,
+    Semicolon,
+    VerticalDelimiter,
+    Dot,
+
+    // Operators and special symbols
+    Star,
+    HereDoc,
+    DollarSign,
+    Plus,
+    Minus,
+    Slash,
+    Percent,
+    Arrow,
+    QuestionMark,
+    Colon,
+    Caret,
+    DoubleColon,
+    Equals,
+    NotEquals,
+    Less,
+    Greater,
+    LessOrEquals,
+    GreaterOrEquals,
+    Spaceship,
+    PipeMark,
+    Concatenation,
+
+    // MySQL-style variables
+    At,
+    DoubleAt,
+
+    // End of stream
+    EndOfStream,
+
+    // Error tokens
+    ErrorToken,
+    ErrorMultilineCommentIsNotClosed,
+    ErrorSingleQuoteIsNotClosed,
+    ErrorDoubleQuoteIsNotClosed,
+    ErrorBackQuoteIsNotClosed,
+    ErrorSingleExclamationMark,
+    ErrorSinglePipeMark,
+    ErrorWrongNumber,
+    ErrorMaxQuerySizeExceeded,
+}
+
+impl fmt::Display for SyntaxKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SyntaxKind::BareWord => write!(f, "identifier or keyword"),
+            SyntaxKind::Number => write!(f, "number"),
+            SyntaxKind::StringToken => write!(f, "string literal"),
+            SyntaxKind::QuotedIdentifier => write!(f, "quoted identifier"),
+            SyntaxKind::OpeningRoundBracket => write!(f, "("),
+            SyntaxKind::ClosingRoundBracket => write!(f, ")"),
+            _ => write!(f, "{:?}", self),
+        }
+    }
 }

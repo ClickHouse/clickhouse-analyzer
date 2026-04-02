@@ -1,8 +1,27 @@
-use crate::lexer::token::TokenKind;
 use crate::parser::grammar::expressions::parse_expression;
+use crate::parser::grammar::types::parse_column_type;
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
 use crate::parser::syntax_kind::SyntaxKind;
+
+/// True if the parser is at a query parameter: `{name:Type}`.
+pub fn at_query_parameter(p: &mut Parser) -> bool {
+    p.at(SyntaxKind::OpeningCurlyBrace)
+        && p.nth(1) == SyntaxKind::BareWord
+        && p.nth(2) == SyntaxKind::Colon
+}
+
+/// Parse a query parameter `{name:Type}` into a QueryParameterExpression node.
+/// Caller must verify `at_query_parameter(p)` first.
+pub fn parse_query_parameter(p: &mut Parser) {
+    let m = p.start();
+    p.expect(SyntaxKind::OpeningCurlyBrace);
+    p.advance(); // parameter name
+    p.expect(SyntaxKind::Colon);
+    parse_column_type(p);
+    p.expect(SyntaxKind::ClosingCurlyBrace);
+    p.complete(m, SyntaxKind::QueryParameterExpression);
+}
 
 /// Parse optional IF EXISTS, wrapping in IfExistsClause.
 pub fn parse_if_exists(p: &mut Parser) {
@@ -31,7 +50,7 @@ pub fn parse_on_cluster(p: &mut Parser) {
         let m = p.start();
         p.expect_keyword(Keyword::On);
         p.expect_keyword(Keyword::Cluster);
-        if p.at_any(&[TokenKind::BareWord, TokenKind::QuotedIdentifier, TokenKind::StringLiteral])
+        if p.at_any(&[SyntaxKind::BareWord, SyntaxKind::QuotedIdentifier, SyntaxKind::StringToken])
         {
             p.advance();
         } else {
@@ -42,14 +61,15 @@ pub fn parse_on_cluster(p: &mut Parser) {
 }
 
 /// Parse [db.]name, wrapping in TableIdentifier.
+/// Each name slot can be a bare identifier, quoted identifier, or query parameter.
 pub fn parse_table_identifier(p: &mut Parser) {
     let m = p.start();
-    if p.at_identifier() {
-        p.advance();
-        if p.at(TokenKind::Dot) {
+    if p.at_identifier() || at_query_parameter(p) {
+        parse_identifier_or_param(p);
+        if p.at(SyntaxKind::Dot) {
             p.advance();
-            if p.at_identifier() {
-                p.advance();
+            if p.at_identifier() || at_query_parameter(p) {
+                parse_identifier_or_param(p);
             } else {
                 p.advance_with_error("Expected name after dot");
             }
@@ -58,6 +78,15 @@ pub fn parse_table_identifier(p: &mut Parser) {
         p.recover_with_error("Expected table name");
     }
     p.complete(m, SyntaxKind::TableIdentifier);
+}
+
+/// Parse either a bare/quoted identifier or a query parameter `{name:Type}`.
+fn parse_identifier_or_param(p: &mut Parser) {
+    if at_query_parameter(p) {
+        parse_query_parameter(p);
+    } else {
+        p.advance(); // bare word or quoted identifier
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -91,7 +120,7 @@ pub fn parse_setting_item(p: &mut Parser) {
         p.recover_with_error("Expected setting name");
     }
 
-    p.expect(TokenKind::Equals);
+    p.expect(SyntaxKind::Equals);
     parse_expression(p);
 
     p.complete(m, SyntaxKind::SettingItem);

@@ -7,17 +7,17 @@ use expect_test::{expect, Expect};
 
 /// Recursively collect all token text from a syntax tree, preserving order.
 /// If the CST is complete, this reconstructs the original input exactly.
-fn collect_text(tree: &SyntaxTree) -> String {
+fn collect_text(tree: &SyntaxTree, source: &str) -> String {
     let mut buf = String::new();
-    collect_text_rec(tree, &mut buf);
+    collect_text_rec(tree, &mut buf, source);
     buf
 }
 
-fn collect_text_rec(tree: &SyntaxTree, buf: &mut String) {
+fn collect_text_rec(tree: &SyntaxTree, buf: &mut String, source: &str) {
     for child in &tree.children {
         match child {
-            SyntaxChild::Token(token) => buf.push_str(&token.text),
-            SyntaxChild::Tree(subtree) => collect_text_rec(subtree, buf),
+            SyntaxChild::Token(token) => buf.push_str(token.text(source)),
+            SyntaxChild::Tree(subtree) => collect_text_rec(subtree, buf, source),
         }
     }
 }
@@ -26,7 +26,7 @@ fn collect_text_rec(tree: &SyntaxTree, buf: &mut String) {
 fn check(input: &str, expected: Expect) {
     let result = parse(input);
     let mut buf = String::new();
-    result.tree.print(&mut buf, 0);
+    result.tree.print(&mut buf, 0, &result.source);
     expected.assert_eq(&buf);
 }
 
@@ -145,7 +145,7 @@ fn tree_covers_all_input_bytes() {
     ];
     for input in &inputs {
         let result = parse(input);
-        let reconstructed = collect_text(&result.tree);
+        let reconstructed = collect_text(&result.tree, &result.source);
         assert_eq!(
             &reconstructed, *input,
             "CST must reconstruct original input exactly"
@@ -167,7 +167,7 @@ fn tree_covers_all_bytes_on_invalid_input() {
     ];
     for input in &inputs {
         let result = parse(input);
-        let reconstructed = collect_text(&result.tree);
+        let reconstructed = collect_text(&result.tree, &result.source);
         assert_eq!(
             &reconstructed, *input,
             "CST must reconstruct original input even for invalid SQL: {:?}",
@@ -279,6 +279,9 @@ fn valid_sql_produces_no_errors() {
         "SELECT 1 EXCEPT SELECT 2",
         "SELECT 1 INTERSECT SELECT 2",
         "SELECT a FROM t UNION ALL SELECT b FROM u UNION ALL SELECT c FROM v",
+        // Query parameters in identifier positions
+        "SELECT value FROM {database:Identifier}.{table:Identifier}",
+        "SELECT {col:Identifier} FROM t",
     ];
     for input in &inputs {
         let result = parse(input);
@@ -462,7 +465,7 @@ fn interval_without_unit_does_not_eat_from() {
     // FROM must be parsed as a clause, not consumed as an interval unit error
     let result = parse("SELECT INTERVAL 5 FROM t");
     let mut buf = String::new();
-    result.tree.print(&mut buf, 0);
+    result.tree.print(&mut buf, 0, &result.source);
     assert!(
         buf.contains("FromClause"),
         "FROM should be parsed as a clause, not consumed by interval error recovery"
@@ -549,7 +552,7 @@ fn completely_invalid_input() {
     assert_eq!(result.tree.kind, SyntaxKind::File);
     assert!(!result.errors.is_empty());
     // CST must still cover all bytes
-    let reconstructed = collect_text(&result.tree);
+    let reconstructed = collect_text(&result.tree, &result.source);
     assert_eq!(reconstructed, "!!! @@@ ###");
 }
 
@@ -653,11 +656,11 @@ fn test_full_parse() {
 
     let result = parse(sql);
     let mut buf = String::new();
-    result.tree.print(&mut buf, 0);
+    result.tree.print(&mut buf, 0, &result.source);
     assert!(buf.starts_with("File\n"));
 
     // CST completeness: every byte of input is in the tree
-    let reconstructed = collect_text(&result.tree);
+    let reconstructed = collect_text(&result.tree, &result.source);
     assert_eq!(reconstructed, sql);
 }
 
@@ -948,7 +951,7 @@ fn materialized_view_with_dot_access() {
         FROM db.src";
     let result = parse(sql);
     assert!(result.errors.is_empty(), "errors: {:?}", result.errors);
-    let reconstructed = collect_text(&result.tree);
+    let reconstructed = collect_text(&result.tree, &result.source);
     assert_eq!(reconstructed, sql);
 }
 
@@ -963,25 +966,108 @@ fn recovery_misspelled_where() {
     // Should have errors but not many "Unexpected token" errors
     assert!(result.errors.len() <= 4, "Too many errors: {:?}", result.errors);
     // Tree should cover all bytes
-    assert_eq!(collect_text(&result.tree), "SELECT 1 FROM t WHER x > 1");
+    assert_eq!(collect_text(&result.tree, &result.source), "SELECT 1 FROM t WHER x > 1");
 }
 
 #[test]
 fn recovery_misspelled_engine() {
     let result = parse("CREATE TABLE t (id UInt64) ENIGNE = MergeTree() ORDER BY id");
-    assert_eq!(collect_text(&result.tree), "CREATE TABLE t (id UInt64) ENIGNE = MergeTree() ORDER BY id");
+    assert_eq!(collect_text(&result.tree, &result.source), "CREATE TABLE t (id UInt64) ENIGNE = MergeTree() ORDER BY id");
     // Should still parse something after ENIGNE, not eat ORDER BY as garbage
 }
 
 #[test]
 fn recovery_garbage_between_create_clauses() {
     let result = parse("CREATE TABLE t (id UInt64) ENGINE = MergeTree() GARBAGE ORDER BY id");
-    assert_eq!(collect_text(&result.tree), "CREATE TABLE t (id UInt64) ENGINE = MergeTree() GARBAGE ORDER BY id");
+    assert_eq!(collect_text(&result.tree, &result.source), "CREATE TABLE t (id UInt64) ENGINE = MergeTree() GARBAGE ORDER BY id");
     // GARBAGE should be an error, ORDER BY should still parse
 }
 
 #[test]
 fn recovery_misspelled_from_in_show() {
     let result = parse("SHOW TABLES FORM default");
-    assert_eq!(collect_text(&result.tree), "SHOW TABLES FORM default");
+    assert_eq!(collect_text(&result.tree, &result.source), "SHOW TABLES FORM default");
+}
+
+// ===========================================================================
+// Query parameters in identifier positions
+// ===========================================================================
+
+#[test]
+fn query_parameter_as_table_identifier() {
+    check("SELECT value FROM {database:Identifier}.{table:Identifier}", expect![[r#"
+        File
+          SelectStatement
+            SelectClause
+              'SELECT'
+              ColumnList
+                ColumnReference
+                  'value'
+            FromClause
+              'FROM'
+              TableIdentifier
+                QueryParameterExpression
+                  '{'
+                  'database'
+                  ':'
+                  DataType
+                    'Identifier'
+                  '}'
+                '.'
+                QueryParameterExpression
+                  '{'
+                  'table'
+                  ':'
+                  DataType
+                    'Identifier'
+                  '}'
+    "#]]);
+}
+
+#[test]
+fn query_parameter_as_single_table() {
+    check("SELECT 1 FROM {tbl:Identifier}", expect![[r#"
+        File
+          SelectStatement
+            SelectClause
+              'SELECT'
+              ColumnList
+                NumberLiteral
+                  '1'
+            FromClause
+              'FROM'
+              TableIdentifier
+                QueryParameterExpression
+                  '{'
+                  'tbl'
+                  ':'
+                  DataType
+                    'Identifier'
+                  '}'
+    "#]]);
+}
+
+#[test]
+fn query_parameter_mixed_with_bare_identifier() {
+    check("SELECT 1 FROM {db:Identifier}.my_table", expect![[r#"
+        File
+          SelectStatement
+            SelectClause
+              'SELECT'
+              ColumnList
+                NumberLiteral
+                  '1'
+            FromClause
+              'FROM'
+              TableIdentifier
+                QueryParameterExpression
+                  '{'
+                  'db'
+                  ':'
+                  DataType
+                    'Identifier'
+                  '}'
+                '.'
+                'my_table'
+    "#]]);
 }

@@ -18,8 +18,8 @@ impl Default for FormatConfig {
     }
 }
 
-pub fn format(tree: &SyntaxTree, config: &FormatConfig) -> String {
-    let mut ctx = FormatterContext::new(config);
+pub fn format(tree: &SyntaxTree, config: &FormatConfig, source: &str) -> String {
+    let mut ctx = FormatterContext::new(config, source);
     format_node::format_node(tree, &mut ctx);
     ctx.finish()
 }
