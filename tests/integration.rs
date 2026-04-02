@@ -459,6 +459,55 @@ fn valid_sql_produces_no_errors() {
         "SELECT CAST(x AS Int32) LIKE '123'",
         // WITH RECURSIVE
         "WITH RECURSIVE x AS (SELECT 1 AS id UNION ALL SELECT id+1 FROM x WHERE id < 5) SELECT * FROM x",
+        // CAST with comma syntax
+        "SELECT CAST('value', 'UUID')",
+        "SELECT CAST((1, 'Value'), 'Tuple (id UInt64, value String)') AS value",
+        "INSERT INTO t SELECT CAST(number, 'String') FROM numbers(10)",
+        "SELECT CAST(x, 'Nullable(String)')",
+        // SETTINGS inside table function arguments
+        "SELECT count() FROM mysql('127.0.0.1:9004', currentDatabase(), foo, 'default', '', SETTINGS connect_timeout = 100, connection_wait_timeout = 100)",
+        "SELECT * FROM s3('url', SETTINGS s3_truncate_on_insert = 1)",
+        // ENGINE without = sign
+        "CREATE TABLE t (a Int32) ENGINE MergeTree() ORDER BY a",
+        "CREATE TABLE t (a String) ENGINE ReplicatedMergeTree('/zk/path', 'replica') ORDER BY tuple()",
+        "CREATE TABLE t (a Int32) ENGINE Memory",
+        // CREATE VIEW with column list
+        "CREATE VIEW v (n Nullable(Int32), f Float64) AS SELECT n, f FROM t",
+        "CREATE VIEW v1 (v UInt64) AS SELECT v FROM t1",
+        // EXPLAIN with comma-separated settings
+        "EXPLAIN header = 1, actions = 1 SELECT * FROM t",
+        "EXPLAIN header=1, description=0 SELECT * FROM t",
+        // EXPLAIN on non-SELECT statements
+        // "EXPLAIN SYNTAX SYSTEM DROP SCHEMA CACHE FOR HDFS", // TODO: SCHEMA keyword not yet supported
+        "EXPLAIN AST ALTER TABLE t DELETE WHERE x > 0",
+        "EXPLAIN SYNTAX DROP TABLE IF EXISTS t",
+        "EXPLAIN AST CREATE TABLE t (a Int32) ENGINE = MergeTree() ORDER BY a",
+        // INTERVAL with string literal
+        "SELECT INTERVAL '2 years'",
+        "SELECT INTERVAL '3 months'",
+        "SELECT now() + INTERVAL '1 day'",
+        // CREATE DATABASE with query parameter
+        "CREATE DATABASE {db:Identifier}",
+        "CREATE DATABASE IF NOT EXISTS {CLICKHOUSE_DATABASE:Identifier}",
+        // IGNORE NULLS / RESPECT NULLS
+        "SELECT any(x) IGNORE NULLS FROM t",
+        "SELECT first_value(x) RESPECT NULLS FROM t",
+        "SELECT any(d32) IGNORE NULLS, any(d32) RESPECT NULLS FROM t",
+        // GROUPING SETS
+        "SELECT number, number % 2, sum(number) FROM numbers(10) GROUP BY GROUPING SETS ((number), (number % 2))",
+        "SELECT a, b, count() FROM t GROUP BY GROUPING SETS ((a, b), (a), (b), ())",
+        // WITH TOTALS
+        "SELECT sum(number) FROM numbers(5) GROUP BY number WITH TOTALS",
+        // ALTER TABLE PARTITION ID
+        "ALTER TABLE t DETACH PARTITION ID 'all'",
+        "ALTER TABLE t ATTACH PARTITION ID '20200101'",
+        "ALTER TABLE t DROP PARTITION ID 'abc'",
+        // Column transformers: APPLY, EXCEPT, REPLACE
+        "SELECT * APPLY(toString) FROM t",
+        "SELECT * EXCEPT(id) FROM t",
+        // "SELECT * REPLACE(id + 1 AS id) FROM t", // TODO: REPLACE column transformer not yet supported
+        "SELECT columns_transformers.* APPLY(avg) FROM t",
+        "SELECT * EXCEPT(id) APPLY(toString) FROM t",
     ];
     for input in &inputs {
         let result = parse(input);

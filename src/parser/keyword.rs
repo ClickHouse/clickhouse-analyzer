@@ -286,6 +286,17 @@ pub enum Keyword {
     // JSON type parameters
     Skip,
 
+    // Aggregate function modifiers
+    Ignore,
+    Respect,
+
+    // GROUPING SETS
+    Grouping,
+    Sets,
+
+    // PARTITION ID
+    Id,
+
     // Missing keywords for specific parsers
     Syntax,
     Tree,
@@ -519,6 +530,11 @@ impl Keyword {
             Keyword::Keyed => "KEYED",
             Keyword::Recursive => "RECURSIVE",
             Keyword::Skip => "SKIP",
+            Keyword::Ignore => "IGNORE",
+            Keyword::Respect => "RESPECT",
+            Keyword::Grouping => "GROUPING",
+            Keyword::Sets => "SETS",
+            Keyword::Id => "ID",
             Keyword::Syntax => "SYNTAX",
             Keyword::Tree => "TREE",
             Keyword::Override => "OVERRIDE",

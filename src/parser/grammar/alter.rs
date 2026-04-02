@@ -573,6 +573,10 @@ fn parse_materialize_command(p: &mut Parser) {
 
 fn parse_partition_expression(p: &mut Parser) {
     let m = p.start();
+    // PARTITION ID 'string' — partition by ID string
+    if p.at_keyword(Keyword::Id) {
+        p.advance(); // consume ID
+    }
     parse_expression(p);
     p.complete(m, SyntaxKind::PartitionExpression);
 }
@@ -1069,5 +1073,30 @@ mod tests {
         let result = parse_to_string("ALTER TABLE t UPDATE x = 1, y = 2 WHERE z > 0");
         assert!(result.contains("AlterUpdateWhere"), "Expected AlterUpdateWhere in:\n{result}");
         assert!(result.contains("AssignmentList"), "Expected AssignmentList in:\n{result}");
+    }
+
+    #[test]
+    fn test_alter_detach_partition_id() {
+        let result = parse_to_string("ALTER TABLE t DETACH PARTITION ID 'all'");
+        assert!(result.contains("AlterDetachPartition"), "Expected AlterDetachPartition in:\n{result}");
+        assert!(result.contains("PartitionExpression"), "Expected PartitionExpression in:\n{result}");
+        assert!(result.contains("'ID'"), "Expected ID keyword in:\n{result}");
+        assert!(!result.contains("Error"), "Should not contain Error in:\n{result}");
+    }
+
+    #[test]
+    fn test_alter_drop_partition_id() {
+        let result = parse_to_string("ALTER TABLE t DROP PARTITION ID 'abc'");
+        assert!(result.contains("AlterDropPartition"), "Expected AlterDropPartition in:\n{result}");
+        assert!(result.contains("PartitionExpression"), "Expected PartitionExpression in:\n{result}");
+        assert!(!result.contains("Error"), "Should not contain Error in:\n{result}");
+    }
+
+    #[test]
+    fn test_alter_attach_partition_id() {
+        let result = parse_to_string("ALTER TABLE t ATTACH PARTITION ID '20200101'");
+        assert!(result.contains("AlterAttachPartition"), "Expected AlterAttachPartition in:\n{result}");
+        assert!(result.contains("PartitionExpression"), "Expected PartitionExpression in:\n{result}");
+        assert!(!result.contains("Error"), "Should not contain Error in:\n{result}");
     }
 }

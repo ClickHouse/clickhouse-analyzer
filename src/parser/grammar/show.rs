@@ -1,7 +1,12 @@
 use crate::parser::syntax_kind::SyntaxKind;
+use crate::parser::grammar::alter::{at_alter_statement, parse_alter_statement};
 use crate::parser::grammar::common;
+use crate::parser::grammar::create_table::{at_create_statement, parse_create_statement};
+use crate::parser::grammar::delete::{at_delete_statement, parse_delete_statement};
 use crate::parser::grammar::expressions::parse_expression;
+use crate::parser::grammar::insert::{at_insert_statement, parse_insert_statement};
 use crate::parser::grammar::select::{at_select_statement, parse_select_statement};
+use crate::parser::grammar::statements::*;
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
 
@@ -36,7 +41,7 @@ pub fn parse_explain_statement(p: &mut Parser) {
         parse_inline_settings(p);
     }
 
-    // Inner statement
+    // Inner statement — EXPLAIN can wrap any statement type
     if at_select_statement(p) {
         parse_select_statement(p);
     } else if at_explain_statement(p) {
@@ -45,6 +50,38 @@ pub fn parse_explain_statement(p: &mut Parser) {
         parse_show_statement(p);
     } else if at_describe_statement(p) {
         parse_describe_statement(p);
+    } else if at_insert_statement(p) {
+        parse_insert_statement(p);
+    } else if at_alter_statement(p) {
+        parse_alter_statement(p);
+    } else if at_create_statement(p) {
+        parse_create_statement(p);
+    } else if at_delete_statement(p) {
+        parse_delete_statement(p);
+    } else if at_drop_statement(p) {
+        parse_drop_statement(p);
+    } else if at_use_statement(p) {
+        parse_use_statement(p);
+    } else if at_set_statement(p) {
+        parse_set_statement(p);
+    } else if at_truncate_statement(p) {
+        parse_truncate_statement(p);
+    } else if at_rename_statement(p) {
+        parse_rename_statement(p);
+    } else if at_exists_statement(p) {
+        parse_exists_statement(p);
+    } else if at_check_statement(p) {
+        parse_check_statement(p);
+    } else if at_optimize_statement(p) {
+        parse_optimize_statement(p);
+    } else if at_system_statement(p) {
+        parse_system_statement(p);
+    } else if at_kill_statement(p) {
+        parse_kill_statement(p);
+    } else if at_grant_statement(p) {
+        parse_grant_statement(p);
+    } else if at_revoke_statement(p) {
+        parse_revoke_statement(p);
     } else if !p.eof() && !p.end_of_statement() {
         // Try to consume the rest as an expression (for unknown statement types)
         p.advance_with_error("Expected statement after EXPLAIN");
@@ -525,23 +562,21 @@ fn at_inline_setting(p: &mut Parser) -> bool {
 fn parse_inline_settings(p: &mut Parser) {
     let m = p.start();
 
-    let mut first = true;
-    while !p.eof()
-        && !p.end_of_statement()
-        && at_inline_setting(p)
-    {
-        if !first {
-            if !p.eat(SyntaxKind::Comma) {
-                break;
-            }
+    loop {
+        if p.eof() || p.end_of_statement() || !at_inline_setting(p) {
+            break;
         }
-        first = false;
 
         let item_m = p.start();
         p.advance(); // key
         p.expect(SyntaxKind::Equals);
         parse_expression(p);
         p.complete(item_m, SyntaxKind::SettingItem);
+
+        // Consume optional comma between settings
+        if !p.eat(SyntaxKind::Comma) {
+            break;
+        }
     }
 
     p.complete(m, SyntaxKind::SettingsClause);
@@ -1176,5 +1211,49 @@ mod tests {
     #[test]
     fn roundtrip_show() {
         check_roundtrip("SHOW TABLES FROM mydb LIKE '%t%' LIMIT 10");
+    }
+
+    // -----------------------------------------------------------------------
+    // EXPLAIN with comma-separated inline settings
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn explain_comma_separated_settings() {
+        check_no_errors("EXPLAIN header = 1, actions = 1 SELECT * FROM t");
+        check_roundtrip("EXPLAIN header = 1, actions = 1 SELECT * FROM t");
+    }
+
+    #[test]
+    fn explain_comma_separated_settings_no_spaces() {
+        check_no_errors("EXPLAIN header=1, description=0 SELECT * FROM t");
+        check_roundtrip("EXPLAIN header=1, description=0 SELECT * FROM t");
+    }
+
+    // -----------------------------------------------------------------------
+    // EXPLAIN on non-SELECT statements
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn explain_alter_statement() {
+        check_no_errors("EXPLAIN AST ALTER TABLE t DELETE WHERE x > 0");
+        check_roundtrip("EXPLAIN AST ALTER TABLE t DELETE WHERE x > 0");
+    }
+
+    #[test]
+    fn explain_drop_statement() {
+        check_no_errors("EXPLAIN SYNTAX DROP TABLE IF EXISTS t");
+        check_roundtrip("EXPLAIN SYNTAX DROP TABLE IF EXISTS t");
+    }
+
+    #[test]
+    fn explain_create_statement() {
+        check_no_errors("EXPLAIN AST CREATE TABLE t (a Int32) ENGINE = MergeTree() ORDER BY a");
+        check_roundtrip("EXPLAIN AST CREATE TABLE t (a Int32) ENGINE = MergeTree() ORDER BY a");
+    }
+
+    #[test]
+    fn explain_system_statement() {
+        check_no_errors("EXPLAIN AST SYSTEM FLUSH LOGS");
+        check_roundtrip("EXPLAIN AST SYSTEM FLUSH LOGS");
     }
 }

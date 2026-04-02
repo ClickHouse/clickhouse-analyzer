@@ -139,6 +139,8 @@ fn parse_create_database(p: &mut Parser) {
     // Database name
     if p.at_identifier() {
         p.advance();
+    } else if common::at_query_parameter(p) {
+        common::parse_query_parameter(p);
     } else {
         p.recover_with_error("Expected database name");
     }
@@ -180,6 +182,11 @@ fn parse_create_view(p: &mut Parser) {
 
     // ON CLUSTER
     common::parse_on_cluster(p);
+
+    // Optional column definition list: CREATE VIEW v (col Type, ...) AS SELECT ...
+    if p.at(SyntaxKind::OpeningRoundBracket) {
+        parse_column_definition_list(p);
+    }
 
     // AS SELECT
     if p.at_keyword(Keyword::As) {
@@ -715,7 +722,7 @@ fn parse_engine_clause(p: &mut Parser) {
     let m = p.start();
 
     p.expect_keyword(Keyword::Engine);
-    p.expect(SyntaxKind::Equals);
+    p.eat(SyntaxKind::Equals); // = is optional in ClickHouse
 
     // Engine name
     if p.at_identifier() {
@@ -1269,5 +1276,55 @@ mod tests {
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DictionaryLayout"));
         assert!(buf.contains("DictionaryLayoutType"));
+    }
+
+    #[test]
+    fn test_engine_without_equals() {
+        let result = parse("CREATE TABLE t (a Int32) ENGINE MergeTree() ORDER BY a");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0, &result.source);
+        assert!(buf.contains("EngineClause"));
+        assert!(buf.contains("'MergeTree'"));
+    }
+
+    #[test]
+    fn test_engine_without_equals_no_parens() {
+        let result = parse("CREATE TABLE t (a Int32) ENGINE Memory");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0, &result.source);
+        assert!(buf.contains("EngineClause"));
+        assert!(buf.contains("'Memory'"));
+    }
+
+    #[test]
+    fn test_create_view_with_columns() {
+        let result = parse("CREATE VIEW v (n Nullable(Int32), f Float64) AS SELECT n, f FROM t");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0, &result.source);
+        assert!(buf.contains("ViewDefinition"));
+        assert!(buf.contains("ColumnDefinitionList"));
+    }
+
+    #[test]
+    fn test_create_database_query_parameter() {
+        let result = parse("CREATE DATABASE {db:Identifier}");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0, &result.source);
+        assert!(buf.contains("DatabaseDefinition"));
+        assert!(buf.contains("QueryParameterExpression"));
+    }
+
+    #[test]
+    fn test_create_database_if_not_exists_query_parameter() {
+        let result = parse("CREATE DATABASE IF NOT EXISTS {CLICKHOUSE_DATABASE:Identifier}");
+        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0, &result.source);
+        assert!(buf.contains("IfNotExistsClause"));
+        assert!(buf.contains("QueryParameterExpression"));
     }
 }

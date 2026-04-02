@@ -418,8 +418,25 @@ fn parse_table_reference(p: &mut Parser) {
             p.expect(SyntaxKind::OpeningRoundBracket);
             let mut first = true;
             while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() && !p.end_of_statement() {
+                // SETTINGS clause inside table function arguments:
+                // e.g. mysql('host', db, tbl, 'user', '', SETTINGS connect_timeout = 100)
+                if p.at_keyword(Keyword::Settings)
+                    && (p.nth(1) == SyntaxKind::BareWord || p.nth(1) == SyntaxKind::QuotedIdentifier)
+                    && p.nth(2) == SyntaxKind::Equals
+                {
+                    common::parse_optional_settings_clause(p);
+                    break;
+                }
                 if !first {
                     p.expect(SyntaxKind::Comma);
+                    // Check for SETTINGS after comma
+                    if p.at_keyword(Keyword::Settings)
+                        && (p.nth(1) == SyntaxKind::BareWord || p.nth(1) == SyntaxKind::QuotedIdentifier)
+                        && p.nth(2) == SyntaxKind::Equals
+                    {
+                        common::parse_optional_settings_clause(p);
+                        break;
+                    }
                 }
                 first = false;
                 parse_expression(p);
@@ -599,35 +616,74 @@ fn parse_join_clause(p: &mut Parser) {
 // ========== GROUP BY ==========
 
 /// Parses: GROUP BY expr, ... [WITH TOTALS|ROLLUP|CUBE]
+///     or: GROUP BY GROUPING SETS ((...), (...), ...)
 fn parse_group_by_clause(p: &mut Parser) {
     let m = p.start();
     p.expect_keyword(Keyword::Group);
     p.expect_keyword(Keyword::By);
 
-    let mut first = true;
-    while !p.eof() && !p.end_of_statement() && !at_group_by_terminator(p) {
-        if !first {
-            p.expect(SyntaxKind::Comma);
+    // GROUPING SETS ((...), (...), ...)
+    if p.at_keyword(Keyword::Grouping) {
+        parse_grouping_sets(p);
+    } else {
+        let mut first = true;
+        while !p.eof() && !p.end_of_statement() && !at_group_by_terminator(p) {
+            if !first {
+                p.expect(SyntaxKind::Comma);
+            }
+            first = false;
+            parse_expression(p);
         }
-        first = false;
-        parse_expression(p);
-    }
 
-    // WITH TOTALS | WITH ROLLUP | WITH CUBE
-    if p.at_keyword(Keyword::With) {
-        p.advance(); // consume WITH
-        if p.at_keyword(Keyword::Totals) {
-            p.advance();
-        } else if p.at_keyword(Keyword::Rollup) {
-            p.advance();
-        } else if p.at_keyword(Keyword::Cube) {
-            p.advance();
-        } else {
-            p.recover_with_error("Expected TOTALS, ROLLUP, or CUBE after WITH");
+        // WITH TOTALS | WITH ROLLUP | WITH CUBE
+        if p.at_keyword(Keyword::With) {
+            p.advance(); // consume WITH
+            if p.at_keyword(Keyword::Totals) {
+                p.advance();
+            } else if p.at_keyword(Keyword::Rollup) {
+                p.advance();
+            } else if p.at_keyword(Keyword::Cube) {
+                p.advance();
+            } else {
+                p.recover_with_error("Expected TOTALS, ROLLUP, or CUBE after WITH");
+            }
         }
     }
 
     p.complete(m, SyntaxKind::GroupByClause);
+}
+
+/// Parses: GROUPING SETS ((expr, ...), (expr, ...), ...)
+fn parse_grouping_sets(p: &mut Parser) {
+    let m = p.start();
+    p.expect_keyword(Keyword::Grouping);
+    p.expect_keyword(Keyword::Sets);
+    p.expect(SyntaxKind::OpeningRoundBracket);
+
+    let mut first = true;
+    while !p.eof() && !p.at(SyntaxKind::ClosingRoundBracket) {
+        if !first {
+            p.expect(SyntaxKind::Comma);
+        }
+        first = false;
+
+        // Each grouping set is a parenthesized list of expressions (can be empty)
+        let set_m = p.start();
+        p.expect(SyntaxKind::OpeningRoundBracket);
+        let mut first_expr = true;
+        while !p.eof() && !p.at(SyntaxKind::ClosingRoundBracket) {
+            if !first_expr {
+                p.expect(SyntaxKind::Comma);
+            }
+            first_expr = false;
+            parse_expression(p);
+        }
+        p.expect(SyntaxKind::ClosingRoundBracket);
+        p.complete(set_m, SyntaxKind::GroupingSet);
+    }
+
+    p.expect(SyntaxKind::ClosingRoundBracket);
+    p.complete(m, SyntaxKind::GroupingSetsClause);
 }
 
 /// Keywords that terminate a GROUP BY expression list.
@@ -1199,6 +1255,59 @@ mod tests {
                     'a'
                   'WITH'
                   'CUBE'
+        "#]]);
+    }
+
+    #[test]
+    fn group_by_grouping_sets() {
+        check("SELECT a, b, count() FROM t GROUP BY GROUPING SETS ((a, b), (a), ())", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnReference
+                      'a'
+                    ','
+                    ColumnReference
+                      'b'
+                    ','
+                    FunctionCall
+                      Identifier
+                        'count'
+                      ExpressionList
+                        '('
+                        ')'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+                GroupByClause
+                  'GROUP'
+                  'BY'
+                  GroupingSetsClause
+                    'GROUPING'
+                    'SETS'
+                    '('
+                    GroupingSet
+                      '('
+                      ColumnReference
+                        'a'
+                      ','
+                      ColumnReference
+                        'b'
+                      ')'
+                    ','
+                    GroupingSet
+                      '('
+                      ColumnReference
+                        'a'
+                      ')'
+                    ','
+                    GroupingSet
+                      '('
+                      ')'
+                    ')'
         "#]]);
     }
 

@@ -74,8 +74,23 @@ fn parse_table_function(p: &mut Parser) {
         p.expect(SyntaxKind::OpeningRoundBracket);
         let mut first = true;
         while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
+            // SETTINGS clause inside table function arguments
+            if p.at_keyword(Keyword::Settings)
+                && (p.nth(1) == SyntaxKind::BareWord || p.nth(1) == SyntaxKind::QuotedIdentifier)
+                && p.nth(2) == SyntaxKind::Equals
+            {
+                common::parse_optional_settings_clause(p);
+                break;
+            }
             if !first {
                 p.expect(SyntaxKind::Comma);
+                if p.at_keyword(Keyword::Settings)
+                    && (p.nth(1) == SyntaxKind::BareWord || p.nth(1) == SyntaxKind::QuotedIdentifier)
+                    && p.nth(2) == SyntaxKind::Equals
+                {
+                    common::parse_optional_settings_clause(p);
+                    break;
+                }
             }
             first = false;
             parse_expression(p);

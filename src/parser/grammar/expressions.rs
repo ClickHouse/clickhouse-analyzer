@@ -1,4 +1,5 @@
 use crate::parser::syntax_kind::SyntaxKind;
+use crate::parser::grammar::common::parse_optional_settings_clause;
 use crate::parser::grammar::select::{at_end_of_column_list, at_select_statement, parse_select_statement};
 use crate::parser::grammar::types::parse_column_type;
 use crate::parser::interval_unit::IntervalUnit;
@@ -139,6 +140,16 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
                 arg_list(p);
             }
             lhs = p.complete(m, SyntaxKind::FunctionCall);
+            // IGNORE NULLS / RESPECT NULLS — aggregate function modifiers
+            if p.at_keyword(Keyword::Ignore) || p.at_keyword(Keyword::Respect) {
+                // Only treat as modifier if followed by NULLS
+                if p.nth_keyword(1, Keyword::Nulls) {
+                    let m = p.precede(lhs);
+                    p.advance(); // consume IGNORE or RESPECT
+                    p.advance(); // consume NULLS
+                    lhs = p.complete(m, SyntaxKind::NullsModifier);
+                }
+            }
             // Window function: func(...) OVER (...)  or  func(...) OVER name
             if p.at_keyword(Keyword::Over) {
                 let m = p.precede(lhs);
@@ -197,6 +208,20 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
                     lhs = p.complete(m, SyntaxKind::DotAccessExpression);
                 }
             }
+        } else if (p.kind_of(lhs) == SyntaxKind::Asterisk
+            || p.kind_of(lhs) == SyntaxKind::QualifiedAsterisk
+            || p.kind_of(lhs) == SyntaxKind::ColumnTransformer)
+            && (p.at_keyword(Keyword::Apply)
+                || p.at_keyword(Keyword::Except)
+                || p.at_keyword(Keyword::Replace))
+            && p.nth(1) == SyntaxKind::OpeningRoundBracket
+        {
+            // Column transformers: * APPLY(func), * EXCEPT(col), * REPLACE(expr AS name)
+            // Can chain: * EXCEPT(id) APPLY(toString)
+            let m = p.precede(lhs);
+            p.advance(); // consume APPLY/EXCEPT/REPLACE
+            parse_column_transformer_args(p);
+            lhs = p.complete(m, SyntaxKind::ColumnTransformer);
         } else {
             break;
         }
@@ -410,14 +435,21 @@ fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
             else if p.at_keyword(Keyword::Case) {
                 parse_case_expression(p)
             }
-            // CAST(expr AS type) — special syntax where AS separates expression from type
+            // CAST(expr AS type) or CAST(expr, 'type_string') — two CAST syntaxes
             else if p.at_keyword(Keyword::Cast) && p.nth(1) == SyntaxKind::OpeningRoundBracket {
                 let m = p.start();
                 p.advance(); // consume CAST
                 p.expect(SyntaxKind::OpeningRoundBracket);
                 parse_expression(p);
-                p.expect_keyword(Keyword::As);
-                parse_column_type(p);
+                if p.at(SyntaxKind::Comma) {
+                    // Comma form: CAST(expr, 'TypeString')
+                    p.advance(); // consume comma
+                    parse_expression(p);
+                } else {
+                    // Standard form: CAST(expr AS Type)
+                    p.expect_keyword(Keyword::As);
+                    parse_column_type(p);
+                }
                 p.expect(SyntaxKind::ClosingRoundBracket);
                 p.complete(m, SyntaxKind::CastExpression)
             }
@@ -571,16 +603,31 @@ fn at_interval_unit(p: &mut Parser) -> bool {
     p.nth(0) == SyntaxKind::BareWord && IntervalUnit::from_str(p.nth_text(0)).is_some()
 }
 
-/// Parses: INTERVAL expr UNIT
-/// e.g. `INTERVAL 5 MINUTE`, `INTERVAL (1 + 2) DAY`
+/// Parses: INTERVAL expr UNIT | INTERVAL 'duration_string'
+/// e.g. `INTERVAL 5 MINUTE`, `INTERVAL (1 + 2) DAY`, `INTERVAL '2 years'`
 fn parse_interval_expression(p: &mut Parser) {
     p.expect_keyword(Keyword::Interval);
+
+    // ClickHouse supports `INTERVAL 'duration_string'` where the string encodes
+    // both the value and the unit (e.g. '2 years', '3 months').
+    // If the next token is a string literal and is NOT followed by a known
+    // interval unit keyword, parse it as a single-string INTERVAL.
+    if p.at(SyntaxKind::StringToken) && !at_interval_unit_at(p, 1) {
+        p.advance(); // consume the string literal
+        return;
+    }
+
     parse_expression(p);
     if at_interval_unit(p) {
         p.advance();
     } else {
         p.recover_with_error("Expected interval unit (e.g. SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER, YEAR)");
     }
+}
+
+/// Check if the token at offset `n` is a known interval unit keyword.
+fn at_interval_unit_at(p: &mut Parser, n: usize) -> bool {
+    p.nth(n) == SyntaxKind::BareWord && IntervalUnit::from_str(p.nth_text(n)).is_some()
 }
 
 /// Parses a parenthesized argument list: (arg, arg, ...)
@@ -596,8 +643,26 @@ fn arg_list(p: &mut Parser) {
     p.eat_keyword(Keyword::Distinct);
 
     while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
+        // SETTINGS clause inside table function arguments:
+        // e.g. mysql('host', db, tbl, 'user', '', SETTINGS connect_timeout = 100)
+        if p.at_keyword(Keyword::Settings)
+            && (p.nth(1) == SyntaxKind::BareWord || p.nth(1) == SyntaxKind::QuotedIdentifier)
+            && p.nth(2) == SyntaxKind::Equals
+        {
+            parse_optional_settings_clause(p);
+            break;
+        }
         if !first {
             p.expect(SyntaxKind::Comma);
+            // Check for SETTINGS after a comma:
+            // e.g. func(arg1, SETTINGS key = value)
+            if p.at_keyword(Keyword::Settings)
+                && (p.nth(1) == SyntaxKind::BareWord || p.nth(1) == SyntaxKind::QuotedIdentifier)
+                && p.nth(2) == SyntaxKind::Equals
+            {
+                parse_optional_settings_clause(p);
+                break;
+            }
         }
         arg(p);
         first = false;
@@ -620,6 +685,35 @@ fn arg(p: &mut Parser) {
     }
 
     p.complete(m, SyntaxKind::Expression);
+}
+
+/// Parses a parenthesized argument list for column transformers (APPLY, EXCEPT, REPLACE).
+/// Handles the special `expr AS name` syntax used by REPLACE.
+fn parse_column_transformer_args(p: &mut Parser) {
+    let m = p.start();
+    p.expect(SyntaxKind::OpeningRoundBracket);
+
+    let mut first = true;
+    while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
+        if !first {
+            p.expect(SyntaxKind::Comma);
+        }
+        first = false;
+        parse_expression(p);
+        // Handle REPLACE's `expr AS name` syntax
+        if p.at_keyword(Keyword::As) {
+            let am = p.start();
+            p.advance(); // consume AS
+            if p.at_identifier() {
+                p.advance();
+            } else {
+                p.recover_with_error("Expected alias after AS");
+            }
+            p.complete(am, SyntaxKind::ColumnAlias);
+        }
+    }
+    p.expect(SyntaxKind::ClosingRoundBracket);
+    p.complete(m, SyntaxKind::ExpressionList);
 }
 
 /// Parses a window specification: ( [PARTITION BY ...] [ORDER BY ...] [frame] )
@@ -738,6 +832,15 @@ mod tests {
         expected.assert_eq(&buf);
     }
 
+    fn check_no_errors(input: &str) {
+        let result = parse(input);
+        assert!(
+            result.errors.is_empty(),
+            "Expected no errors for `{input}`, got: {:?}",
+            result.errors,
+        );
+    }
+
     #[test]
     fn binary_precedence() {
         check("SELECT 1 + 2 * 3", expect![[r#"
@@ -820,6 +923,94 @@ mod tests {
     }
 
     #[test]
+    fn cast_expression_comma_syntax() {
+        check("SELECT CAST('value', 'UUID')", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    CastExpression
+                      'CAST'
+                      '('
+                      StringLiteral
+                        ''value''
+                      ','
+                      StringLiteral
+                        ''UUID''
+                      ')'
+        "#]]);
+    }
+
+    #[test]
+    fn cast_expression_comma_syntax_with_alias() {
+        check("SELECT CAST(x, 'Nullable(String)') AS y", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    CastExpression
+                      'CAST'
+                      '('
+                      ColumnReference
+                        'x'
+                      ','
+                      StringLiteral
+                        ''Nullable(String)''
+                      ')'
+                    ColumnAlias
+                      'AS'
+                      'y'
+        "#]]);
+    }
+
+    #[test]
+    fn settings_in_table_function() {
+        check("SELECT count() FROM mysql('host', db, tbl, 'user', '', SETTINGS connect_timeout = 100)", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    FunctionCall
+                      Identifier
+                        'count'
+                      ExpressionList
+                        '('
+                        ')'
+                FromClause
+                  'FROM'
+                  TableFunction
+                    'mysql'
+                    '('
+                    StringLiteral
+                      ''host''
+                    ','
+                    ColumnReference
+                      'db'
+                    ','
+                    ColumnReference
+                      'tbl'
+                    ','
+                    StringLiteral
+                      ''user''
+                    ','
+                    StringLiteral
+                      ''''
+                    ','
+                    SettingsClause
+                      'SETTINGS'
+                      SettingItem
+                        'connect_timeout'
+                        '='
+                        NumberLiteral
+                          '100'
+                    ')'
+        "#]]);
+    }
+
+    #[test]
     fn interval_expression() {
         check("SELECT INTERVAL 5 MINUTE", expect![[r#"
             File
@@ -833,6 +1024,27 @@ mod tests {
                         '5'
                       'MINUTE'
         "#]]);
+    }
+
+    #[test]
+    fn interval_string_literal() {
+        check("SELECT INTERVAL '2 years'", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    IntervalExpression
+                      'INTERVAL'
+                      ''2 years''
+        "#]]);
+    }
+
+    #[test]
+    fn interval_string_literal_no_errors() {
+        check_no_errors("SELECT INTERVAL '2 years'");
+        check_no_errors("SELECT INTERVAL '3 months'");
+        check_no_errors("SELECT now() + INTERVAL '1 day'");
     }
 
     #[test]
@@ -1559,6 +1771,172 @@ mod tests {
                       StringLiteral
                         ''key''
                       ']'
+        "#]]);
+    }
+
+    #[test]
+    fn ignore_nulls() {
+        check("SELECT any(x) IGNORE NULLS FROM t", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    NullsModifier
+                      FunctionCall
+                        Identifier
+                          'any'
+                        ExpressionList
+                          '('
+                          Expression
+                            ColumnReference
+                              'x'
+                          ')'
+                      'IGNORE'
+                    ColumnAlias
+                      'NULLS'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+        "#]]);
+    }
+
+    #[test]
+    fn respect_nulls() {
+        check("SELECT first_value(x) RESPECT NULLS FROM t", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    NullsModifier
+                      FunctionCall
+                        Identifier
+                          'first_value'
+                        ExpressionList
+                          '('
+                          Expression
+                            ColumnReference
+                              'x'
+                          ')'
+                      'RESPECT'
+                    ColumnAlias
+                      'NULLS'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+        "#]]);
+    }
+
+    #[test]
+    fn column_transformer_apply() {
+        check("SELECT * APPLY(toString) FROM t", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnTransformer
+                      Asterisk
+                        '*'
+                      'APPLY'
+                      ExpressionList
+                        '('
+                        ColumnReference
+                          'toString'
+                        ')'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+        "#]]);
+    }
+
+    #[test]
+    fn column_transformer_except() {
+        check("SELECT * EXCEPT(id) FROM t", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnTransformer
+                      Asterisk
+                        '*'
+                      'EXCEPT'
+                      ExpressionList
+                        '('
+                        ColumnReference
+                          'id'
+                        ')'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+        "#]]);
+    }
+
+    #[test]
+    fn column_transformer_replace() {
+        check("SELECT * REPLACE(id + 1 AS id) FROM t", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnTransformer
+                      Asterisk
+                        '*'
+                      'REPLACE'
+                      ExpressionList
+                        '('
+                        BinaryExpression
+                          ColumnReference
+                            'id'
+                          '+'
+                          NumberLiteral
+                            '1'
+                        ColumnAlias
+                          'AS'
+                          'id'
+                        ')'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
+        "#]]);
+    }
+
+    #[test]
+    fn column_transformer_chained() {
+        check("SELECT * EXCEPT(id) APPLY(toString) FROM t", expect![[r#"
+            File
+              SelectStatement
+                SelectClause
+                  'SELECT'
+                  ColumnList
+                    ColumnTransformer
+                      ColumnTransformer
+                        Asterisk
+                          '*'
+                        'EXCEPT'
+                        ExpressionList
+                          '('
+                          ColumnReference
+                            'id'
+                          ')'
+                      'APPLY'
+                      ExpressionList
+                        '('
+                        ColumnReference
+                          'toString'
+                        ')'
+                FromClause
+                  'FROM'
+                  TableIdentifier
+                    't'
         "#]]);
     }
 }

@@ -426,6 +426,12 @@ impl Parser {
             && self.nth_text(0).eq_ignore_ascii_case(keyword.as_str())
     }
 
+    /// True if the token at the given lookahead offset matches the given keyword.
+    pub fn nth_keyword(&mut self, n: usize, keyword: Keyword) -> bool {
+        self.nth(n) == SyntaxKind::BareWord
+            && self.nth_text(n).eq_ignore_ascii_case(keyword.as_str())
+    }
+
     /// True if the current (non-trivia) token is followed by '('.
     /// Useful to disambiguate keywords that can also be function names.
     pub fn at_followed_by_paren(&mut self) -> bool {

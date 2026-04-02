@@ -213,6 +213,11 @@ pub enum SyntaxKind {
     ExistsExpression,
     TernaryExpression,
     QualifiedAsterisk,
+    NullsModifier,
+    ColumnTransformer,
+    GroupingSetsClause,
+    GroupingSet,
+    WithTotalsClause,
 
     // =======================================================================
     // Literals
