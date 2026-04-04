@@ -1,0 +1,90 @@
+name: Update Compiled-in Metadata
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Monday at 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      clickhouse_version:
+        description: 'ClickHouse version tag (e.g. 25.3.1.1). Leave empty for latest.'
+        required: false
+
+jobs:
+  codegen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Determine ClickHouse version
+        id: version
+        run: |
+          if [ -n "${{ inputs.clickhouse_version }}" ]; then
+            echo "tag=${{ inputs.clickhouse_version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Start ClickHouse server
+        run: |
+          docker run -d \
+            --name clickhouse \
+            -p 8123:8123 \
+            clickhouse/clickhouse-server:${{ steps.version.outputs.tag }}
+          # Wait for server to be ready
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8123/ping && break
+            sleep 1
+          done
+
+      - name: Get ClickHouse version
+        id: ch_version
+        run: |
+          version=$(curl -s 'http://localhost:8123/?query=SELECT+version()')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "ClickHouse version: $version"
+
+      - name: Run codegen
+        run: |
+          CLICKHOUSE_URL=http://localhost:8123 \
+            cargo run --bin codegen --features codegen
+
+      - name: Stop ClickHouse
+        if: always()
+        run: docker rm -f clickhouse 2>/dev/null || true
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --exit-code generated/; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No changes to generated metadata."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Generated metadata has changed."
+          fi
+
+      - name: Create pull request
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "Update compiled-in metadata from ClickHouse ${{ steps.ch_version.outputs.version }}"
+          title: "Update compiled-in metadata from ClickHouse ${{ steps.ch_version.outputs.version }}"
+          body: |
+            Auto-generated update of compiled-in metadata from ClickHouse `${{ steps.ch_version.outputs.version }}`.
+
+            Updated files in `generated/`:
+            - functions.json
+            - settings.json
+            - merge_tree_settings.json
+            - data_types.json
+            - table_engines.json
+            - formats.json
+            - codecs.json
+            - keywords.json
+            - version.txt
+          branch: codegen/update-${{ steps.ch_version.outputs.version }}
+          labels: codegen, automated
