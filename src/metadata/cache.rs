@@ -107,6 +107,12 @@ impl MetadataCache {
     pub fn is_connected(&self) -> bool {
         self.live_overlay
     }
+
+    /// Get a reference to the client (for server-side validation).
+    #[cfg(any(feature = "lsp", feature = "codegen"))]
+    pub fn client_ref(&self) -> Option<&crate::connection::client::ClickHouseClient> {
+        self.client.as_ref()
+    }
 }
 
 // Connection-dependent methods (require reqwest + tokio)

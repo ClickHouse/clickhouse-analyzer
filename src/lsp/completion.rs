@@ -34,11 +34,22 @@ pub async fn handle_completion(
         CursorContext::ColumnOfTable { qualifier } => {
             let mut meta = metadata.write().await;
             if meta.is_connected() {
-                // Resolve qualifier to a table name via scope
                 let scope = build_scope(&parse.tree, &parse.source);
                 let default_db = meta.default_database().to_string();
                 if let Some((db, table)) = resolve_qualifier(qualifier, &scope, &default_db) {
                     let _ = meta.ensure_columns(&db, &table).await;
+                }
+            }
+        }
+        CursorContext::SelectExpression | CursorContext::Expression | CursorContext::FunctionArgument { .. } => {
+            // Pre-fetch columns for all tables in scope
+            let mut meta = metadata.write().await;
+            if meta.is_connected() {
+                let scope = build_scope(&parse.tree, &parse.source);
+                let default_db = meta.default_database().to_string();
+                for tref in &scope.table_refs {
+                    let db = tref.database.as_deref().unwrap_or(&default_db);
+                    let _ = meta.ensure_columns(db, &tref.table).await;
                 }
             }
         }
@@ -110,6 +121,7 @@ pub async fn handle_completion(
         }
 
         CursorContext::SelectExpression => {
+            add_columns_in_scope(&meta, parse, &mut items);
             add_functions(&meta.functions, &mut items);
             for kw in &["DISTINCT", "CASE", "NOT", "NULL", "TRUE", "FALSE", "*"] {
                 items.push(keyword_item(kw));
@@ -117,6 +129,7 @@ pub async fn handle_completion(
         }
 
         CursorContext::Expression => {
+            add_columns_in_scope(&meta, parse, &mut items);
             add_functions(&meta.functions, &mut items);
             for kw in &[
                 "AND", "OR", "NOT", "IN", "BETWEEN", "LIKE", "ILIKE", "IS",
@@ -130,6 +143,7 @@ pub async fn handle_completion(
             // Only show completions if the user has started typing a prefix
             // Otherwise signature help is more useful here
             if !lower_prefix.is_empty() {
+                add_columns_in_scope(&meta, parse, &mut items);
                 add_functions(&meta.functions, &mut items);
             }
         }
@@ -272,6 +286,46 @@ pub async fn handle_completion(
     }
 
     items
+}
+
+/// Add columns from all tables referenced in the query scope.
+fn add_columns_in_scope(
+    meta: &crate::metadata::cache::MetadataCache,
+    parse: &Parse,
+    items: &mut Vec<CompletionItem>,
+) {
+    if !meta.is_connected() {
+        return;
+    }
+    let scope = build_scope(&parse.tree, &parse.source);
+    let default_db = meta.default_database().to_string();
+    let mut seen = std::collections::HashSet::new();
+
+    for tref in &scope.table_refs {
+        let db = tref.database.as_deref().unwrap_or(&default_db);
+        for col in meta.get_columns(db, &tref.table) {
+            // Avoid duplicate column names from multiple tables
+            if seen.insert(col.name.clone()) {
+                let detail = if scope.table_refs.len() > 1 {
+                    // Show which table the column is from when there are joins
+                    format!("{} ({})", col.data_type, tref.table)
+                } else {
+                    col.data_type.clone()
+                };
+                items.push(CompletionItem {
+                    label: col.name.clone(),
+                    kind: Some(CompletionItemKind::FIELD),
+                    detail: Some(detail),
+                    documentation: if col.comment.is_empty() {
+                        None
+                    } else {
+                        Some(Documentation::String(col.comment.clone()))
+                    },
+                    ..Default::default()
+                });
+            }
+        }
+    }
 }
 
 fn add_functions(
