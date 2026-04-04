@@ -111,46 +111,54 @@ impl Backend {
         // without actually executing the query.
         // Split on semicolons to handle multi-statement files.
         if parse.errors.is_empty() {
+            let source_owned = parse.source.clone();
             let meta = self.metadata.read().await;
-            if meta.is_connected() {
-                if let Some(client) = meta.client_ref() {
-                    // Track byte offset of each statement for error highlighting
-                    let full_source = &parse.source;
-                    let mut offset = 0usize;
-                    for stmt_text in full_source.split(';') {
-                        let trimmed = stmt_text.trim();
-                        let stmt_offset = offset
-                            + stmt_text
-                                .find(trimmed.chars().next().unwrap_or(' '))
-                                .unwrap_or(0);
-                        offset += stmt_text.len() + 1; // +1 for the semicolon
+            let connected = meta.is_connected();
+            let has_client = meta.client_ref().is_some();
+            drop(meta);
 
-                        if trimmed.is_empty() {
-                            continue;
-                        }
+            self.client.log_message(
+                MessageType::LOG,
+                format!("server validation: connected={connected} client={has_client} source_len={}", source_owned.len()),
+            ).await;
 
-                        // Skip non-query statements that EXPLAIN PLAN can't handle
-                        let upper = trimmed.to_uppercase();
-                        if !upper.starts_with("SELECT")
-                            && !upper.starts_with("WITH")
-                            && !upper.starts_with("INSERT")
-                        {
-                            continue;
-                        }
+            if connected && has_client {
+                let meta = self.metadata.read().await;
+                let client = meta.client_ref().unwrap();
+                // Split on semicolons, validate each statement
+                let mut byte_offset = 0usize;
+                for stmt_text in source_owned.split(';') {
+                    let trimmed = stmt_text.trim();
+                    // Calculate absolute byte offset of the trimmed statement
+                    let leading_ws = stmt_text.len() - stmt_text.trim_start().len();
+                    let stmt_offset = byte_offset + leading_ws;
+                    byte_offset += stmt_text.len() + 1; // +1 for semicolon
 
-                        let query = format!("EXPLAIN PLAN {trimmed}");
-                        if let Err(e) = client.query_text(&query).await {
-                            let msg = format!("{e}");
-                            let range =
-                                extract_error_range(&msg, trimmed, line_index, stmt_offset);
-                            diags.push(Diagnostic {
-                                range,
-                                severity: Some(DiagnosticSeverity::WARNING),
-                                source: Some("clickhouse-server".to_owned()),
-                                message: msg,
-                                ..Default::default()
-                            });
-                        }
+                    if trimmed.is_empty() {
+                        continue;
+                    }
+
+                    // Skip non-query statements that EXPLAIN PLAN can't handle
+                    let upper = trimmed.to_uppercase();
+                    if !upper.starts_with("SELECT")
+                        && !upper.starts_with("WITH")
+                        && !upper.starts_with("INSERT")
+                    {
+                        continue;
+                    }
+
+                    let query = format!("EXPLAIN PLAN {trimmed}");
+                    if let Err(e) = client.query_text(&query).await {
+                        let msg = format!("{e}");
+                        let range =
+                            extract_error_range(&msg, trimmed, line_index, stmt_offset);
+                        diags.push(Diagnostic {
+                            range,
+                            severity: Some(DiagnosticSeverity::WARNING),
+                            source: Some("clickhouse-server".to_owned()),
+                            message: msg,
+                            ..Default::default()
+                        });
                     }
                 }
             }
@@ -273,6 +281,20 @@ impl LanguageServer for Backend {
         self.client
             .log_message(MessageType::INFO, "clickhouse-analyzer LSP initialized")
             .await;
+
+        // Request configuration from the client to establish connection on startup
+        if let Ok(configs) = self
+            .client
+            .configuration(vec![ConfigurationItem {
+                scope_uri: None,
+                section: Some("clickhouse-analyzer".to_string()),
+            }])
+            .await
+        {
+            if let Some(settings) = configs.first() {
+                self.try_connect(settings).await;
+            }
+        }
     }
 
     async fn shutdown(&self) -> Result<()> {
