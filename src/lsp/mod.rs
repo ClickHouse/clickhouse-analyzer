@@ -216,6 +216,7 @@ impl LanguageServer for Backend {
                 completion_provider: Some(CompletionOptions {
                     trigger_characters: Some(vec![
                         ".".into(),
+                        " ".into(),
                     ]),
                     ..Default::default()
                 }),

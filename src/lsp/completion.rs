@@ -276,8 +276,8 @@ pub async fn handle_completion(
         items.retain(|item| item.label.to_lowercase().starts_with(&lower_prefix));
     }
 
-    // Assign sort order: exact prefix matches rank higher,
-    // then by item kind (keywords first, then fields, functions, etc.)
+    // Assign sort order by item kind (keywords first, then fields, functions, etc.)
+    // Case-insensitive — SQL users often type in lowercase
     for item in &mut items {
         let kind_priority = match item.kind {
             Some(CompletionItemKind::KEYWORD) => "0",
@@ -289,15 +289,9 @@ pub async fn handle_completion(
             Some(CompletionItemKind::PROPERTY) => "4", // settings
             _ => "5",
         };
-        // Exact case match ranks above case-insensitive match
-        let case_priority = if !lower_prefix.is_empty()
-            && item.label.starts_with(prefix)
-        {
-            "0"
-        } else {
-            "1"
-        };
-        item.sort_text = Some(format!("{}{}{}", case_priority, kind_priority, item.label));
+        item.sort_text = Some(format!("{}{}", kind_priority, item.label.to_lowercase()));
+        // Also tell VS Code to match case-insensitively
+        item.filter_text = Some(item.label.to_lowercase());
     }
 
     items
