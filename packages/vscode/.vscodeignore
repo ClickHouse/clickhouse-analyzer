@@ -1,0 +1,10 @@
+src/
+tsconfig.json
+*.ts
+.gitignore
+node_modules/**/test/
+node_modules/**/tests/
+node_modules/**/*.md
+node_modules/**/*.map
+node_modules/**/LICENSE*
+node_modules/**/CHANGELOG*

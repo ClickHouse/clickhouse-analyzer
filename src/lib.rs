@@ -3,6 +3,15 @@ mod formatter;
 mod lexer;
 mod parser;
 
+#[cfg(feature = "serde")]
+pub mod metadata;
+
+#[cfg(any(feature = "lsp", feature = "codegen"))]
+pub mod connection;
+
+#[cfg(feature = "lsp")]
+pub mod analysis;
+
 #[cfg(feature = "lsp")]
 pub mod lsp;
 

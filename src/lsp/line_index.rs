@@ -2,6 +2,7 @@
 ///
 /// The LSP protocol defaults to UTF-16 code-unit offsets for the character field.
 /// Our parser stores byte offsets, so this struct bridges the two worlds.
+#[derive(Clone)]
 pub struct LineIndex {
     /// Byte offset of the start of each line (including line 0 at offset 0).
     line_starts: Vec<u32>,

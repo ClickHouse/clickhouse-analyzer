@@ -19,3 +19,4 @@ CLAUDE.md
 .claude/worktrees/
 *.log
 *.sql
+packages/vscode/*.vsix

@@ -1,0 +1,44 @@
+[
+  {
+    "name": "AES_128_GCM_SIV"
+  },
+  {
+    "name": "AES_256_GCM_SIV"
+  },
+  {
+    "name": "ALP"
+  },
+  {
+    "name": "Delta"
+  },
+  {
+    "name": "DoubleDelta"
+  },
+  {
+    "name": "FPC"
+  },
+  {
+    "name": "GCD"
+  },
+  {
+    "name": "Gorilla"
+  },
+  {
+    "name": "LZ4"
+  },
+  {
+    "name": "LZ4HC"
+  },
+  {
+    "name": "Multiple"
+  },
+  {
+    "name": "NONE"
+  },
+  {
+    "name": "T64"
+  },
+  {
+    "name": "ZSTD"
+  }
+]

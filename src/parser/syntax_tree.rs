@@ -3,6 +3,7 @@ use crate::parser::syntax_kind::SyntaxKind;
 use std::fmt::Write;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Clone)]
 pub struct SyntaxTree {
     pub kind: SyntaxKind,
     pub children: Vec<SyntaxChild>,
@@ -13,6 +14,7 @@ pub struct SyntaxTree {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Clone)]
 pub enum SyntaxChild {
     Token(Token),
     Tree(SyntaxTree),
