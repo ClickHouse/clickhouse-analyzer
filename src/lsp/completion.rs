@@ -109,13 +109,18 @@ pub async fn handle_completion(
             }
         }
 
-        CursorContext::SelectExpression | CursorContext::Expression => {
-            // Functions
+        CursorContext::SelectExpression => {
             add_functions(&meta.functions, &mut items);
-            // Keywords useful in expression context
+            for kw in &["DISTINCT", "CASE", "NOT", "NULL", "TRUE", "FALSE", "*"] {
+                items.push(keyword_item(kw));
+            }
+        }
+
+        CursorContext::Expression => {
+            add_functions(&meta.functions, &mut items);
             for kw in &[
-                "AND", "OR", "NOT", "IN", "BETWEEN", "LIKE", "ILIKE", "IS", "NULL", "TRUE",
-                "FALSE", "CASE", "WHEN", "THEN", "ELSE", "END", "AS", "DISTINCT",
+                "AND", "OR", "NOT", "IN", "BETWEEN", "LIKE", "ILIKE", "IS",
+                "NULL", "TRUE", "FALSE", "CASE", "EXISTS",
             ] {
                 items.push(keyword_item(kw));
             }
