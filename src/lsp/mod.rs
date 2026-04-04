@@ -119,8 +119,9 @@ impl Backend {
                             Ok(_) => {} // query is valid
                             Err(e) => {
                                 let msg = format!("{e}");
+                                let range = extract_error_range(&msg, &source, line_index);
                                 diags.push(Diagnostic {
-                                    range: tower_lsp::lsp_types::Range::default(),
+                                    range,
                                     severity: Some(DiagnosticSeverity::WARNING),
                                     source: Some("clickhouse-server".to_owned()),
                                     message: msg,
@@ -433,6 +434,47 @@ impl LanguageServer for Backend {
                 .await,
         )
     }
+}
+
+/// Try to extract a source range from a ClickHouse error message.
+/// Looks for backtick-quoted identifiers (e.g., `jdfdjfb`) or
+/// single-quoted identifiers (e.g., 'nonexistent_table') in the error,
+/// then finds them in the source to highlight the right word.
+fn extract_error_range(
+    error_msg: &str,
+    source: &str,
+    line_index: &LineIndex,
+) -> tower_lsp::lsp_types::Range {
+    // Try backtick-quoted identifier first: `name`
+    // Then single-quoted: 'name'
+    let identifier = extract_quoted(error_msg, '`')
+        .or_else(|| extract_quoted(error_msg, '\''));
+
+    if let Some(ident) = identifier {
+        // Find this identifier in the source (case-insensitive)
+        let lower_source = source.to_lowercase();
+        let lower_ident = ident.to_lowercase();
+        if let Some(pos) = lower_source.find(&lower_ident) {
+            return line_index.range(pos as u32, (pos + ident.len()) as u32);
+        }
+    }
+
+    // Fallback: highlight the entire first line
+    let first_line_end = source.find('\n').unwrap_or(source.len());
+    line_index.range(0, first_line_end as u32)
+}
+
+fn extract_quoted(s: &str, quote: char) -> Option<String> {
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == quote {
+            let inner: String = chars.by_ref().take_while(|&c| c != quote).collect();
+            if !inner.is_empty() {
+                return Some(inner);
+            }
+        }
+    }
+    None
 }
 
 pub async fn run_stdio() {
