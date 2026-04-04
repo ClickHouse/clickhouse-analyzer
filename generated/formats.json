@@ -1,0 +1,542 @@
+[
+  {
+    "name": "Arrow",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "ArrowStream",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "Avro",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "AvroConfluent",
+    "is_input": true,
+    "is_output": false
+  },
+  {
+    "name": "BSONEachRow",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "Buffers",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "CSV",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "CSVWithNames",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "CSVWithNamesAndTypes",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "CapnProto",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "CustomSeparated",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "CustomSeparatedIgnoreSpaces",
+    "is_input": true,
+    "is_output": false
+  },
+  {
+    "name": "CustomSeparatedIgnoreSpacesWithNames",
+    "is_input": true,
+    "is_output": false
+  },
+  {
+    "name": "CustomSeparatedIgnoreSpacesWithNamesAndTypes",
+    "is_input": true,
+    "is_output": false
+  },
+  {
+    "name": "CustomSeparatedWithNames",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "CustomSeparatedWithNamesAndTypes",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "Form",
+    "is_input": true,
+    "is_output": false
+  },
+  {
+    "name": "Hash",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "HiveText",
+    "is_input": true,
+    "is_output": false
+  },
+  {
+    "name": "JSON",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "JSONAsObject",
+    "is_input": true,
+    "is_output": false
+  },
+  {
+    "name": "JSONAsString",
+    "is_input": true,
+    "is_output": false
+  },
+  {
+    "name": "JSONColumns",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "JSONColumnsWithMetadata",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "JSONCompact",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "JSONCompactColumns",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "JSONCompactEachRow",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "JSONCompactEachRowWithNames",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "JSONCompactEachRowWithNamesAndTypes",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "JSONCompactEachRowWithProgress",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "JSONCompactStrings",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "JSONCompactStringsEachRow",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "JSONCompactStringsEachRowWithNames",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "JSONCompactStringsEachRowWithNamesAndTypes",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "JSONCompactStringsEachRowWithProgress",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "JSONEachRow",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "JSONEachRowWithProgress",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "JSONL",
+    "is_input": true,
+    "is_output": false
+  },
+  {
+    "name": "JSONLines",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "JSONObjectEachRow",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "JSONStrings",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "JSONStringsEachRow",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "JSONStringsEachRowWithProgress",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "LineAsString",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "LineAsStringWithNames",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "LineAsStringWithNamesAndTypes",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "MD",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "Markdown",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "MsgPack",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "MySQLDump",
+    "is_input": true,
+    "is_output": false
+  },
+  {
+    "name": "MySQLWire",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "NDJSON",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "Native",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "Npy",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "Null",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "ODBCDriver2",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "ORC",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "One",
+    "is_input": true,
+    "is_output": false
+  },
+  {
+    "name": "Parquet",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "ParquetMetadata",
+    "is_input": true,
+    "is_output": false
+  },
+  {
+    "name": "PostgreSQLWire",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "Pretty",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "PrettyCompact",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "PrettyCompactMonoBlock",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "PrettyCompactNoEscapes",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "PrettyCompactNoEscapesMonoBlock",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "PrettyJSONEachRow",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "PrettyJSONLines",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "PrettyMonoBlock",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "PrettyNDJSON",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "PrettyNoEscapes",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "PrettyNoEscapesMonoBlock",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "PrettySpace",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "PrettySpaceMonoBlock",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "PrettySpaceNoEscapes",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "PrettySpaceNoEscapesMonoBlock",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "Prometheus",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "Protobuf",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "ProtobufList",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "ProtobufSingle",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "Raw",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "RawBLOB",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "RawWithNames",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "RawWithNamesAndTypes",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "Regexp",
+    "is_input": true,
+    "is_output": false
+  },
+  {
+    "name": "RowBinary",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "RowBinaryWithDefaults",
+    "is_input": true,
+    "is_output": false
+  },
+  {
+    "name": "RowBinaryWithNames",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "RowBinaryWithNamesAndTypes",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "SQLInsert",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "TSKV",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "TSV",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "TSVRaw",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "TSVRawWithNames",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "TSVRawWithNamesAndTypes",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "TSVWithNames",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "TSVWithNamesAndTypes",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "TabSeparated",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "TabSeparatedRaw",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "TabSeparatedRawWithNames",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "TabSeparatedRawWithNamesAndTypes",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "TabSeparatedWithNames",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "TabSeparatedWithNamesAndTypes",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "Template",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "TemplateIgnoreSpaces",
+    "is_input": true,
+    "is_output": false
+  },
+  {
+    "name": "Values",
+    "is_input": true,
+    "is_output": true
+  },
+  {
+    "name": "Vertical",
+    "is_input": false,
+    "is_output": true
+  },
+  {
+    "name": "XML",
+    "is_input": false,
+    "is_output": true
+  }
+]

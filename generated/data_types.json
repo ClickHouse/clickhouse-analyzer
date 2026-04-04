@@ -1,0 +1,702 @@
+[
+  {
+    "name": "AggregateFunction",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "Array",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "BFloat16",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "BIGINT",
+    "case_insensitive": true,
+    "alias_to": "Int64"
+  },
+  {
+    "name": "BIGINT SIGNED",
+    "case_insensitive": true,
+    "alias_to": "Int64"
+  },
+  {
+    "name": "BIGINT UNSIGNED",
+    "case_insensitive": true,
+    "alias_to": "UInt64"
+  },
+  {
+    "name": "BINARY",
+    "case_insensitive": true,
+    "alias_to": "FixedString"
+  },
+  {
+    "name": "BINARY LARGE OBJECT",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "BINARY VARYING",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "BIT",
+    "case_insensitive": true,
+    "alias_to": "UInt64"
+  },
+  {
+    "name": "BLOB",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "BYTE",
+    "case_insensitive": true,
+    "alias_to": "Int8"
+  },
+  {
+    "name": "BYTEA",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "Bool",
+    "case_insensitive": true,
+    "alias_to": ""
+  },
+  {
+    "name": "CHAR",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "CHAR LARGE OBJECT",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "CHAR VARYING",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "CHARACTER",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "CHARACTER LARGE OBJECT",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "CHARACTER VARYING",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "CLOB",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "DEC",
+    "case_insensitive": true,
+    "alias_to": "Decimal"
+  },
+  {
+    "name": "DOUBLE",
+    "case_insensitive": true,
+    "alias_to": "Float64"
+  },
+  {
+    "name": "DOUBLE PRECISION",
+    "case_insensitive": true,
+    "alias_to": "Float64"
+  },
+  {
+    "name": "Date",
+    "case_insensitive": true,
+    "alias_to": ""
+  },
+  {
+    "name": "Date32",
+    "case_insensitive": true,
+    "alias_to": ""
+  },
+  {
+    "name": "DateTime",
+    "case_insensitive": true,
+    "alias_to": ""
+  },
+  {
+    "name": "DateTime32",
+    "case_insensitive": true,
+    "alias_to": ""
+  },
+  {
+    "name": "DateTime64",
+    "case_insensitive": true,
+    "alias_to": ""
+  },
+  {
+    "name": "Decimal",
+    "case_insensitive": true,
+    "alias_to": ""
+  },
+  {
+    "name": "Decimal128",
+    "case_insensitive": true,
+    "alias_to": ""
+  },
+  {
+    "name": "Decimal256",
+    "case_insensitive": true,
+    "alias_to": ""
+  },
+  {
+    "name": "Decimal32",
+    "case_insensitive": true,
+    "alias_to": ""
+  },
+  {
+    "name": "Decimal64",
+    "case_insensitive": true,
+    "alias_to": ""
+  },
+  {
+    "name": "Dynamic",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "ENUM",
+    "case_insensitive": true,
+    "alias_to": "Enum"
+  },
+  {
+    "name": "Enum",
+    "case_insensitive": true,
+    "alias_to": ""
+  },
+  {
+    "name": "Enum16",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "Enum8",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "FIXED",
+    "case_insensitive": true,
+    "alias_to": "Decimal"
+  },
+  {
+    "name": "FLOAT",
+    "case_insensitive": true,
+    "alias_to": "Float32"
+  },
+  {
+    "name": "FixedString",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "Float32",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "Float64",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "GEOMETRY",
+    "case_insensitive": false,
+    "alias_to": "Geometry"
+  },
+  {
+    "name": "Geometry",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "INET4",
+    "case_insensitive": true,
+    "alias_to": "IPv4"
+  },
+  {
+    "name": "INET6",
+    "case_insensitive": true,
+    "alias_to": "IPv6"
+  },
+  {
+    "name": "INT",
+    "case_insensitive": true,
+    "alias_to": "Int32"
+  },
+  {
+    "name": "INT SIGNED",
+    "case_insensitive": true,
+    "alias_to": "Int32"
+  },
+  {
+    "name": "INT UNSIGNED",
+    "case_insensitive": true,
+    "alias_to": "UInt32"
+  },
+  {
+    "name": "INT1",
+    "case_insensitive": true,
+    "alias_to": "Int8"
+  },
+  {
+    "name": "INT1 SIGNED",
+    "case_insensitive": true,
+    "alias_to": "Int8"
+  },
+  {
+    "name": "INT1 UNSIGNED",
+    "case_insensitive": true,
+    "alias_to": "UInt8"
+  },
+  {
+    "name": "INTEGER",
+    "case_insensitive": true,
+    "alias_to": "Int32"
+  },
+  {
+    "name": "INTEGER SIGNED",
+    "case_insensitive": true,
+    "alias_to": "Int32"
+  },
+  {
+    "name": "INTEGER UNSIGNED",
+    "case_insensitive": true,
+    "alias_to": "UInt32"
+  },
+  {
+    "name": "IPv4",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "IPv6",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "Int128",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "Int16",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "Int256",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "Int32",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "Int64",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "Int8",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "IntervalDay",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "IntervalHour",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "IntervalMicrosecond",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "IntervalMillisecond",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "IntervalMinute",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "IntervalMonth",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "IntervalNanosecond",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "IntervalQuarter",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "IntervalSecond",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "IntervalWeek",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "IntervalYear",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "JSON",
+    "case_insensitive": true,
+    "alias_to": ""
+  },
+  {
+    "name": "LONGBLOB",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "LONGTEXT",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "LineString",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "LowCardinality",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "MEDIUMBLOB",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "MEDIUMINT",
+    "case_insensitive": true,
+    "alias_to": "Int32"
+  },
+  {
+    "name": "MEDIUMINT SIGNED",
+    "case_insensitive": true,
+    "alias_to": "Int32"
+  },
+  {
+    "name": "MEDIUMINT UNSIGNED",
+    "case_insensitive": true,
+    "alias_to": "UInt32"
+  },
+  {
+    "name": "MEDIUMTEXT",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "Map",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "MultiLineString",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "MultiPolygon",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "NATIONAL CHAR",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "NATIONAL CHAR VARYING",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "NATIONAL CHARACTER",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "NATIONAL CHARACTER LARGE OBJECT",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "NATIONAL CHARACTER VARYING",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "NCHAR",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "NCHAR LARGE OBJECT",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "NCHAR VARYING",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "NUMERIC",
+    "case_insensitive": true,
+    "alias_to": "Decimal"
+  },
+  {
+    "name": "NVARCHAR",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "Nested",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "Nothing",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "Nullable",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "Point",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "Polygon",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "QBit",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "REAL",
+    "case_insensitive": true,
+    "alias_to": "Float32"
+  },
+  {
+    "name": "Ring",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "SET",
+    "case_insensitive": true,
+    "alias_to": "UInt64"
+  },
+  {
+    "name": "SIGNED",
+    "case_insensitive": true,
+    "alias_to": "Int64"
+  },
+  {
+    "name": "SINGLE",
+    "case_insensitive": true,
+    "alias_to": "Float32"
+  },
+  {
+    "name": "SMALLINT",
+    "case_insensitive": true,
+    "alias_to": "Int16"
+  },
+  {
+    "name": "SMALLINT SIGNED",
+    "case_insensitive": true,
+    "alias_to": "Int16"
+  },
+  {
+    "name": "SMALLINT UNSIGNED",
+    "case_insensitive": true,
+    "alias_to": "UInt16"
+  },
+  {
+    "name": "SimpleAggregateFunction",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "String",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "TEXT",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "TIMESTAMP",
+    "case_insensitive": true,
+    "alias_to": "DateTime"
+  },
+  {
+    "name": "TINYBLOB",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "TINYINT",
+    "case_insensitive": true,
+    "alias_to": "Int8"
+  },
+  {
+    "name": "TINYINT SIGNED",
+    "case_insensitive": true,
+    "alias_to": "Int8"
+  },
+  {
+    "name": "TINYINT UNSIGNED",
+    "case_insensitive": true,
+    "alias_to": "UInt8"
+  },
+  {
+    "name": "TINYTEXT",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "Time",
+    "case_insensitive": true,
+    "alias_to": ""
+  },
+  {
+    "name": "Time64",
+    "case_insensitive": true,
+    "alias_to": ""
+  },
+  {
+    "name": "Tuple",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "UInt128",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "UInt16",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "UInt256",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "UInt32",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "UInt64",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "UInt8",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "UNSIGNED",
+    "case_insensitive": true,
+    "alias_to": "UInt64"
+  },
+  {
+    "name": "UUID",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "VARBINARY",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "VARCHAR",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "VARCHAR2",
+    "case_insensitive": true,
+    "alias_to": "String"
+  },
+  {
+    "name": "Variant",
+    "case_insensitive": false,
+    "alias_to": ""
+  },
+  {
+    "name": "YEAR",
+    "case_insensitive": true,
+    "alias_to": "UInt16"
+  },
+  {
+    "name": "bool",
+    "case_insensitive": true,
+    "alias_to": "Bool"
+  },
+  {
+    "name": "boolean",
+    "case_insensitive": true,
+    "alias_to": "Bool"
+  }
+]

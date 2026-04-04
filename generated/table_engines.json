@@ -1,0 +1,520 @@
+[
+  {
+    "name": "AggregatingMergeTree",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": false
+  },
+  {
+    "name": "Alias",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "ArrowFlight",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "AzureBlobStorage",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "AzureQueue",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "Buffer",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "COSN",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "CoalescingMergeTree",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": false
+  },
+  {
+    "name": "CollapsingMergeTree",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": false
+  },
+  {
+    "name": "DeltaLake",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "DeltaLakeAzure",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "DeltaLakeLocal",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "DeltaLakeS3",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "Dictionary",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "Distributed",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "EmbeddedRocksDB",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": false
+  },
+  {
+    "name": "Executable",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "ExecutablePool",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "File",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "FuzzJSON",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "FuzzQuery",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "GCS",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "GenerateRandom",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "GraphiteMergeTree",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": false
+  },
+  {
+    "name": "HDFS",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "Hive",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "Hudi",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "Iceberg",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "IcebergAzure",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "IcebergHDFS",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "IcebergLocal",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "IcebergS3",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "JDBC",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "Join",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "Kafka",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "KeeperMap",
+    "supports_settings": false,
+    "supports_sort_order": true,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "Log",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "Loop",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "MaterializedPostgreSQL",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "MaterializedView",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "Memory",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "Merge",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "MergeTree",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": false
+  },
+  {
+    "name": "MongoDB",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "MySQL",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "NATS",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "Null",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "ODBC",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "OSS",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "PostgreSQL",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "RabbitMQ",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "Redis",
+    "supports_settings": false,
+    "supports_sort_order": true,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "ReplacingMergeTree",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": false
+  },
+  {
+    "name": "ReplicatedAggregatingMergeTree",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": true
+  },
+  {
+    "name": "ReplicatedCoalescingMergeTree",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": true
+  },
+  {
+    "name": "ReplicatedCollapsingMergeTree",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": true
+  },
+  {
+    "name": "ReplicatedGraphiteMergeTree",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": true
+  },
+  {
+    "name": "ReplicatedMergeTree",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": true
+  },
+  {
+    "name": "ReplicatedReplacingMergeTree",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": true
+  },
+  {
+    "name": "ReplicatedSummingMergeTree",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": true
+  },
+  {
+    "name": "ReplicatedVersionedCollapsingMergeTree",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": true
+  },
+  {
+    "name": "S3",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "S3Queue",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "SQLite",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "Set",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "StripeLog",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "SummingMergeTree",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": false
+  },
+  {
+    "name": "TimeSeries",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "TinyLog",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "URL",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "VersionedCollapsingMergeTree",
+    "supports_settings": true,
+    "supports_sort_order": true,
+    "supports_ttl": true,
+    "supports_replication": false
+  },
+  {
+    "name": "View",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "WindowView",
+    "supports_settings": false,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  },
+  {
+    "name": "YTsaurus",
+    "supports_settings": true,
+    "supports_sort_order": false,
+    "supports_ttl": false,
+    "supports_replication": false
+  }
+]
