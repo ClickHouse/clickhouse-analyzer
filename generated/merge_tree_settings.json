@@ -1,0 +1,2102 @@
+[
+  {
+    "name": "adaptive_write_buffer_initial_size",
+    "description": "\n    Initial size of an adaptive write buffer\n    ",
+    "type": "NonZeroUInt64",
+    "default": "16384",
+    "tier": "Production"
+  },
+  {
+    "name": "add_implicit_sign_column_constraint_for_collapsing_engine",
+    "description": "\n    If true, adds an implicit constraint for the `sign` column of a CollapsingMergeTree\n    or VersionedCollapsingMergeTree table to allow only valid values (`1` and `-1`).\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "add_minmax_index_for_numeric_columns",
+    "description": "\n    When enabled, min-max (skipping) indices are added for all numeric columns\n    of the table.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "add_minmax_index_for_string_columns",
+    "description": "\n    When enabled, min-max (skipping) indices are added for all string columns of the table.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "add_minmax_index_for_temporal_columns",
+    "description": "\n    When enabled, min-max (skipping) indices are added for all Date, Date32, Time, Time64, DateTime and DateTime64 columns of the table\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "allow_coalescing_columns_in_partition_or_order_key",
+    "description": "\n    When enabled, allows coalescing columns in a CoalescingMergeTree table to be used in\n    the partition or sorting key.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "allow_commit_order_projection",
+    "description": "\n    Enables commit-order projections that store `_block_number` and `_block_offset` virtual columns, preserving original insertion order through merges.\n    Requires `enable_block_number_column` and `enable_block_offset_column` to be enabled.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Experimental"
+  },
+  {
+    "name": "allow_experimental_replacing_merge_with_cleanup",
+    "description": "\n    Allow experimental CLEANUP merges for ReplacingMergeTree with `is_deleted`\n    column. When enabled, allows using `OPTIMIZE ... FINAL CLEANUP` to manually\n    merge all parts in a partition down to a single part and removing any\n    deleted rows.\n\n    Also allows enabling such merges to happen automatically in the background\n    with settings `min_age_to_force_merge_seconds`,\n    `min_age_to_force_merge_on_partition_only` and\n    `enable_replacing_merge_with_cleanup_for_min_age_to_force_merge`.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Experimental"
+  },
+  {
+    "name": "allow_experimental_reverse_key",
+    "description": "\n    Enables support for descending sort order in MergeTree sorting keys. This\n    setting is particularly useful for time series analysis and Top-N queries,\n    allowing data to be stored in reverse chronological order to optimize query\n    performance.\n\n    With `allow_experimental_reverse_key` enabled, you can define descending sort\n    orders within the `ORDER BY` clause of a MergeTree table. This enables the\n    use of more efficient `ReadInOrder` optimizations instead of `ReadInReverseOrder`\n    for descending queries.\n\n    **Example**\n\n    ```sql\n    CREATE TABLE example\n    (\n    time DateTime,\n    key Int32,\n    value String\n    ) ENGINE = MergeTree\n    ORDER BY (time DESC, key)  -- Descending order on 'time' field\n    SETTINGS allow_experimental_reverse_key = 1;\n\n    SELECT * FROM example WHERE key = 'xxx' ORDER BY time DESC LIMIT 10;\n    ```\n\n    By using `ORDER BY time DESC` in the query, `ReadInOrder` is applied.\n\n    **Default Value:** false\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Experimental"
+  },
+  {
+    "name": "allow_floating_point_partition_key",
+    "description": "\n    Enables to allow floating-point number as a partition key.\n\n    Possible values:\n    - `0` — Floating-point partition key not allowed.\n    - `1` — Floating-point partition key allowed.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "allow_nullable_key",
+    "description": "\n    Allow Nullable types as primary keys.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "allow_part_offset_column_in_projections",
+    "description": "\n    Allow usage of '_part_offset' column in projections select query.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "allow_reduce_blocking_parts_task",
+    "description": "\n    Background task which reduces blocking parts for shared merge tree tables.\n    Only in ClickHouse Cloud\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "allow_remote_fs_zero_copy_replication",
+    "description": "\n    Don't use this setting in production, because it is not ready.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Experimental"
+  },
+  {
+    "name": "allow_summing_columns_in_partition_or_order_key",
+    "description": "\n    When enabled, allows summing columns in a SummingMergeTree table to be used in\n    the partition or sorting key.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "allow_suspicious_indices",
+    "description": "\n    Reject primary/secondary indexes and sorting keys with identical expressions\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "allow_vertical_merges_from_compact_to_wide_parts",
+    "description": "\n    Allows vertical merges from compact to wide parts. This settings must have\n    the same value on all replicas.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "alter_column_secondary_index_mode",
+    "description": "\n    Configures whether to allow `ALTER` commands that modify columns covered by secondary indices, and what action to take if\n    they are allowed. By default, such `ALTER` commands are allowed and the indices are rebuilt.\n\n    Possible values:\n    - `rebuild` (default): Rebuilds any secondary indices affected by the column in the `ALTER` command.\n    - `throw`: Prevents any `ALTER` of columns covered by **explicit** secondary indices by throwing an exception. Implicit indices are excluded from this restriction and will be rebuilt.\n    - `drop`: Drop the dependent secondary indices. The new parts won't have the indices, requiring `MATERIALIZE INDEX` to recreate them.\n    - `compatibility`: Matches the original behaviour: `throw` on `ALTER ... MODIFY COLUMN` and `rebuild` on `ALTER ... UPDATE/DELETE`.\n    - `ignore`: Intended for expert usage. It will leave the indices in an inconsistent state, allowing incorrect query results.\n    ",
+    "type": "AlterColumnSecondaryIndexMode",
+    "default": "rebuild",
+    "tier": "Production"
+  },
+  {
+    "name": "always_fetch_merged_part",
+    "description": "\n    If true, this replica never merges parts and always downloads merged parts\n    from other replicas.\n\n    Possible values:\n    - true, false\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "always_use_copy_instead_of_hardlinks",
+    "description": "\n    Always copy data instead of hardlinking during mutations/replaces/detaches\n    and so on.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "apply_patches_on_merge",
+    "description": "\n    If true patch parts are applied on merges\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "assign_part_uuids",
+    "description": "\n    When enabled, a unique part identifier will be assigned for every new part.\n    Before enabling, check that all replicas support UUID version 4.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "async_block_ids_cache_update_wait_ms",
+    "description": "\n    How long each insert iteration will wait for async_block_ids_cache update\n    ",
+    "type": "Milliseconds",
+    "default": "100",
+    "tier": "Production"
+  },
+  {
+    "name": "async_insert",
+    "description": "\n    If true, data from INSERT query is stored in queue and later flushed to\n    table in background.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "auto_statistics_types",
+    "description": "\n    Comma-separated list of statistics types to calculate automatically on all suitable columns.\n    Supported statistics types: tdigest, countmin, minmax, uniq.\n    ",
+    "type": "String",
+    "default": "",
+    "tier": "Production"
+  },
+  {
+    "name": "background_task_preferred_step_execution_time_ms",
+    "description": "\n    Target time to execution of one step of merge or mutation. Can be exceeded if\n    one step takes longer time\n    ",
+    "type": "Milliseconds",
+    "default": "50",
+    "tier": "Production"
+  },
+  {
+    "name": "cache_populated_by_fetch",
+    "description": "\n    :::note\n    This setting applies only to ClickHouse Cloud.\n    :::\n\n    When `cache_populated_by_fetch` is disabled (the default setting), new data\n    parts are loaded into the filesystem cache only when a query is run that requires\n    those parts.\n\n    If enabled, `cache_populated_by_fetch` will instead cause all nodes to load\n    new data parts from storage into their filesystem cache without requiring a query\n    to trigger such an action.\n\n    **See Also**\n\n    - [ignore_cold_parts_seconds](/operations/settings/settings#ignore_cold_parts_seconds)\n    - [prefer_warmed_unmerged_parts_seconds](/operations/settings/settings#prefer_warmed_unmerged_parts_seconds)\n    - [cache_warmer_threads](/operations/settings/settings#cache_warmer_threads)\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "cache_populated_by_fetch_filename_regexp",
+    "description": "\n    :::note\n    This setting applies only to ClickHouse Cloud.\n    :::\n\n    If not empty, only files that match this regex will be prewarmed into the cache after fetch (if `cache_populated_by_fetch` is enabled).\n    ",
+    "type": "String",
+    "default": "",
+    "tier": "Production"
+  },
+  {
+    "name": "check_sample_column_is_correct",
+    "description": "\n    Enables the check at table creation, that the data type of a column for s\n    ampling or sampling expression is correct. The data type must be one of unsigned\n    [integer types](/sql-reference/data-types/int-uint): `UInt8`, `UInt16`,\n    `UInt32`, `UInt64`.\n\n    Possible values:\n    - `true`  — The check is enabled.\n    - `false` — The check is disabled at table creation.\n\n    Default value: `true`.\n\n    By default, the ClickHouse server checks at table creation the data type of\n    a column for sampling or sampling expression. If you already have tables with\n    incorrect sampling expression and do not want the server to raise an exception\n    during startup, set `check_sample_column_is_correct` to `false`.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "cleanup_delay_period",
+    "description": "\n    Minimum period to clean old queue logs, blocks hashes and parts.\n    ",
+    "type": "UInt64",
+    "default": "30",
+    "tier": "Production"
+  },
+  {
+    "name": "cleanup_delay_period_random_add",
+    "description": "\n    Add uniformly distributed value from 0 to x seconds to cleanup_delay_period\n    to avoid thundering herd effect and subsequent DoS of ZooKeeper in case of\n    very large number of tables.\n    ",
+    "type": "UInt64",
+    "default": "10",
+    "tier": "Production"
+  },
+  {
+    "name": "cleanup_thread_preferred_points_per_iteration",
+    "description": "\n    Preferred batch size for background cleanup (points are abstract but 1 point\n    is approximately equivalent to 1 inserted block).\n    ",
+    "type": "UInt64",
+    "default": "150",
+    "tier": "Production"
+  },
+  {
+    "name": "clone_replica_zookeeper_create_get_part_batch_size",
+    "description": "\n    Batch size for ZooKeeper multi-create get-part requests when cloning replica.\n    ",
+    "type": "NonZeroUInt64",
+    "default": "100",
+    "tier": "Production"
+  },
+  {
+    "name": "columns_and_secondary_indices_sizes_lazy_calculation",
+    "description": "\n    Calculate columns and secondary indices sizes lazily on first request instead\n    of on table initialization.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "columns_to_prewarm_mark_cache",
+    "description": "\n    List of columns to prewarm mark cache for (if enabled). Empty means all columns\n    ",
+    "type": "String",
+    "default": "",
+    "tier": "Production"
+  },
+  {
+    "name": "compact_parts_max_bytes_to_buffer",
+    "description": "\n    Only available in ClickHouse Cloud. Maximal number of bytes to write in a\n    single stripe in compact parts\n    ",
+    "type": "UInt64",
+    "default": "134217728",
+    "tier": "Production"
+  },
+  {
+    "name": "compact_parts_max_granules_to_buffer",
+    "description": "\n    Only available in ClickHouse Cloud. Maximal number of granules to write in a\n    single stripe in compact parts\n    ",
+    "type": "NonZeroUInt64",
+    "default": "128",
+    "tier": "Production"
+  },
+  {
+    "name": "compact_parts_merge_max_bytes_to_prefetch_part",
+    "description": "\n    Only available in ClickHouse Cloud. Maximal size of compact part to read it\n    in a whole to memory during merge.\n    ",
+    "type": "UInt64",
+    "default": "16777216",
+    "tier": "Production"
+  },
+  {
+    "name": "compatibility_allow_sampling_expression_not_in_primary_key",
+    "description": "\n    Allow to create a table with sampling expression not in primary key. This is\n    needed only to temporarily allow to run the server with wrong tables for\n    backward compatibility.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "compress_marks",
+    "description": "\n    Marks support compression, reduce mark file size and speed up network\n    transmission.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "compress_primary_key",
+    "description": "\n    Primary key support compression, reduce primary key file size and speed up\n    network transmission.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "concurrent_part_removal_threshold",
+    "description": "\n    Activate concurrent part removal (see 'max_part_removal_threads') only if\n    the number of inactive data parts is at least this.\n    ",
+    "type": "UInt64",
+    "default": "100",
+    "tier": "Production"
+  },
+  {
+    "name": "deduplicate_merge_projection_mode",
+    "description": "\n    Whether to allow create projection for the table with non-classic MergeTree,\n    that is not (Replicated, Shared) MergeTree. Ignore option is purely for\n    compatibility which might result in incorrect answer. Otherwise, if allowed,\n    what is the action when merge projections, either drop or rebuild. So classic\n    MergeTree would ignore this setting. It also controls `OPTIMIZE DEDUPLICATE`\n    as well, but has effect on all MergeTree family members. Similar to the\n    option `lightweight_mutation_projection_mode`, it is also part level.\n\n    Possible values:\n    - `ignore`\n    - `throw`\n    - `drop`\n    - `rebuild`\n    ",
+    "type": "DeduplicateMergeProjectionMode",
+    "default": "throw",
+    "tier": "Production"
+  },
+  {
+    "name": "default_compression_codec",
+    "description": "\n    Specifies the default compression codec to be used if none is defined for a particular column in the table declaration.\n    Compression codec selecting order for a column:\n        1. Compression codec defined for the column in the table declaration\n        2. Compression codec defined in `default_compression_codec` (this setting)\n        3. Default compression codec defined in `compression` settings\n    Default value: an empty string (not defined).\n    ",
+    "type": "String",
+    "default": "",
+    "tier": "Production"
+  },
+  {
+    "name": "detach_not_byte_identical_parts",
+    "description": "\n    Enables or disables detaching a data part on a replica after a merge or a\n    mutation, if it is not byte-identical to data parts on other replicas. If\n    disabled, the data part is removed. Activate this setting if you want to\n    analyze such parts later.\n\n    The setting is applicable to `MergeTree` tables with enabled\n    [data replication](/engines/table-engines/mergetree-family/replacingmergetree).\n\n    Possible values:\n\n    - `0` — Parts are removed.\n    - `1` — Parts are detached.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "detach_old_local_parts_when_cloning_replica",
+    "description": "\n    Do not remove old local parts when repairing lost replica.\n\n    Possible values:\n    - `true`\n    - `false`\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "disable_detach_partition_for_zero_copy_replication",
+    "description": "\n    Disable DETACH PARTITION query for zero copy replication.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "disable_fetch_partition_for_zero_copy_replication",
+    "description": "\n    Disable FETCH PARTITION query for zero copy replication.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "disable_freeze_partition_for_zero_copy_replication",
+    "description": "\n    Disable FREEZE PARTITION query for zero copy replication.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "disk",
+    "description": "\n    Name of storage disk. Can be specified instead of storage policy.\n    ",
+    "type": "String",
+    "default": "",
+    "tier": "Production"
+  },
+  {
+    "name": "distributed_index_analysis_min_indexes_bytes_to_activate",
+    "description": "\n    Minimal index sizes (data skipping and primary key) on disk (but uncompressed) to activated distributed index analysis\n    ",
+    "type": "UInt64",
+    "default": "1073741824",
+    "tier": "Experimental"
+  },
+  {
+    "name": "distributed_index_analysis_min_parts_to_activate",
+    "description": "\n    Minimal number of parts to activated distributed index analysis\n    ",
+    "type": "UInt64",
+    "default": "10",
+    "tier": "Experimental"
+  },
+  {
+    "name": "dynamic_serialization_version",
+    "description": "\n    Serialization version for Dynamic data type. Required for compatibility.\n\n    Possible values:\n    - `v1`\n    - `v2`\n    - `v3`\n    ",
+    "type": "MergeTreeDynamicSerializationVersion",
+    "default": "v3",
+    "tier": "Production"
+  },
+  {
+    "name": "enable_block_number_column",
+    "description": "\n    Enable persisting column _block_number for each row.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "enable_block_offset_column",
+    "description": "\n    Persists virtual column `_block_number` on merges.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "enable_index_granularity_compression",
+    "description": "\n    Compress in memory values of index granularity if it is possible\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "enable_max_bytes_limit_for_min_age_to_force_merge",
+    "description": "\n    If settings `min_age_to_force_merge_seconds` and\n    `min_age_to_force_merge_on_partition_only` should respect setting\n    `max_bytes_to_merge_at_max_space_in_pool`.\n\n    Possible values:\n    - `true`\n    - `false`\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "enable_mixed_granularity_parts",
+    "description": "\n    Enables or disables transitioning to control the granule size with the\n    `index_granularity_bytes` setting. Before version 19.11, there was only the\n    `index_granularity` setting for restricting granule size. The\n    `index_granularity_bytes` setting improves ClickHouse performance when\n    selecting data from tables with big rows (tens and hundreds of megabytes).\n    If you have tables with big rows, you can enable this setting for the tables\n    to improve the efficiency of `SELECT` queries.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "enable_replacing_merge_with_cleanup_for_min_age_to_force_merge",
+    "description": "\n    Whether to use CLEANUP merges for ReplacingMergeTree when merging partitions\n    down to a single part. Requires `allow_experimental_replacing_merge_with_cleanup`,\n    `min_age_to_force_merge_seconds` and `min_age_to_force_merge_on_partition_only`\n    to be enabled.\n\n    Possible values:\n    - `true`\n    - `false`\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Experimental"
+  },
+  {
+    "name": "enable_the_endpoint_id_with_zookeeper_name_prefix",
+    "description": "\n    Enable the endpoint id with zookeeper name prefix for the replicated merge\n    tree table.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "enable_vertical_merge_algorithm",
+    "description": "\n    Enable usage of Vertical merge algorithm.\n    ",
+    "type": "UInt64",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "enforce_index_structure_match_on_partition_manipulation",
+    "description": "\n    If this setting is enabled for destination table of a partition manipulation\n    query (`ATTACH/MOVE/REPLACE PARTITION`), the indices and projections must be\n    identical between the source and destination tables. Otherwise, the destination\n    table can have a superset of the source table's indices and projections.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "escape_index_filenames",
+    "description": "\n    Prior to 26.1 we didn't escape special symbols in filenames created for secondary indices, which could lead to issues with some\n    characters in index names producing broken parts. This is added purely for compatibility reasons. It should not be changed unless you\n    are reading old parts with indices using non-ascii characters in their names.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "escape_variant_subcolumn_filenames",
+    "description": "\n    Escape special symbols in filenames created for subcolumns of Variant data type in Wide parts of MergeTree table. Needed for compatibility.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "exclude_deleted_rows_for_part_size_in_merge",
+    "description": "\n    If enabled, estimated actual size of data parts (i.e., excluding those rows\n    that have been deleted through `DELETE FROM`) will be used when selecting\n    parts to merge. Note that this behavior is only triggered for data parts\n    affected by `DELETE FROM` executed after this setting is enabled.\n\n    Possible values:\n    - `true`\n    - `false`\n\n    **See Also**\n    - [load_existing_rows_count_for_old_parts](#load_existing_rows_count_for_old_parts)\n      setting\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "exclude_materialize_skip_indexes_on_merge",
+    "description": "\n    Excludes provided comma delimited list of skip indexes from being built and stored during merges. Has no effect if\n    [materialize_skip_indexes_on_merge](#materialize_skip_indexes_on_merge) is false.\n\n    The excluded skip indexes will still be built and stored by an explicit\n    [MATERIALIZE INDEX](/sql-reference/statements/alter/skipping-index.md/#materialize-index) query or during INSERTs depending on\n    the [materialize_skip_indexes_on_insert](/operations/settings/settings.md/#materialize_skip_indexes_on_insert)\n    session setting.\n\n    Example:\n\n    ```sql\n    CREATE TABLE tab\n    (\n        a UInt64,\n        b UInt64,\n        INDEX idx_a a TYPE minmax,\n        INDEX idx_b b TYPE set(3)\n    )\n    ENGINE = MergeTree ORDER BY tuple() SETTINGS exclude_materialize_skip_indexes_on_merge = 'idx_a';\n\n    INSERT INTO tab SELECT number, number / 50 FROM numbers(100); -- setting has no effect on INSERTs\n\n    -- idx_a will be excluded from update during background or explicit merge via OPTIMIZE TABLE FINAL\n\n    -- can exclude multiple indexes by providing a list\n    ALTER TABLE tab MODIFY SETTING exclude_materialize_skip_indexes_on_merge = 'idx_a, idx_b';\n\n    -- default setting, no indexes excluded from being updated during merge\n    ALTER TABLE tab MODIFY SETTING exclude_materialize_skip_indexes_on_merge = '';\n    ```\n    ",
+    "type": "String",
+    "default": "",
+    "tier": "Production"
+  },
+  {
+    "name": "execute_merges_on_single_replica_time_threshold",
+    "description": "\n    When this setting has a value greater than zero, only a single replica starts\n    the merge immediately, and other replicas wait up to that amount of time to\n    download the result instead of doing merges locally. If the chosen replica\n    doesn't finish the merge during that amount of time, fallback to standard\n    behavior happens.\n\n    Possible values:\n    - Any positive integer.\n    ",
+    "type": "Seconds",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "fault_probability_after_part_commit",
+    "description": "\n    For testing. Do not change it.\n    ",
+    "type": "Float",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "fault_probability_before_part_commit",
+    "description": "\n    For testing. Do not change it.\n    ",
+    "type": "Float",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "finished_mutations_to_keep",
+    "description": "\n    How many records about mutations that are done to keep. If zero, then keep\n    all of them.\n    ",
+    "type": "UInt64",
+    "default": "100",
+    "tier": "Production"
+  },
+  {
+    "name": "force_read_through_cache_for_merges",
+    "description": "\n    Force read-through filesystem cache for merges\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Experimental"
+  },
+  {
+    "name": "fsync_after_insert",
+    "description": "\n    Do fsync for every inserted part. Significantly decreases performance of\n    inserts, not recommended to use with wide parts.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "fsync_part_directory",
+    "description": "\n    Do fsync for part directory after all part operations (writes, renames, etc.).\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "inactive_parts_to_delay_insert",
+    "description": "\n    If the number of inactive parts in a single partition in the table exceeds\n    the `inactive_parts_to_delay_insert` value, an `INSERT` is artificially\n    slowed down.\n\n    :::tip\n    It is useful when a server fails to clean up parts quickly enough.\n    :::\n\n    Possible values:\n    - Any positive integer.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "inactive_parts_to_throw_insert",
+    "description": "\n    If the number of inactive parts in a single partition more than the\n    `inactive_parts_to_throw_insert` value, `INSERT` is interrupted with the\n    following error:\n\n    > \"Too many inactive parts (N). Parts cleaning are processing significantly\n      slower than inserts\" exception.\"\n\n    Possible values:\n    - Any positive integer.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "index_granularity",
+    "description": "\n    Maximum number of data rows between the marks of an index. I.e how many rows\n    correspond to one primary key value.\n    ",
+    "type": "UInt64",
+    "default": "8192",
+    "tier": "Production"
+  },
+  {
+    "name": "index_granularity_bytes",
+    "description": "\n    Maximum size of data granules in bytes.\n\n    To restrict the granule size only by number of rows, set to `0` (not recommended).\n    ",
+    "type": "UInt64",
+    "default": "10485760",
+    "tier": "Production"
+  },
+  {
+    "name": "initialization_retry_period",
+    "description": "\n    Retry period for table initialization, in seconds.\n    ",
+    "type": "Seconds",
+    "default": "60",
+    "tier": "Production"
+  },
+  {
+    "name": "lightweight_mutation_projection_mode",
+    "description": "\n    By default, lightweight delete `DELETE` does not work for tables with\n    projections. This is because rows in a projection may be affected by a\n    `DELETE` operation. So the default value would be `throw`. However, this\n    option can change the behavior. With the value either `drop` or `rebuild`,\n    deletes will work with projections. `drop` would delete the projection so it\n    might be fast in the current query as projection gets deleted but slow in\n    future queries as no projection attached. `rebuild` would rebuild the\n    projection which might affect the performance of the current query, but\n    might speedup for future queries. A good thing is that these options would\n    only work in the part level, which means projections in the part that don't\n    get touched would stay intact instead of triggering any action like\n    drop or rebuild.\n\n    Possible values:\n    - `throw`\n    - `drop`\n    - `rebuild`\n    ",
+    "type": "LightweightMutationProjectionMode",
+    "default": "throw",
+    "tier": "Production"
+  },
+  {
+    "name": "load_existing_rows_count_for_old_parts",
+    "description": "\n    If enabled along with [exclude_deleted_rows_for_part_size_in_merge](#exclude_deleted_rows_for_part_size_in_merge),\n    deleted rows count for existing data parts will be calculated during table\n    starting up. Note that it may slow down start up table loading.\n\n    Possible values:\n    - `true`\n    - `false`\n\n    **See Also**\n    - [exclude_deleted_rows_for_part_size_in_merge](#exclude_deleted_rows_for_part_size_in_merge) setting\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "lock_acquire_timeout_for_background_operations",
+    "description": "\n    For background operations like merges, mutations etc. How many seconds before\n    failing to acquire table locks.\n    ",
+    "type": "Seconds",
+    "default": "120",
+    "tier": "Production"
+  },
+  {
+    "name": "map_buckets_coefficient",
+    "description": "\n    The coefficient used in `sqrt` and `linear` [map_buckets_strategy](#map_buckets_strategy) to calculate the number of buckets from the average map size.\n    For `sqrt` strategy: `round(map_buckets_coefficient * sqrt(avg_map_size))`.\n    For `linear` strategy: `round(map_buckets_coefficient * avg_map_size)`.\n    Ignored when `map_buckets_strategy` is `constant`.\n    ",
+    "type": "Float",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "map_buckets_min_avg_size",
+    "description": "\n    The minimum average map size (number of keys per row) required to apply `with_buckets` serialization.\n    If the average map size is less than this value, a single bucket is used regardless of other bucket settings.\n    A value of `0` disables the threshold and always applies the bucketing strategy.\n    This setting is useful to avoid the overhead of bucketed serialization for small maps where the benefit is negligible.\n    ",
+    "type": "UInt64",
+    "default": "32",
+    "tier": "Production"
+  },
+  {
+    "name": "map_buckets_strategy",
+    "description": "\n    Controls the strategy for choosing the number of buckets in `with_buckets` `Map` serialization based on the average map size.\n\n    Possible values:\n\n    - constant — Always use [max_buckets_in_map](#max_buckets_in_map) as the number of buckets, regardless of the average map size.\n    - sqrt — Use `round(map_buckets_coefficient * sqrt(avg_map_size))` as the number of buckets, clamped to `[1, max_buckets_in_map]`.\n    - linear — Use `round(map_buckets_coefficient * avg_map_size)` as the number of buckets, clamped to `[1, max_buckets_in_map]`.\n    ",
+    "type": "MergeTreeMapBucketsStrategy",
+    "default": "sqrt",
+    "tier": "Production"
+  },
+  {
+    "name": "map_serialization_version",
+    "description": "\n    Controls the serialization method used for `Map` columns.\n\n    Possible values:\n\n    - basic — Use the standard serialization for `Map`.\n    - with_buckets — Split keys into buckets during serialization. Using buckets improves reading individual keys from the Map.\n\n    The number of buckets in `with_buckets` serialization is determined by [max_buckets_in_map](#max_buckets_in_map) and [map_buckets_strategy](#map_buckets_strategy).\n    ",
+    "type": "MergeTreeMapSerializationVersion",
+    "default": "basic",
+    "tier": "Production"
+  },
+  {
+    "name": "map_serialization_version_for_zero_level_parts",
+    "description": "\n    This setting allows to specify a different serialization version of\n    `Map` columns for zero level parts that are created during inserts.\n    It can be useful to keep `basic` serialization for zero level parts to avoid\n    performance degradation during inserts, while using `with_buckets` for merged parts.\n    ",
+    "type": "MergeTreeMapSerializationVersion",
+    "default": "basic",
+    "tier": "Production"
+  },
+  {
+    "name": "marks_compress_block_size",
+    "description": "\n    Mark compress block size, the actual size of the block to compress.\n    ",
+    "type": "NonZeroUInt64",
+    "default": "65536",
+    "tier": "Production"
+  },
+  {
+    "name": "marks_compression_codec",
+    "description": "\n    Compression encoding used by marks, marks are small enough and cached, so\n    the default compression is ZSTD(3).\n    ",
+    "type": "String",
+    "default": "ZSTD(3)",
+    "tier": "Production"
+  },
+  {
+    "name": "materialize_skip_indexes_on_merge",
+    "description": "\n    When enabled, merges build and store skip indices for new parts.\n    Otherwise they can be created/stored by explicit [MATERIALIZE INDEX](/sql-reference/statements/alter/skipping-index.md/#materialize-index)\n    or [during INSERTs](/operations/settings/settings.md/#materialize_skip_indexes_on_insert).\n\n    See also [exclude_materialize_skip_indexes_on_merge](#exclude_materialize_skip_indexes_on_merge) for more fine-grained control.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "materialize_statistics_on_merge",
+    "description": "When enabled, merges will build and store statistics for new parts.\n    Otherwise they can be created/stored by explicit [MATERIALIZE STATISTICS](/sql-reference/statements/alter/statistics.md)\n    or [during INSERTs](/operations/settings/settings.md#materialize_statistics_on_insert)",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "materialize_ttl_recalculate_only",
+    "description": "\n    Only recalculate ttl info when MATERIALIZE TTL\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "max_avg_part_size_for_too_many_parts",
+    "description": "\n    The 'too many parts' check according to 'parts_to_delay_insert' and\n    'parts_to_throw_insert' will be active only if the average part size (in the\n    relevant partition) is not larger than the specified threshold. If it is\n    larger than the specified threshold, the INSERTs will be neither delayed or\n    rejected. This allows to have hundreds of terabytes in a single table on a\n    single server if the parts are successfully merged to larger parts. This\n    does not affect the thresholds on inactive parts or total parts.\n    ",
+    "type": "UInt64",
+    "default": "1073741824",
+    "tier": "Production"
+  },
+  {
+    "name": "max_buckets_in_map",
+    "description": "\n    The maximum number of buckets for `Map` serialization. Works with `with_buckets` `Map` serialization.\n    The actual number of buckets is determined by [map_buckets_strategy](#map_buckets_strategy).\n    The maximum allowed value is 256.\n    ",
+    "type": "NonZeroUInt64",
+    "default": "32",
+    "tier": "Production"
+  },
+  {
+    "name": "max_bytes_to_merge_at_max_space_in_pool",
+    "description": "\n    The maximum total parts size (in bytes) to be merged into one part, if there\n    are enough resources available. Corresponds roughly to the maximum possible\n    part size created by an automatic background merge. (0 means merges will be disabled)\n\n    Possible values:\n\n    - Any non-negative integer.\n\n    The merge scheduler periodically analyzes the sizes and number of parts in\n    partitions, and if there are enough free resources in the pool, it starts\n    background merges. Merges occur until the total size of the source parts is\n    larger than `max_bytes_to_merge_at_max_space_in_pool`.\n\n    Merges initiated by [OPTIMIZE FINAL](/sql-reference/statements/optimize)\n    ignore `max_bytes_to_merge_at_max_space_in_pool` (only the free disk space\n    is taken into account).\n    ",
+    "type": "UInt64",
+    "default": "161061273600",
+    "tier": "Production"
+  },
+  {
+    "name": "max_bytes_to_merge_at_min_space_in_pool",
+    "description": "\n    The maximum total part size (in bytes) to be merged into one part, with the\n    minimum available resources in the background pool.\n\n    Possible values:\n    - Any positive integer.\n\n    `max_bytes_to_merge_at_min_space_in_pool` defines the maximum total size of\n    parts which can be merged despite the lack of available disk space (in pool).\n    This is necessary to reduce the number of small parts and the chance of\n    `Too many parts` errors.\n    Merges book disk space by doubling the total merged parts sizes.\n    Thus, with a small amount of free disk space, a situation may occur in which\n    there is free space, but this space is already booked by ongoing large merges,\n    so other merges are unable to start, and the number of small parts grows\n    with every insert.\n    ",
+    "type": "UInt64",
+    "default": "1048576",
+    "tier": "Production"
+  },
+  {
+    "name": "max_cleanup_delay_period",
+    "description": "\n    Maximum period to clean old queue logs, blocks hashes and parts.\n    ",
+    "type": "UInt64",
+    "default": "300",
+    "tier": "Production"
+  },
+  {
+    "name": "max_compress_block_size",
+    "description": "\n    The maximum size of blocks of uncompressed data before compressing for writing\n    to a table. You can also specify this setting in the global settings\n    (see [max_compress_block_size](/operations/settings/merge-tree-settings#max_compress_block_size)\n    setting). The value specified when the table is created overrides the global\n    value for this setting.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "max_concurrent_queries",
+    "description": "\n    Max number of concurrently executed queries related to the MergeTree table.\n    Queries will still be limited by other `max_concurrent_queries` settings.\n\n    Possible values:\n    - Positive integer.\n    - `0` — No limit.\n\n    Default value: `0` (no limit).\n\n    **Example**\n\n    ```xml\n    <max_concurrent_queries>50</max_concurrent_queries>\n    ```\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "max_delay_to_insert",
+    "description": "\n    The value in seconds, which is used to calculate the `INSERT` delay, if the\n    number of active parts in a single partition exceeds the\n    [parts_to_delay_insert](#parts_to_delay_insert) value.\n\n    Possible values:\n    - Any positive integer.\n\n    The delay (in milliseconds) for `INSERT` is calculated by the formula:\n\n    ```code\n    max_k = parts_to_throw_insert - parts_to_delay_insert\n    k = 1 + parts_count_in_partition - parts_to_delay_insert\n    delay_milliseconds = pow(max_delay_to_insert * 1000, k / max_k)\n    ```\n    For example, if a partition has 299 active parts and parts_to_throw_insert\n    = 300, parts_to_delay_insert = 150, max_delay_to_insert = 1, `INSERT` is\n    delayed for `pow( 1 * 1000, (1 + 299 - 150) / (300 - 150) ) = 1000`\n    milliseconds.\n\n    Starting from version 23.1 formula has been changed to:\n\n    ```code\n    allowed_parts_over_threshold = parts_to_throw_insert - parts_to_delay_insert\n    parts_over_threshold = parts_count_in_partition - parts_to_delay_insert + 1\n    delay_milliseconds = max(min_delay_to_insert_ms, (max_delay_to_insert * 1000)\n    * parts_over_threshold / allowed_parts_over_threshold)\n    ```\n\n    For example, if a partition has 224 active parts and parts_to_throw_insert\n    = 300, parts_to_delay_insert = 150, max_delay_to_insert = 1,\n    min_delay_to_insert_ms = 10, `INSERT` is delayed for `max( 10, 1 * 1000 *\n    (224 - 150 + 1) / (300 - 150) ) = 500` milliseconds.\n    ",
+    "type": "UInt64",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "max_delay_to_mutate_ms",
+    "description": "\n    Max delay of mutating MergeTree table in milliseconds, if there are a lot of\n    unfinished mutations\n    ",
+    "type": "UInt64",
+    "default": "1000",
+    "tier": "Production"
+  },
+  {
+    "name": "max_file_name_length",
+    "description": "\n    The maximal length of the file name to keep it as is without hashing.\n    Takes effect only if setting `replace_long_file_name_to_hash` is enabled.\n    The value of this setting does not include the length of file extension. So,\n    it is recommended to set it below the maximum filename length (usually 255\n    bytes) with some gap to avoid filesystem errors.\n    ",
+    "type": "UInt64",
+    "default": "127",
+    "tier": "Production"
+  },
+  {
+    "name": "max_files_to_modify_in_alter_columns",
+    "description": "\n    Do not apply ALTER if number of files for modification(deletion, addition)\n    is greater than this setting.\n\n    Possible values:\n\n    - Any positive integer.\n\n    Default value: 75\n    ",
+    "type": "UInt64",
+    "default": "75",
+    "tier": "Production"
+  },
+  {
+    "name": "max_files_to_remove_in_alter_columns",
+    "description": "\n    Do not apply ALTER, if the number of files for deletion is greater than this\n    setting.\n\n    Possible values:\n    - Any positive integer.\n    ",
+    "type": "UInt64",
+    "default": "50",
+    "tier": "Production"
+  },
+  {
+    "name": "max_merge_delayed_streams_for_parallel_write",
+    "description": "\n    The maximum number of streams (columns) that can be flushed in parallel\n    (analog of max_insert_delayed_streams_for_parallel_write for merges). Works\n    only for Vertical merges.\n    ",
+    "type": "UInt64",
+    "default": "40",
+    "tier": "Production"
+  },
+  {
+    "name": "max_merge_selecting_sleep_ms",
+    "description": "\n    Maximum time to wait before trying to select parts to merge again after no\n    parts were selected. A lower setting will trigger selecting tasks in\n    background_schedule_pool frequently which result in large amount of\n    requests to zookeeper in large-scale clusters\n    ",
+    "type": "UInt64",
+    "default": "60000",
+    "tier": "Production"
+  },
+  {
+    "name": "max_number_of_merges_with_ttl_in_pool",
+    "description": "When there is\n    more than specified number of merges with TTL entries in pool, do not assign\n    new merge with TTL. This is to leave free threads for regular merges and\n    avoid \\\"Too many parts\\\"\n    ",
+    "type": "UInt64",
+    "default": "2",
+    "tier": "Production"
+  },
+  {
+    "name": "max_number_of_mutations_for_replica",
+    "description": "\n    Limit the number of part mutations per replica to the specified amount.\n    Zero means no limit on the number of mutations per replica (the execution can\n    still be constrained by other settings).\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "max_partitions_to_read",
+    "description": "\n    Limits the maximum number of partitions that can be accessed in one query.\n\n    The setting value specified when the table is created can be overridden via\n    query-level setting.\n\n    Possible values:\n    - Any positive integer.\n\n    You can also specify a query complexity setting [max_partitions_to_read](/operations/settings/settings#max_partitions_to_read)\n    at a query / session / profile level.\n    ",
+    "type": "Int64",
+    "default": "-1",
+    "tier": "Production"
+  },
+  {
+    "name": "max_parts_in_total",
+    "description": "\n    If the total number of active parts in all partitions of a table exceeds the\n    `max_parts_in_total` value `INSERT` is interrupted with the `Too many parts\n    (N)` exception.\n\n    Possible values:\n    - Any positive integer.\n\n    A large number of parts in a table reduces performance of ClickHouse queries\n    and increases ClickHouse boot time. Most often this is a consequence of an\n    incorrect design (mistakes when choosing a partitioning strategy - too small\n    partitions).\n    ",
+    "type": "UInt64",
+    "default": "100000",
+    "tier": "Production"
+  },
+  {
+    "name": "max_parts_to_merge_at_once",
+    "description": "\n    Max amount of parts which can be merged at once (0 - disabled). Doesn't affect\n    OPTIMIZE FINAL query.\n    ",
+    "type": "UInt64",
+    "default": "100",
+    "tier": "Production"
+  },
+  {
+    "name": "max_postpone_time_for_failed_mutations_ms",
+    "description": "\n    The maximum postpone time for failed mutations.\n    ",
+    "type": "UInt64",
+    "default": "300000",
+    "tier": "Production"
+  },
+  {
+    "name": "max_postpone_time_for_failed_replicated_fetches_ms",
+    "description": "\n    The maximum postpone time for failed replicated fetches.\n    ",
+    "type": "UInt64",
+    "default": "60000",
+    "tier": "Production"
+  },
+  {
+    "name": "max_postpone_time_for_failed_replicated_merges_ms",
+    "description": "\n    The maximum postpone time for failed replicated merges.\n    ",
+    "type": "UInt64",
+    "default": "60000",
+    "tier": "Production"
+  },
+  {
+    "name": "max_postpone_time_for_failed_replicated_tasks_ms",
+    "description": "\n    The maximum postpone time for failed replicated task. The value is used if the task is not a fetch, merge or mutation.\n    ",
+    "type": "UInt64",
+    "default": "300000",
+    "tier": "Production"
+  },
+  {
+    "name": "max_projections",
+    "description": "\n    The maximum number of merge tree projections.\n    ",
+    "type": "UInt64",
+    "default": "25",
+    "tier": "Production"
+  },
+  {
+    "name": "max_replicated_fetches_network_bandwidth",
+    "description": "\n    Limits the maximum speed of data exchange over the network in bytes per\n    second for [replicated](../../engines/table-engines/mergetree-family/replication.md)\n    fetches. This setting is applied to a particular table, unlike the\n    [`max_replicated_fetches_network_bandwidth_for_server`](/operations/settings/merge-tree-settings#max_replicated_fetches_network_bandwidth)\n    setting, which is applied to the server.\n\n    You can limit both server network and network for a particular table, but for\n    this the value of the table-level setting should be less than server-level\n    one. Otherwise the server considers only the\n    `max_replicated_fetches_network_bandwidth_for_server` setting.\n\n    The setting isn't followed perfectly accurately.\n\n    Possible values:\n\n    - Positive integer.\n    - `0` — Unlimited.\n\n    Default value: `0`.\n\n    **Usage**\n\n    Could be used for throttling speed when replicating data to add or replace\n    new nodes.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "max_replicated_logs_to_keep",
+    "description": "\n    How many records may be in the ClickHouse Keeper log if there is inactive\n    replica. An inactive replica becomes lost when when this number exceed.\n\n    Possible values:\n    - Any positive integer.\n    ",
+    "type": "UInt64",
+    "default": "1000",
+    "tier": "Production"
+  },
+  {
+    "name": "max_replicated_merges_in_queue",
+    "description": "\n    How many tasks of merging and mutating parts are allowed simultaneously in\n    ReplicatedMergeTree queue.\n    ",
+    "type": "UInt64",
+    "default": "1000",
+    "tier": "Production"
+  },
+  {
+    "name": "max_replicated_merges_with_ttl_in_queue",
+    "description": "\n    How many tasks of merging parts with TTL are allowed simultaneously in\n    ReplicatedMergeTree queue.\n    ",
+    "type": "UInt64",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "max_replicated_mutations_in_queue",
+    "description": "\n    How many tasks of mutating parts are allowed simultaneously in\n    ReplicatedMergeTree queue.\n    ",
+    "type": "UInt64",
+    "default": "8",
+    "tier": "Production"
+  },
+  {
+    "name": "max_replicated_sends_network_bandwidth",
+    "description": "\n    Limits the maximum speed of data exchange over the network in bytes per\n    second for [replicated](/engines/table-engines/mergetree-family/replacingmergetree)\n    sends. This setting is applied to a particular table, unlike the\n    [`max_replicated_sends_network_bandwidth_for_server`](/operations/settings/merge-tree-settings#max_replicated_sends_network_bandwidth)\n    setting, which is applied to the server.\n\n    You can limit both server network and network for a particular table, but\n    for this the value of the table-level setting should be less than\n    server-level one. Otherwise the server considers only the\n    `max_replicated_sends_network_bandwidth_for_server` setting.\n\n    The setting isn't followed perfectly accurately.\n\n    Possible values:\n\n    - Positive integer.\n    - `0` — Unlimited.\n\n    **Usage**\n\n    Could be used for throttling speed when replicating data to add or replace\n    new nodes.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "max_suspicious_broken_parts",
+    "description": "\n    If the number of broken parts in a single partition exceeds the\n    `max_suspicious_broken_parts` value, automatic deletion is denied.\n\n    Possible values:\n    - Any positive integer.\n    ",
+    "type": "UInt64",
+    "default": "100",
+    "tier": "Production"
+  },
+  {
+    "name": "max_suspicious_broken_parts_bytes",
+    "description": "\n    Max size of all broken parts, if more - deny automatic deletion.\n\n    Possible values:\n    - Any positive integer.\n    ",
+    "type": "UInt64",
+    "default": "1073741824",
+    "tier": "Production"
+  },
+  {
+    "name": "max_uncompressed_bytes_in_patches",
+    "description": "\n    The maximum uncompressed size of data in all patch parts in bytes.\n    If amount of data in all patch parts exceeds this value, lightweight updates will be rejected.\n    0 - unlimited.\n    ",
+    "type": "UInt64",
+    "default": "32212254720",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_max_block_size",
+    "description": "\n    The number of rows that are read from the merged parts into memory.\n\n    Possible values:\n    - Any positive integer.\n\n    Merge reads rows from parts in blocks of `merge_max_block_size` rows, then\n    merges and writes the result into a new part. The read block is placed in RAM,\n    so `merge_max_block_size` affects the size of the RAM required for the merge.\n    Thus, merges can consume a large amount of RAM for tables with very wide rows\n    (if the average row size is 100kb, then when merging 10 parts,\n    (100kb * 10 * 8192) = ~ 8GB of RAM). By decreasing `merge_max_block_size`,\n    you can reduce the amount of RAM required for a merge but slow down a merge.\n    ",
+    "type": "NonZeroUInt64",
+    "default": "8192",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_max_block_size_bytes",
+    "description": "\n    How many bytes in blocks should be formed for merge operations. By default\n    has the same value as `index_granularity_bytes`.\n    ",
+    "type": "UInt64",
+    "default": "10485760",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_max_bytes_to_prewarm_cache",
+    "description": "\n    Only available in ClickHouse Cloud. Maximal size of part (compact or packed)\n    to prewarm cache during merge.\n    ",
+    "type": "UInt64",
+    "default": "1073741824",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_max_dynamic_subcolumns_in_compact_part",
+    "description": "\n    The maximum number of dynamic subcolumns that can be created in every column in the Compact data part after merge.\n    It allows to control the number of dynamic subcolumns in Compact part regardless of dynamic parameters specified in the data type.\n\n    For example, if the table has a column with the JSON(max_dynamic_paths=1024) type and the setting merge_max_dynamic_subcolumns_in_compact_part is set to 128,\n    after merge into the Compact data part number of dynamic paths will be decreased to 128 in this part and only 128 paths will be written as dynamic subcolumns.\n    ",
+    "type": "UInt64Auto",
+    "default": "auto",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_max_dynamic_subcolumns_in_wide_part",
+    "description": "\n    The maximum number of dynamic subcolumns that can be created in every column in the Wide data part after merge.\n    It allows to reduce number of files created in Wide data part regardless of dynamic parameters specified in the data type.\n\n    For example, if the table has a column with the JSON(max_dynamic_paths=1024) type and the setting merge_max_dynamic_subcolumns_in_wide_part is set to 128,\n    after merge into the Wide data part number of dynamic paths will be decreased to 128 in this part and only 128 paths will be written as dynamic subcolumns.\n    ",
+    "type": "UInt64Auto",
+    "default": "auto",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_selecting_sleep_ms",
+    "description": "\n    Minimum time to wait before trying to select parts to merge again after no\n    parts were selected. A lower setting will trigger selecting tasks in\n    background_schedule_pool frequently which result in large amount of requests\n    to zookeeper in large-scale clusters\n    ",
+    "type": "UInt64",
+    "default": "5000",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_selecting_sleep_slowdown_factor",
+    "description": "\n    The sleep time for merge selecting task is multiplied by this factor when\n    there's nothing to merge and divided when a merge was assigned\n    ",
+    "type": "Float",
+    "default": "1.2",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_selector_algorithm",
+    "description": "\n    The algorithm to select parts for merges assignment\n    ",
+    "type": "MergeSelectorAlgorithm",
+    "default": "Simple",
+    "tier": "Experimental"
+  },
+  {
+    "name": "merge_selector_base",
+    "description": "Affects write amplification of\n    assigned merges (expert level setting, don't change if you don't understand\n    what it is doing). Works for Simple and StochasticSimple merge selectors\n    ",
+    "type": "Float",
+    "default": "5",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_selector_blurry_base_scale_factor",
+    "description": "\n    Controls when the logic kicks in relatively to the number of parts in\n    partition. The bigger the factor the more belated reaction will be.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_selector_enable_heuristic_to_lower_max_parts_to_merge_at_once",
+    "description": "\n    Enable heuristic for simple merge selector which will lower maximum limit for merge choice.\n    By doing so number of concurrent merges will increase which can help with TOO_MANY_PARTS\n    errors but at the same time this will increase the write amplification.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Experimental"
+  },
+  {
+    "name": "merge_selector_enable_heuristic_to_remove_small_parts_at_right",
+    "description": "\n    Enable heuristic for selecting parts for merge which removes parts from right\n    side of range, if their size is less than specified ratio (0.01) of sum_size.\n    Works for Simple and StochasticSimple merge selectors\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_selector_heuristic_to_lower_max_parts_to_merge_at_once_exponent",
+    "description": "\n    Controls the exponent value used in formulae building lowering curve. Lowering exponent will\n    lower merge widths which will trigger increase in write amplification. The reverse is also true.\n    ",
+    "type": "UInt64",
+    "default": "5",
+    "tier": "Experimental"
+  },
+  {
+    "name": "merge_selector_window_size",
+    "description": "\n    How many parts to look at once.\n    ",
+    "type": "UInt64",
+    "default": "1000",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_total_max_bytes_to_prewarm_cache",
+    "description": "\n    Only available in ClickHouse Cloud. Maximal size of parts in total to prewarm\n    cache during merge.\n    ",
+    "type": "UInt64",
+    "default": "16106127360",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_tree_clear_old_parts_interval_seconds",
+    "description": "\n    Sets the interval in seconds for ClickHouse to execute the cleanup of old\n    parts, WALs, and mutations.\n\n    Possible values:\n    - Any positive integer.\n    ",
+    "type": "UInt64",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_tree_clear_old_temporary_directories_interval_seconds",
+    "description": "\n    Sets the interval in seconds for ClickHouse to execute the cleanup of old\n    temporary directories.\n\n    Possible values:\n    - Any positive integer.\n    ",
+    "type": "UInt64",
+    "default": "60",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_with_recompression_ttl_timeout",
+    "description": "\n    Minimum delay in seconds before repeating a merge with recompression TTL.\n    ",
+    "type": "Int64",
+    "default": "14400",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_with_ttl_timeout",
+    "description": "\n    Minimum delay in seconds before repeating a merge with delete TTL.\n    ",
+    "type": "Int64",
+    "default": "14400",
+    "tier": "Production"
+  },
+  {
+    "name": "merge_workload",
+    "description": "\n    Used to regulate how resources are utilized and shared between merges and\n    other workloads. Specified value is used as `workload` setting value for\n    background merges of this table. If not specified (empty string), then\n    server setting `merge_workload` is used instead.\n\n    **See Also**\n    - [Workload Scheduling](/operations/workload-scheduling.md)\n    ",
+    "type": "String",
+    "default": "",
+    "tier": "Production"
+  },
+  {
+    "name": "min_absolute_delay_to_close",
+    "description": "\n    Minimal absolute delay to close, stop serving requests and not\n    return Ok during status check.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_age_to_force_merge_on_partition_only",
+    "description": "\n    Whether `min_age_to_force_merge_seconds` should be applied only on the entire\n    partition and not on subset.\n\n    By default, ignores setting `max_bytes_to_merge_at_max_space_in_pool` (see\n    `enable_max_bytes_limit_for_min_age_to_force_merge`).\n\n    Possible values:\n    - true, false\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_age_to_force_merge_seconds",
+    "description": "\n    Merge parts if every part in the range is older than the value of\n    `min_age_to_force_merge_seconds`.\n\n    By default, ignores setting `max_bytes_to_merge_at_max_space_in_pool`\n    (see `enable_max_bytes_limit_for_min_age_to_force_merge`).\n\n    Possible values:\n    - Positive integer.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_bytes_for_full_part_storage",
+    "description": "\n    Only available in ClickHouse Cloud. Minimal uncompressed size in bytes to\n    use full type of storage for data part instead of packed\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_bytes_for_wide_part",
+    "description": "\n    Minimum number of bytes/rows in a data part that can be stored in `Wide`\n    format. You can set one, both or none of these settings.\n    ",
+    "type": "UInt64",
+    "default": "10485760",
+    "tier": "Production"
+  },
+  {
+    "name": "min_bytes_to_prewarm_caches",
+    "description": "\n    Minimal size (uncompressed bytes) to prewarm mark cache and primary index cache\n    for new parts\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_bytes_to_rebalance_partition_over_jbod",
+    "description": "\n    Sets minimal amount of bytes to enable balancing when distributing new big\n    parts over volume disks [JBOD](https://en.wikipedia.org/wiki/Non-RAID_drive_architectures).\n\n    Possible values:\n\n    - Positive integer.\n    - `0` — Balancing is disabled.\n\n    **Usage**\n\n    The value of the `min_bytes_to_rebalance_partition_over_jbod` setting should\n    not be less than the value of the\n    [max_bytes_to_merge_at_max_space_in_pool](/operations/settings/merge-tree-settings#max_bytes_to_merge_at_max_space_in_pool)\n    / 1024. Otherwise, ClickHouse throws an exception.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_columns_to_activate_adaptive_write_buffer",
+    "description": "\n    Allow to reduce memory usage for tables with lots of columns by using adaptive writer buffers.\n\n    Possible values:\n    - 0 - unlimited\n    - 1 - always enabled\n    ",
+    "type": "UInt64",
+    "default": "500",
+    "tier": "Production"
+  },
+  {
+    "name": "min_compress_block_size",
+    "description": "\n    Minimum size of blocks of uncompressed data required for compression when\n    writing the next mark. You can also specify this setting in the global settings\n    (see [min_compress_block_size](/operations/settings/merge-tree-settings#min_compress_block_size)\n    setting). The value specified when the table is created overrides the global value\n    for this setting.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_compressed_bytes_to_fsync_after_fetch",
+    "description": "\n    Minimal number of compressed bytes to do fsync for part after fetch (0 - disabled)\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_compressed_bytes_to_fsync_after_merge",
+    "description": "\n    Minimal number of compressed bytes to do fsync for part after merge (0 - disabled)\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_delay_to_insert_ms",
+    "description": "\n    Min delay of inserting data into MergeTree table in milliseconds, if there\n    are a lot of unmerged parts in single partition.\n    ",
+    "type": "UInt64",
+    "default": "10",
+    "tier": "Production"
+  },
+  {
+    "name": "min_delay_to_mutate_ms",
+    "description": "\n    Min delay of mutating MergeTree table in milliseconds, if there are a lot of\n    unfinished mutations\n    ",
+    "type": "UInt64",
+    "default": "10",
+    "tier": "Production"
+  },
+  {
+    "name": "min_free_disk_bytes_to_perform_insert",
+    "description": "\n    The minimum number of bytes that should be free in disk space in order to\n    insert data. If the number of available free bytes is less than\n    `min_free_disk_bytes_to_perform_insert` then an exception is thrown and the\n    insert is not executed. Note that this setting:\n    - takes into account the `keep_free_space_bytes` setting.\n    - does not take into account the amount of data that will be written by the\n      `INSERT` operation.\n    - is only checked if a positive (non-zero) number of bytes is specified\n\n    Possible values:\n    - Any positive integer.\n\n    :::note\n    If both `min_free_disk_bytes_to_perform_insert` and `min_free_disk_ratio_to_perform_insert`\n    are specified, ClickHouse will count on the value that will allow to perform\n    inserts on a bigger amount of free memory.\n    :::\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_free_disk_ratio_to_perform_insert",
+    "description": "\n    The minimum free to total disk space ratio to perform an `INSERT`. Must be a\n    floating point value between 0 and 1. Note that this setting:\n    - takes into account the `keep_free_space_bytes` setting.\n    - does not take into account the amount of data that will be written by the\n      `INSERT` operation.\n    - is only checked if a positive (non-zero) ratio is specified\n\n    Possible values:\n    - Float, 0.0 - 1.0\n\n    Note that if both `min_free_disk_ratio_to_perform_insert` and\n    `min_free_disk_bytes_to_perform_insert` are specified, ClickHouse will count\n    on the value that will allow to perform inserts on a bigger amount of free\n    memory.\n    ",
+    "type": "Float",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_index_granularity_bytes",
+    "description": "\n    Min allowed size of data granules in bytes.\n\n    To provide a safeguard against accidentally creating tables with very low\n    `index_granularity_bytes`.\n    ",
+    "type": "UInt64",
+    "default": "1024",
+    "tier": "Production"
+  },
+  {
+    "name": "min_level_for_full_part_storage",
+    "description": "\n    Only available in ClickHouse Cloud. Minimal part level to\n    use full type of storage for data part instead of packed\n    ",
+    "type": "UInt32",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_level_for_wide_part",
+    "description": "\n    Minimal part level to create a data part in `Wide` format instead of `Compact`.\n    ",
+    "type": "UInt32",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_marks_to_honor_max_concurrent_queries",
+    "description": "\n    The minimal number of marks read by the query for applying the [max_concurrent_queries](#max_concurrent_queries)\n    setting.\n\n    :::note\n    Queries will still be limited by other `max_concurrent_queries` settings.\n    :::\n\n    Possible values:\n    - Positive integer.\n    - `0` — Disabled (`max_concurrent_queries` limit applied to no queries).\n\n    **Example**\n\n    ```xml\n    <min_marks_to_honor_max_concurrent_queries>10</min_marks_to_honor_max_concurrent_queries>\n    ```\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_merge_bytes_to_use_direct_io",
+    "description": "\n    The minimum data volume for merge operation that is required for using direct\n    I/O access to the storage disk. When merging data parts, ClickHouse calculates\n    the total storage volume of all the data to be merged. If the volume exceeds\n    `min_merge_bytes_to_use_direct_io` bytes, ClickHouse reads and writes the\n    data to the storage disk using the direct I/O interface (`O_DIRECT` option).\n    If `min_merge_bytes_to_use_direct_io = 0`, then direct I/O is disabled.\n    ",
+    "type": "UInt64",
+    "default": "10737418240",
+    "tier": "Production"
+  },
+  {
+    "name": "min_parts_to_merge_at_once",
+    "description": "\n    Minimal amount of data parts which merge selector can pick to merge at once\n    (expert level setting, don't change if you don't understand what it is doing).\n    0 - disabled. Works for Simple and StochasticSimple merge selectors.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_relative_delay_to_close",
+    "description": "\n    Minimal delay from other replicas to close, stop serving\n    requests and not return Ok during status check.\n    ",
+    "type": "UInt64",
+    "default": "300",
+    "tier": "Production"
+  },
+  {
+    "name": "min_relative_delay_to_measure",
+    "description": "\n    Calculate relative replica delay only if absolute delay is not less that\n    this value.\n    ",
+    "type": "UInt64",
+    "default": "120",
+    "tier": "Production"
+  },
+  {
+    "name": "min_replicated_logs_to_keep",
+    "description": "\n    Keep about this number of last records in ZooKeeper log, even if they are\n    obsolete. It doesn't affect work of tables: used only to diagnose ZooKeeper\n    log before cleaning.\n\n    Possible values:\n    - Any positive integer.\n    ",
+    "type": "UInt64",
+    "default": "10",
+    "tier": "Production"
+  },
+  {
+    "name": "min_rows_for_full_part_storage",
+    "description": "\n    Only available in ClickHouse Cloud. Minimal number of rows to use full type\n    of storage for data part instead of packed\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_rows_for_wide_part",
+    "description": "\n    Minimal number of rows to create a data part in `Wide` format instead of `Compact`.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "min_rows_to_fsync_after_merge",
+    "description": "\n    Minimal number of rows to do fsync for part after merge (0 - disabled)\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "mutation_workload",
+    "description": "\n    Used to regulate how resources are utilized and shared between mutations and\n    other workloads. Specified value is used as `workload` setting value for\n    background mutations of this table. If not specified (empty string), then\n    server setting `mutation_workload` is used instead.\n\n    **See Also**\n    - [Workload Scheduling](/operations/workload-scheduling.md)\n    ",
+    "type": "String",
+    "default": "",
+    "tier": "Production"
+  },
+  {
+    "name": "non_replicated_deduplication_window",
+    "description": "\n    The number of the most recently inserted blocks in the non-replicated\n    [MergeTree](../../engines/table-engines/mergetree-family/mergetree.md) table\n    for which hash sums are stored to check for duplicates.\n\n    Possible values:\n    - Any positive integer.\n    - `0` (disable deduplication).\n\n    A deduplication mechanism is used, similar to replicated tables (see\n    [replicated_deduplication_window](#replicated_deduplication_window) setting).\n    The hash sums of the created parts are written to a local file on a disk.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "notify_newest_block_number",
+    "description": "\n    Notify newest block number to SharedJoin or SharedSet. Only in ClickHouse Cloud.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Experimental"
+  },
+  {
+    "name": "nullable_serialization_version",
+    "description": "\n    Controls the serialization method used for `Nullable(T)` columns.\n\n    Possible values:\n\n    - basic — Use the standard serialization for `Nullable(T)`.\n\n    - allow_sparse — Permit `Nullable(T)` to use sparse encoding.\n    ",
+    "type": "MergeTreeNullableSerializationVersion",
+    "default": "basic",
+    "tier": "Production"
+  },
+  {
+    "name": "number_of_free_entries_in_pool_to_execute_mutation",
+    "description": "\n    When there is less than specified number of free entries in pool, do not\n    execute part mutations. This is to leave free threads for regular merges and\n    to avoid \"Too many parts\" errors.\n\n    Possible values:\n    - Any positive integer.\n\n    **Usage**\n\n    The value of the `number_of_free_entries_in_pool_to_execute_mutation` setting\n    should be less than the value of the [background_pool_size](/operations/server-configuration-parameters/settings.md/#background_pool_size)\n    * [background_merges_mutations_concurrency_ratio](/operations/server-configuration-parameters/settings.md/#background_merges_mutations_concurrency_ratio).\n    Otherwise, ClickHouse will throw an exception.\n    ",
+    "type": "UInt64",
+    "default": "20",
+    "tier": "Production"
+  },
+  {
+    "name": "number_of_free_entries_in_pool_to_execute_optimize_entire_partition",
+    "description": "\n    When there is less than specified number of free entries in pool, do not\n    execute optimizing entire partition in the background (this task generated\n    when set `min_age_to_force_merge_seconds` and enable\n    `min_age_to_force_merge_on_partition_only`). This is to leave free threads\n    for regular merges and avoid \"Too many parts\".\n\n    Possible values:\n    - Positive integer.\n\n    The value of the `number_of_free_entries_in_pool_to_execute_optimize_entire_partition`\n    setting should be less than the value of the\n    [background_pool_size](/operations/server-configuration-parameters/settings.md/#background_pool_size)\n    * [background_merges_mutations_concurrency_ratio](/operations/server-configuration-parameters/settings.md/#background_merges_mutations_concurrency_ratio).\n    Otherwise, ClickHouse throws an exception.\n    ",
+    "type": "UInt64",
+    "default": "25",
+    "tier": "Production"
+  },
+  {
+    "name": "number_of_free_entries_in_pool_to_lower_max_size_of_merge",
+    "description": "\n    When there is less than the specified number of free entries in pool\n    (or replicated queue), start to lower maximum size of merge to process\n    (or to put in queue).\n    This is to allow small merges to process - not filling the pool with long\n    running merges.\n\n    Possible values:\n    - Any positive integer.\n    ",
+    "type": "UInt64",
+    "default": "8",
+    "tier": "Production"
+  },
+  {
+    "name": "number_of_mutations_to_delay",
+    "description": "If table has at least\n    that many unfinished mutations, artificially slow down mutations of table.\n    Disabled if set to 0\n    ",
+    "type": "UInt64",
+    "default": "500",
+    "tier": "Production"
+  },
+  {
+    "name": "number_of_mutations_to_throw",
+    "description": "\n    If table has at least that many unfinished mutations, throw 'Too many mutations'\n    exception. Disabled if set to 0\n    ",
+    "type": "UInt64",
+    "default": "1000",
+    "tier": "Production"
+  },
+  {
+    "name": "number_of_partitions_to_consider_for_merge",
+    "description": "\n    Only available in ClickHouse Cloud. Up to top N partitions which we will\n    consider for merge. Partitions picked in a random weighted way where weight\n    is amount of data parts which can be merged in this partition.\n    ",
+    "type": "UInt64",
+    "default": "10",
+    "tier": "Production"
+  },
+  {
+    "name": "object_serialization_version",
+    "description": "\n    Serialization version for JSON data type. Required for compatibility.\n\n    Possible values:\n    - `v1`\n    - `v2`\n    - `v3`\n\n    Only version `v3` supports changing the shared data serialization version.\n    ",
+    "type": "MergeTreeObjectSerializationVersion",
+    "default": "v3",
+    "tier": "Production"
+  },
+  {
+    "name": "object_shared_data_buckets_for_compact_part",
+    "description": "\n    The number of buckets for JSON shared data serialization in Compact parts. Works with `map_with_buckets` and `advanced` shared data serializations.\n    The maximum allowed value is 256.\n    ",
+    "type": "NonZeroUInt64",
+    "default": "8",
+    "tier": "Production"
+  },
+  {
+    "name": "object_shared_data_buckets_for_wide_part",
+    "description": "\n    The number of buckets for JSON shared data serialization in Wide parts. Works with `map_with_buckets` and `advanced` shared data serializations.\n    The maximum allowed value is 256.\n    ",
+    "type": "NonZeroUInt64",
+    "default": "32",
+    "tier": "Production"
+  },
+  {
+    "name": "object_shared_data_serialization_version",
+    "description": "\n    Serialization version for shared data inside JSON data type.\n\n    Possible values:\n    - `map` - store shared data as `Map(String, String)`\n    - `map_with_buckets` - store shared data as several separate `Map(String, String)` columns. Using buckets improves reading individual paths from shared data.\n    - `advanced` - special serialization of shared data designed to significantly improve reading of individual paths from shared data.\n    Note that this serialization increases the shared data storage size on disk because we store a lot of additional information.\n\n    The number of buckets for `map_with_buckets` and `advanced` serializations is determined by settings\n    [object_shared_data_buckets_for_compact_part](#object_shared_data_buckets_for_compact_part)/[object_shared_data_buckets_for_wide_part](#object_shared_data_buckets_for_wide_part).\n    ",
+    "type": "MergeTreeObjectSharedDataSerializationVersion",
+    "default": "advanced",
+    "tier": "Production"
+  },
+  {
+    "name": "object_shared_data_serialization_version_for_zero_level_parts",
+    "description": "\n    This setting allows to specify different serialization version of the\n    shared data inside JSON type for zero level parts that are created during inserts.\n    It's recommended not to use `advanced` shared data serialization for zero level parts because it can increase\n    the insertion time significantly.\n    ",
+    "type": "MergeTreeObjectSharedDataSerializationVersion",
+    "default": "map_with_buckets",
+    "tier": "Production"
+  },
+  {
+    "name": "old_parts_lifetime",
+    "description": "\n    The time (in seconds) of storing inactive parts to protect against data loss\n    during spontaneous server reboots.\n\n    Possible values:\n    - Any positive integer.\n\n    After merging several parts into a new part, ClickHouse marks the original\n    parts as inactive and deletes them only after `old_parts_lifetime` seconds.\n    Inactive parts are removed if they are not used by current queries, i.e. if\n    the `refcount` of the part is 1.\n\n    `fsync` is not called for new parts, so for some time new parts exist only\n    in the server's RAM (OS cache). If the server is rebooted spontaneously, new\n    parts can be lost or damaged. To protect data inactive parts are not deleted\n    immediately.\n\n    During startup ClickHouse checks the integrity of the parts. If the merged\n    part is damaged ClickHouse returns the inactive parts to the active list,\n    and later merges them again. Then the damaged part is renamed (the `broken_`\n    prefix is added) and moved to the `detached` folder. If the merged part is\n    not damaged, then the original inactive parts are renamed (the `ignored_`\n    prefix is added) and moved to the `detached` folder.\n\n    The default `dirty_expire_centisecs` value (a Linux kernel setting) is 30\n    seconds (the maximum time that written data is stored only in RAM), but under\n    heavy loads on the disk system data can be written much later. Experimentally,\n    a value of 480 seconds was chosen for `old_parts_lifetime`, during which a\n    new part is guaranteed to be written to disk.\n    ",
+    "type": "Seconds",
+    "default": "480",
+    "tier": "Production"
+  },
+  {
+    "name": "optimize_row_order",
+    "description": "\n    Controls if the row order should be optimized during inserts to improve the\n    compressability of the newly inserted table part.\n\n    Only has an effect for ordinary MergeTree-engine tables. Does nothing for\n    specialized MergeTree engine tables (e.g. CollapsingMergeTree).\n\n    MergeTree tables are (optionally) compressed using [compression codecs](/sql-reference/statements/create/table#column_compression_codec).\n    Generic compression codecs such as LZ4 and ZSTD achieve maximum compression\n    rates if the data exposes patterns. Long runs of the same value typically\n    compress very well.\n\n    If this setting is enabled, ClickHouse attempts to store the data in newly\n    inserted parts in a row order that minimizes the number of equal-value runs\n    across the columns of the new table part.\n    In other words, a small number of equal-value runs mean that individual runs\n    are long and compress well.\n\n    Finding the optimal row order is computationally infeasible (NP hard).\n    Therefore, ClickHouse uses a heuristics to quickly find a row order which\n    still improves compression rates over the original row order.\n\n    <details markdown=\"1\">\n\n    <summary>Heuristics for finding a row order</summary>\n\n    It is generally possible to shuffle the rows of a table (or table part)\n    freely as SQL considers the same table (table part) in different row order\n    equivalent.\n\n    This freedom of shuffling rows is restricted when a primary key is defined\n    for the table. In ClickHouse, a primary key `C1, C2, ..., CN` enforces that\n    the table rows are sorted by columns `C1`, `C2`, ... `Cn` ([clustered index](https://en.wikipedia.org/wiki/Database_index#Clustered)).\n    As a result, rows can only be shuffled within \"equivalence classes\" of row,\n    i.e. rows which have the same values in their primary key columns.\n    The intuition is that primary keys with high-cardinality, e.g. primary keys\n    involving a `DateTime64` timestamp column, lead to many small equivalence\n    classes. Likewise, tables with a low-cardinality primary key, create few and\n    large equivalence classes. A table with no primary key represents the extreme\n    case of a single equivalence class which spans all rows.\n\n    The fewer and the larger the equivalence classes are, the higher the degree\n    of freedom when re-shuffling rows.\n\n    The heuristics applied to find the best row order within each equivalence\n    class is suggested by D. Lemire, O. Kaser in\n    [Reordering columns for smaller indexes](https://doi.org/10.1016/j.ins.2011.02.002)\n    and based on sorting the rows within each equivalence class by ascending\n    cardinality of the non-primary key columns.\n\n    It performs three steps:\n    1. Find all equivalence classes based on the row values in primary key columns.\n    2. For each equivalence class, calculate (usually estimate) the cardinalities\n       of the non-primary-key columns.\n    3. For each equivalence class, sort the rows in order of ascending\n       non-primary-key column cardinality.\n\n    </details>\n\n    If enabled, insert operations incur additional CPU costs to analyze and\n    optimize the row order of the new data. INSERTs are expected to take 30-50%\n    longer depending on the data characteristics.\n    Compression rates of LZ4 or ZSTD improve on average by 20-40%.\n\n    This setting works best for tables with no primary key or a low-cardinality\n    primary key, i.e. a table with only few distinct primary key values.\n    High-cardinality primary keys, e.g. involving timestamp columns of type\n    `DateTime64`, are not expected to benefit from this setting.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "part_moves_between_shards_delay_seconds",
+    "description": "\n    Time to wait before/after moving parts between shards.\n    ",
+    "type": "UInt64",
+    "default": "30",
+    "tier": "Experimental"
+  },
+  {
+    "name": "part_moves_between_shards_enable",
+    "description": "\n    Experimental/Incomplete feature to move parts between shards. Does not take\n    into account sharding expressions.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Experimental"
+  },
+  {
+    "name": "parts_to_delay_insert",
+    "description": "\n    If the number of active parts in a single partition exceeds the\n    `parts_to_delay_insert` value, an `INSERT` is artificially slowed down.\n\n    Possible values:\n    - Any positive integer.\n\n    ClickHouse artificially executes `INSERT` longer (adds 'sleep') so that the\n    background merge process can merge parts faster than they are added.\n    ",
+    "type": "UInt64",
+    "default": "1000",
+    "tier": "Production"
+  },
+  {
+    "name": "parts_to_throw_insert",
+    "description": "\n    If the number of active parts in a single partition exceeds the\n    `parts_to_throw_insert` value, `INSERT` is interrupted with the `Too many\n    parts (N). Merges are processing significantly slower than inserts`\n    exception.\n\n    Possible values:\n    - Any positive integer.\n\n    To achieve maximum performance of `SELECT` queries, it is necessary to\n    minimize the number of parts processed, see [Merge Tree](/development/architecture#merge-tree).\n\n    Prior to version 23.6 this setting was set to 300. You can set a higher\n    different value, it will reduce the probability of the `Too many parts`\n    error, but at the same time `SELECT` performance might degrade. Also in case\n    of a merge issue (for example, due to insufficient disk space) you will\n    notice it later than you would with the original 300.\n\n    ",
+    "type": "UInt64",
+    "default": "3000",
+    "tier": "Production"
+  },
+  {
+    "name": "prefer_fetch_merged_part_size_threshold",
+    "description": "\n    If the sum of the size of parts exceeds this threshold and the time since a\n    replication log entry creation is greater than\n    `prefer_fetch_merged_part_time_threshold`, then prefer fetching merged part\n    from a replica instead of doing merge locally. This is to speed up very long\n    merges.\n\n    Possible values:\n    - Any positive integer.\n    ",
+    "type": "UInt64",
+    "default": "10737418240",
+    "tier": "Production"
+  },
+  {
+    "name": "prefer_fetch_merged_part_time_threshold",
+    "description": "\n    If the time passed since a replication log (ClickHouse Keeper or ZooKeeper)\n    entry creation exceeds this threshold, and the sum of the size of parts is\n    greater than `prefer_fetch_merged_part_size_threshold`, then prefer fetching\n    merged part from a replica instead of doing merge locally. This is to speed\n    up very long merges.\n\n    Possible values:\n    - Any positive integer.\n    ",
+    "type": "Seconds",
+    "default": "3600",
+    "tier": "Production"
+  },
+  {
+    "name": "prewarm_mark_cache",
+    "description": "If true mark cache will be\n    prewarmed by saving marks to mark cache on inserts, merges, fetches and on\n    startup of server\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "prewarm_primary_key_cache",
+    "description": "If true primary index\n    cache will be prewarmed by saving marks to mark cache on inserts, merges,\n    fetches and on startup of server\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "primary_key_compress_block_size",
+    "description": "\n    Primary compress block size, the actual size of the block to compress.\n    ",
+    "type": "NonZeroUInt64",
+    "default": "65536",
+    "tier": "Production"
+  },
+  {
+    "name": "primary_key_compression_codec",
+    "description": "\n    Compression encoding used by primary, primary key is small enough and cached,\n    so the default compression is ZSTD(3).\n    ",
+    "type": "String",
+    "default": "ZSTD(3)",
+    "tier": "Production"
+  },
+  {
+    "name": "primary_key_lazy_load",
+    "description": "Load primary key in memory on\n    first use instead of on table initialization. This can save memory in the\n    presence of a large number of tables.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "primary_key_ratio_of_unique_prefix_values_to_skip_suffix_columns",
+    "description": "\n    If the value of a column of the primary key in data part changes at least in\n    this ratio of times, skip loading next columns in memory. This allows to save\n    memory usage by not loading useless columns of the primary key.\n    ",
+    "type": "Float",
+    "default": "0.9",
+    "tier": "Production"
+  },
+  {
+    "name": "propagate_types_serialization_versions_to_nested_types",
+    "description": "\n    If true, serialization versions like string_serialization_version will be propagated inside nested types like Array/Map/Nullable/JSON/etc. If disabled, the serialization version will take affect only to top-level columns of this type and Tuple el\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "ratio_of_defaults_for_sparse_serialization",
+    "description": "\n    Minimal ratio of the number of _default_ values to the number of _all_ values\n    in a column. Setting this value causes the column to be stored using sparse\n    serializations.\n\n    If a column is sparse (contains mostly zeros), ClickHouse can encode it in\n    a sparse format and automatically optimize calculations - the data does not\n    require full decompression during queries. To enable this sparse\n    serialization, define the `ratio_of_defaults_for_sparse_serialization`\n    setting to be less than 1.0. If the value is greater than or equal to 1.0,\n    then the columns will be always written using the normal full serialization.\n\n    Possible values:\n\n    - Float between `0` and `1` to enable sparse serialization\n    - `1.0` (or greater) if you do not want to use sparse serialization\n\n    **Example**\n\n    Notice the `s` column in the following table is an empty string for 95% of\n    the rows. In `my_regular_table` we do not use sparse serialization, and in\n    `my_sparse_table` we set `ratio_of_defaults_for_sparse_serialization` to\n    0.95:\n\n    ```sql\n    CREATE TABLE my_regular_table\n    (\n        `id` UInt64,\n        `s` String\n    )\n    ENGINE = MergeTree\n    ORDER BY id;\n\n    INSERT INTO my_regular_table\n    SELECT\n        number AS id,\n        number % 20 = 0 ? toString(number): '' AS s\n    FROM\n        numbers(10000000);\n\n\n    CREATE TABLE my_sparse_table\n    (\n        `id` UInt64,\n        `s` String\n    )\n    ENGINE = MergeTree\n    ORDER BY id\n    SETTINGS ratio_of_defaults_for_sparse_serialization = 0.95;\n\n    INSERT INTO my_sparse_table\n    SELECT\n        number,\n        number % 20 = 0 ? toString(number): ''\n    FROM\n        numbers(10000000);\n    ```\n\n    Notice the `s` column in `my_sparse_table` uses less storage space on disk:\n\n    ```sql\n    SELECT table, name, data_compressed_bytes, data_uncompressed_bytes FROM system.columns\n    WHERE table LIKE 'my_%_table';\n    ```\n\n    ```response\n    ┌─table────────────┬─name─┬─data_compressed_bytes─┬─data_uncompressed_bytes─┐\n    │ my_regular_table │ id   │              37790741 │                75488328 │\n    │ my_regular_table │ s    │               2451377 │                12683106 │\n    │ my_sparse_table  │ id   │              37790741 │                75488328 │\n    │ my_sparse_table  │ s    │               2283454 │                 9855751 │\n    └──────────────────┴──────┴───────────────────────┴─────────────────────────┘\n    ```\n\n    You can verify if a column is using the sparse encoding by viewing the\n    `serialization_kind` column of the `system.parts_columns` table:\n\n    ```sql\n    SELECT column, serialization_kind FROM system.parts_columns\n    WHERE table LIKE 'my_sparse_table';\n    ```\n\n    You can see which parts of `s` were stored using the sparse serialization:\n\n    ```response\n    ┌─column─┬─serialization_kind─┐\n    │ id     │ Default            │\n    │ s      │ Default            │\n    │ id     │ Default            │\n    │ s      │ Default            │\n    │ id     │ Default            │\n    │ s      │ Sparse             │\n    │ id     │ Default            │\n    │ s      │ Sparse             │\n    │ id     │ Default            │\n    │ s      │ Sparse             │\n    │ id     │ Default            │\n    │ s      │ Sparse             │\n    │ id     │ Default            │\n    │ s      │ Sparse             │\n    │ id     │ Default            │\n    │ s      │ Sparse             │\n    │ id     │ Default            │\n    │ s      │ Sparse             │\n    │ id     │ Default            │\n    │ s      │ Sparse             │\n    │ id     │ Default            │\n    │ s      │ Sparse             │\n    └────────┴────────────────────┘\n    ```\n    ",
+    "type": "Float",
+    "default": "0.9375",
+    "tier": "Production"
+  },
+  {
+    "name": "reduce_blocking_parts_sleep_ms",
+    "description": "\n    Only available in ClickHouse Cloud. Minimum time to wait before trying to\n    reduce blocking parts again after no ranges were dropped/replaced. A lower\n    setting will trigger tasks in background_schedule_pool frequently which\n    results in large amount of requests to zookeeper in large-scale clusters\n    ",
+    "type": "UInt64",
+    "default": "5000",
+    "tier": "Production"
+  },
+  {
+    "name": "refresh_parts_interval",
+    "description": "\n    If it is greater than zero - refresh the list of data parts from the underlying filesystem to check if the data was updated under the hood.\n    It can be set only if the table is located on readonly disks (which means that this is a readonly replica, while data is being written by another replica).\n    ",
+    "type": "Seconds",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "refresh_statistics_interval",
+    "description": "\n    The interval of refreshing statistics cache in seconds. If it is set to zero, the refreshing will be disabled.\n    ",
+    "type": "Seconds",
+    "default": "300",
+    "tier": "Production"
+  },
+  {
+    "name": "remote_fs_execute_merges_on_single_replica_time_threshold",
+    "description": "\n    When this setting has a value greater than zero only a single replica starts\n    the merge immediately if merged part on shared storage.\n\n    :::note\n    Zero-copy replication is not ready for production\n    Zero-copy replication is disabled by default in ClickHouse version 22.8 and\n    higher.\n\n    This feature is not recommended for production use.\n    :::\n\n    Possible values:\n    - Any positive integer.\n    ",
+    "type": "Seconds",
+    "default": "10800",
+    "tier": "Production"
+  },
+  {
+    "name": "remote_fs_zero_copy_path_compatible_mode",
+    "description": "\n    Run zero-copy in compatible mode during conversion process.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Experimental"
+  },
+  {
+    "name": "remote_fs_zero_copy_zookeeper_path",
+    "description": "\n    ZooKeeper path for zero-copy table-independent info.\n    ",
+    "type": "String",
+    "default": "/clickhouse/zero_copy",
+    "tier": "Experimental"
+  },
+  {
+    "name": "remove_empty_parts",
+    "description": "\n    Remove empty parts after they were pruned by TTL, mutation, or collapsing\n    merge algorithm.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "remove_rolled_back_parts_immediately",
+    "description": "\n    Setting for an incomplete experimental feature.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Experimental"
+  },
+  {
+    "name": "remove_unused_patch_parts",
+    "description": "\n    Remove in background patch parts which are applied for all active parts.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "replace_long_file_name_to_hash",
+    "description": "\n    If the file name for column is too long (more than 'max_file_name_length'\n    bytes) replace it to SipHash128\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "replicated_can_become_leader",
+    "description": "\n    If true, replicated tables replicas on this node will try to acquire\n    leadership.\n\n    Possible values:\n    - `true`\n    - `false`\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "replicated_deduplication_window",
+    "description": "\n    The number of most recently inserted blocks for which ClickHouse Keeper stores\n    hash sums to check for duplicates.\n\n    Possible values:\n    - Any positive integer.\n    - 0 (disable deduplication)\n\n    The `Insert` command creates one or more blocks (parts). For\n    [insert deduplication](../../engines/table-engines/mergetree-family/replication.md),\n    when writing into replicated tables, ClickHouse writes the hash sums of the\n    created parts into ClickHouse Keeper. Hash sums are stored only for the most\n    recent `replicated_deduplication_window` blocks. The oldest hash sums are\n    removed from ClickHouse Keeper.\n\n    A large number for `replicated_deduplication_window` slows down `Inserts`\n    because more entries need to be compared. The hash sum is calculated from\n    the composition of the field names and types and the data of the inserted\n    part (stream of bytes).\n    ",
+    "type": "UInt64",
+    "default": "10000",
+    "tier": "Production"
+  },
+  {
+    "name": "replicated_deduplication_window_for_async_inserts",
+    "description": "\n    The number of most recently async inserted blocks for which ClickHouse Keeper\n    stores hash sums to check for duplicates.\n\n    Possible values:\n    - Any positive integer.\n    - 0 (disable deduplication for async_inserts)\n\n    The [Async Insert](/operations/settings/settings#async_insert) command will\n    be cached in one or more blocks (parts). For [insert deduplication](/engines/table-engines/mergetree-family/replication),\n    when writing into replicated tables, ClickHouse writes the hash sums of each\n    insert into ClickHouse Keeper. Hash sums are stored only for the most recent\n    `replicated_deduplication_window_for_async_inserts` blocks. The oldest hash\n    sums are removed from ClickHouse Keeper.\n    A large number of `replicated_deduplication_window_for_async_inserts` slows\n    down `Async Inserts` because it needs to compare more entries.\n    The hash sum is calculated from the composition of the field names and types\n    and the data of the insert (stream of bytes).\n    ",
+    "type": "UInt64",
+    "default": "10000",
+    "tier": "Production"
+  },
+  {
+    "name": "replicated_deduplication_window_seconds",
+    "description": "\n    The number of seconds after which the hash sums of the inserted blocks are\n    removed from ClickHouse Keeper.\n\n    Possible values:\n    - Any positive integer.\n\n    Similar to [replicated_deduplication_window](#replicated_deduplication_window),\n    `replicated_deduplication_window_seconds` specifies how long to store hash\n    sums of blocks for insert deduplication. Hash sums older than\n    `replicated_deduplication_window_seconds` are removed from ClickHouse Keeper,\n    even if they are less than ` replicated_deduplication_window`.\n\n    The time is relative to the time of the most recent record, not to the wall\n    time. If it's the only record it will be stored forever.\n    ",
+    "type": "UInt64",
+    "default": "3600",
+    "tier": "Production"
+  },
+  {
+    "name": "replicated_deduplication_window_seconds_for_async_inserts",
+    "description": "\n    The number of seconds after which the hash sums of the async inserts are\n    removed from ClickHouse Keeper.\n\n    Possible values:\n    - Any positive integer.\n\n    Similar to [replicated_deduplication_window_for_async_inserts](#replicated_deduplication_window_for_async_inserts),\n    `replicated_deduplication_window_seconds_for_async_inserts` specifies how\n    long to store hash sums of blocks for async insert deduplication. Hash sums\n    older than `replicated_deduplication_window_seconds_for_async_inserts` are\n    removed from ClickHouse Keeper, even if they are less than\n    `replicated_deduplication_window_for_async_inserts`.\n\n    The time is relative to the time of the most recent record, not to the wall\n    time. If it's the only record it will be stored forever.\n    ",
+    "type": "UInt64",
+    "default": "604800",
+    "tier": "Production"
+  },
+  {
+    "name": "replicated_fetches_min_part_level",
+    "description": "\n    Minimum part level to fetch from other replicas. Parts with level below this threshold are postponed\n    (kept in the replication queue and re-evaluated each scheduling cycle, not permanently skipped).\n    Use 1 to postpone fetching level-0 (unmerged) parts, reducing replication overhead during heavy ingestion.\n    Default: 0 (fetch all parts regardless of level).\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "replicated_fetches_min_part_level_timeout_seconds",
+    "description": "\n    Timeout in seconds after which a part below replicated_fetches_min_part_level will be fetched anyway.\n    Use 0 to disable the timeout (parts below the minimum level are postponed indefinitely until merged).\n    Default: 300 (force fetch after 5 minutes).\n    ",
+    "type": "UInt64",
+    "default": "300",
+    "tier": "Production"
+  },
+  {
+    "name": "replicated_max_mutations_in_one_entry",
+    "description": "\n    Max number of mutation commands that can be merged together and executed in\n    one MUTATE_PART entry (0 means unlimited)\n    ",
+    "type": "UInt64",
+    "default": "10000",
+    "tier": "Production"
+  },
+  {
+    "name": "replicated_max_ratio_of_wrong_parts",
+    "description": "\n    If the ratio of wrong parts to total number of parts is less than this -\n    allow to start.\n\n    Possible values:\n    - Float, 0.0 - 1.0\n    ",
+    "type": "Float",
+    "default": "0.5",
+    "tier": "Production"
+  },
+  {
+    "name": "search_orphaned_parts_disks",
+    "description": "\n    ClickHouse scans all disks for orphaned parts upon any ATTACH or CREATE table\n    in order to not allow to miss data parts at undefined (not included in policy) disks.\n    Orphaned parts originates from potentially unsafe storage reconfiguration, e.g. if a disk was excluded from storage policy.\n    This setting limits scope of disks to search by traits of the disks.\n\n    Possible values:\n    - any - scope is not limited.\n    - local - scope is limited by local disks .\n    - none - empty scope, do not search\n    ",
+    "type": "SearchOrphanedPartsDisks",
+    "default": "any",
+    "tier": "Production"
+  },
+  {
+    "name": "serialization_info_version",
+    "description": "\n    Serialization info version used when writing `serialization.json`.\n    This setting is required for compatibility during cluster upgrades.\n\n    Possible values:\n    - `basic` - Basic format.\n    - `with_types` - Format with additional `types_serialization_versions` field, allowing per-type serialization versions.\n    This makes settings like `string_serialization_version` effective.\n\n    During rolling upgrades, set this to `basic` so that new servers produce\n    data parts compatible with old servers. After the upgrade completes,\n    switch to `WITH_TYPES` to enable per-type serialization versions.\n    ",
+    "type": "MergeTreeSerializationInfoVersion",
+    "default": "with_types",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_activate_coordinated_merges_tasks",
+    "description": "\n    Activates rescheduling of coordinated merges tasks. It can be useful even when\n    shared_merge_tree_enable_coordinated_merges=0 because this will populate merge coordinator\n    statistics and help with cold start.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_create_per_replica_metadata_nodes",
+    "description": "\n    Enables creation of per-replica /metadata and /columns nodes in ZooKeeper.\n    Only available in ClickHouse Cloud\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_disable_merges_and_mutations_assignment",
+    "description": "\n    Stop merges assignment for shared merge tree. Only available in ClickHouse\n    Cloud\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_empty_partition_lifetime",
+    "description": "\n    How many seconds partition will be stored in keeper if it has no parts.\n    ",
+    "type": "Seconds",
+    "default": "86400",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_enable_automatic_empty_partitions_cleanup",
+    "description": "\n    Enabled cleanup of Keeper entries of empty partition.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_enable_coordinated_merges",
+    "description": "\n    Enables coordinated merges strategy\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_enable_keeper_parts_extra_data",
+    "description": "\n    Enables writing attributes into virtual parts and committing blocks in keeper\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_enable_outdated_parts_check",
+    "description": "\n    Enable outdated parts check. Only available in ClickHouse Cloud\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_idle_parts_update_seconds",
+    "description": "\n    Interval in seconds for parts update without being triggered by ZooKeeper\n    watch in the shared merge tree. Only available in ClickHouse Cloud\n    ",
+    "type": "UInt64",
+    "default": "3600",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_initial_parts_update_backoff_ms",
+    "description": "\n    Initial backoff for parts update. Only available in ClickHouse Cloud\n    ",
+    "type": "UInt64",
+    "default": "50",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_interserver_http_connection_timeout_ms",
+    "description": "\n    Timeouts for interserver HTTP connection. Only available in ClickHouse Cloud\n    ",
+    "type": "UInt64",
+    "default": "100",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_interserver_http_timeout_ms",
+    "description": "\n    Timeouts for interserver HTTP communication. Only available in ClickHouse\n    Cloud\n    ",
+    "type": "UInt64",
+    "default": "10000",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_leader_update_period_random_add_seconds",
+    "description": "\n    Add uniformly distributed value from 0 to x seconds to\n    shared_merge_tree_leader_update_period to avoid thundering\n    herd effect. Only available in ClickHouse Cloud\n    ",
+    "type": "UInt64",
+    "default": "10",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_leader_update_period_seconds",
+    "description": "\n    Maximum period to recheck leadership for parts update. Only available in\n    ClickHouse Cloud\n    ",
+    "type": "UInt64",
+    "default": "30",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_max_outdated_parts_to_process_at_once",
+    "description": "\n    Maximum amount of outdated parts leader will try to confirm for removal at\n    one HTTP request. Only available in ClickHouse Cloud.\n    ",
+    "type": "UInt64",
+    "default": "1000",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_max_parts_update_backoff_ms",
+    "description": "\n    Max backoff for parts update. Only available in ClickHouse Cloud\n    ",
+    "type": "UInt64",
+    "default": "5000",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_max_parts_update_leaders_in_total",
+    "description": "\n    Maximum number of parts update leaders. Only available in ClickHouse Cloud\n    ",
+    "type": "UInt64",
+    "default": "6",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_max_parts_update_leaders_per_az",
+    "description": "\n    Maximum number of parts update leaders. Only available in ClickHouse Cloud\n    ",
+    "type": "UInt64",
+    "default": "2",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_max_replicas_for_parts_deletion",
+    "description": "\n    Max replicas which will participate in parts deletion (killer thread). Only\n    available in ClickHouse Cloud\n    ",
+    "type": "UInt64",
+    "default": "10",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_max_replicas_to_merge_parts_for_each_parts_range",
+    "description": "\n    Max replicas which will try to assign potentially conflicting merges (allow\n    to avoid redundant conflicts in merges assignment). 0 means disabled. Only\n    available in ClickHouse Cloud\n    ",
+    "type": "UInt64",
+    "default": "5",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_max_suspicious_broken_parts",
+    "description": "\n    Max broken parts for SMT, if more - deny automatic detach.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_max_suspicious_broken_parts_bytes",
+    "description": "\n    Max size of all broken parts for SMT, if more - deny automatic detach.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_memo_ids_remove_timeout_seconds",
+    "description": "\n    How long we store insert memoization ids to avoid wrong actions during\n    insert retries. Only available in ClickHouse Cloud\n    ",
+    "type": "Int64",
+    "default": "1800",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_merge_coordinator_election_check_period_ms",
+    "description": "\n    Time between runs of merge coordinator election thread\n    ",
+    "type": "Milliseconds",
+    "default": "30000",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_merge_coordinator_factor",
+    "description": "\n    Time changing factor for delay of coordinator thread\n    ",
+    "type": "Float",
+    "default": "1.1",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_merge_coordinator_fetch_fresh_metadata_period_ms",
+    "description": "\n    How often merge coordinator should sync with zookeeper to take fresh metadata\n    ",
+    "type": "Milliseconds",
+    "default": "10000",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_merge_coordinator_max_merge_request_size",
+    "description": "\n    Number of merges that coordinator can request from MergerMutator at once\n    ",
+    "type": "UInt64",
+    "default": "20",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_merge_coordinator_max_period_ms",
+    "description": "\n    Maximum time between runs of merge coordinator thread\n    ",
+    "type": "Milliseconds",
+    "default": "10000",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_merge_coordinator_merges_prepare_count",
+    "description": "\n    Number of merge entries that coordinator should prepare and distribute across workers\n    ",
+    "type": "UInt64",
+    "default": "100",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_merge_coordinator_min_period_ms",
+    "description": "\n    Minimum time between runs of merge coordinator thread\n    ",
+    "type": "Milliseconds",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_merge_worker_fast_timeout_ms",
+    "description": "\n    Timeout that merge worker thread will use if it is needed to update it's state after immediate action\n    ",
+    "type": "Milliseconds",
+    "default": "100",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_merge_worker_regular_timeout_ms",
+    "description": "\n    Time between runs of merge worker thread\n    ",
+    "type": "Milliseconds",
+    "default": "10000",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_outdated_parts_group_size",
+    "description": "\n    How many replicas will be in the same rendezvous hash group for outdated parts cleanup.\n    Only available in ClickHouse Cloud.\n    ",
+    "type": "UInt64",
+    "default": "2",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_partitions_hint_ratio_to_reload_merge_pred_for_mutations",
+    "description": "\n    Will reload merge predicate in merge/mutate selecting task when `<candidate\n    partitions for mutations only (partitions that cannot be merged)>/<candidate\n    partitions for mutations>` ratio is higher than the setting. Only available\n    in ClickHouse Cloud\n    ",
+    "type": "Float",
+    "default": "0.5",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_parts_load_batch_size",
+    "description": "\n    Amount of fetch parts metadata jobs to schedule at once. Only available in\n    ClickHouse Cloud\n    ",
+    "type": "UInt64",
+    "default": "32",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_postpone_next_merge_for_locally_merged_parts_ms",
+    "description": "\n    Time to keep a locally merged part without starting a new merge containing\n    this part. Gives other replicas a chance fetch the part and start this merge.\n    Only available in ClickHouse Cloud.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_postpone_next_merge_for_locally_merged_parts_rows_threshold",
+    "description": "\n    Minimum size of part (in rows) to postpone assigning a next merge just after\n    merging it locally. Only available in ClickHouse Cloud.\n    ",
+    "type": "UInt64",
+    "default": "1000000",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_range_for_merge_window_size",
+    "description": "\n    Time to keep a locally merged part without starting a new merge containing\n    this part. Gives other replicas a chance fetch the part and start this merge.\n    Only available in ClickHouse Cloud\n    ",
+    "type": "UInt64",
+    "default": "10",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_read_virtual_parts_from_leader",
+    "description": "\n    Read virtual parts from leader when possible. Only available in ClickHouse\n    Cloud\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_replica_set_max_lifetime_seconds",
+    "description": "\n    How often replicas will try to update replica set in background.\n    ",
+    "type": "Seconds",
+    "default": "300",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_try_fetch_part_in_memory_data_from_replicas",
+    "description": "\n    If enabled all the replicas try to fetch part in memory data (like primary\n    key, partition info and so on) from other replicas where it already exists.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_update_replica_flags_delay_ms",
+    "description": "\n    How often replica will try to reload it's flags according to background schedule.\n    ",
+    "type": "Milliseconds",
+    "default": "30000",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_use_metadata_hints_cache",
+    "description": "\n    Enables requesting FS cache hints from in-memory\n    cache on other replicas. Only available in ClickHouse Cloud\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_use_outdated_parts_compact_format",
+    "description": "\n    Use compact format for outdated parts: reduces load to Keeper, improves\n    outdated parts processing. Only available in ClickHouse Cloud\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_use_too_many_parts_count_from_virtual_parts",
+    "description": "\n    If enabled too many parts counter will rely on shared data in Keeper, not on\n    local replica state. Only available in ClickHouse Cloud\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_use_zookeeper_connection_pool",
+    "description": "\n    If enabled, SharedMergeTree uses one of server-level pooled ZooKeeper sessions.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "shared_merge_tree_virtual_parts_discovery_batch",
+    "description": "\n    How many partition discoveries should be packed into batch\n    ",
+    "type": "UInt64",
+    "default": "1",
+    "tier": "Experimental"
+  },
+  {
+    "name": "simultaneous_parts_removal_limit",
+    "description": "\n    If there are a lot of outdated parts cleanup thread will try to delete up to\n    `simultaneous_parts_removal_limit` parts during one iteration.\n    `simultaneous_parts_removal_limit` set to `0` means unlimited.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "sleep_before_commit_local_part_in_replicated_table_ms",
+    "description": "\n    For testing. Do not change it.\n    ",
+    "type": "Milliseconds",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "sleep_before_loading_outdated_parts_ms",
+    "description": "\n    For testing. Do not change it.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "storage_policy",
+    "description": "\n    Name of storage disk policy\n    ",
+    "type": "String",
+    "default": "default",
+    "tier": "Production"
+  },
+  {
+    "name": "string_serialization_version",
+    "description": "\n    Controls the serialization format for top-level `String` columns.\n\n    This setting is only effective when `serialization_info_version` is set to \"with_types\".\n    When set to `with_size_stream`, top-level `String` columns are serialized with a separate\n    `.size` subcolumn storing string lengths, rather than inline. This allows real `.size`\n    subcolumns and can improve compression efficiency.\n\n    Nested `String` types (e.g., inside `Nullable`, `LowCardinality`, `Array`, or `Map`)\n    are not affected, except when they appear in a `Tuple`.\n\n    Possible values:\n\n    - `single_stream` — Use the standard serialization format with inline sizes.\n    - `with_size_stream` — Use a separate size stream for top-level `String` columns.\n    ",
+    "type": "MergeTreeStringSerializationVersion",
+    "default": "with_size_stream",
+    "tier": "Production"
+  },
+  {
+    "name": "table_disk",
+    "description": "\n    This is table disk, the path/endpoint should point to the table data, not to\n    the database data. Can be set only for s3_plain/s3_plain_rewritable/web.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "table_readonly",
+    "description": "\n    If set to true, the table is in read-only mode. Any attempts to insert data or modify the table will fail.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "temporary_directories_lifetime",
+    "description": "\n    How many seconds to keep tmp_-directories. You should not lower this value\n    because merges and mutations may not be able to work with low value of this\n    setting.\n    ",
+    "type": "Seconds",
+    "default": "86400",
+    "tier": "Production"
+  },
+  {
+    "name": "try_fetch_recompressed_part_timeout",
+    "description": "\n    Timeout (in seconds) before starting merge with recompression. During this\n    time ClickHouse tries to fetch recompressed part from replica which assigned\n    this merge with recompression.\n\n    Recompression works slow in most cases, so we don't start merge with\n    recompression until this timeout and trying to fetch recompressed part from\n    replica which assigned this merge with recompression.\n\n    Possible values:\n    - Any positive integer.\n    ",
+    "type": "Seconds",
+    "default": "7200",
+    "tier": "Production"
+  },
+  {
+    "name": "ttl_only_drop_parts",
+    "description": "\n    Controls whether data parts are fully dropped in MergeTree tables when all\n    rows in that part have expired according to their `TTL` settings.\n\n    When `ttl_only_drop_parts` is disabled (by default), only the rows that have\n    expired based on their TTL settings are removed.\n\n    When `ttl_only_drop_parts` is enabled, the entire part is dropped if all\n    rows in that part have expired according to their `TTL` settings.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "use_adaptive_write_buffer_for_dynamic_subcolumns",
+    "description": "\n    Allow to use adaptive writer buffers during writing dynamic subcolumns to\n    reduce memory usage\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "use_async_block_ids_cache",
+    "description": "\n    If true, we cache the hash sums of the async inserts.\n\n    Possible values:\n    - `true`\n    - `false`\n\n    A block bearing multiple async inserts will generate multiple hash sums.\n    When some of the inserts are duplicated, keeper will only return one\n    duplicated hash sum in one RPC, which will cause unnecessary RPC retries.\n    This cache will watch the hash sums path in Keeper. If updates are watched\n    in the Keeper, the cache will update as soon as possible, so that we are\n    able to filter the duplicated inserts in the memory.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "use_compact_variant_discriminators_serialization",
+    "description": "\n    Enables compact mode for binary serialization of discriminators in Variant\n    data type.\n    This mode allows to use significantly less memory for storing discriminators\n    in parts when there is mostly one variant or a lot of NULL values.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "use_const_adaptive_granularity",
+    "description": "\n    Always use constant granularity for whole part. It allows to compress in\n    memory values of index granularity. It can be useful in extremely large\n    workloads with thin tables.\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "use_minimalistic_checksums_in_zookeeper",
+    "description": "\n    Use small format (dozens bytes) for part checksums in ZooKeeper instead of\n    ordinary ones (dozens KB). Before enabling check that all replicas support\n    new format.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "use_minimalistic_part_header_in_zookeeper",
+    "description": "\n    Storage method of the data parts headers in ZooKeeper. If enabled, ZooKeeper\n    stores less data. For details, see [here](/operations/server-configuration-parameters/settings#use_minimalistic_part_header_in_zookeeper).\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "use_primary_key_cache",
+    "description": "Use cache for primary index\n    instead of saving all indexes in memory. Can be useful for very large tables\n    ",
+    "type": "Bool",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "vertical_merge_algorithm_min_bytes_to_activate",
+    "description": "\n    Minimal (approximate) uncompressed size in bytes in merging parts to activate\n    Vertical merge algorithm.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "vertical_merge_algorithm_min_columns_to_activate",
+    "description": "\n    Minimal amount of non-PK columns to activate Vertical merge algorithm.\n    ",
+    "type": "UInt64",
+    "default": "11",
+    "tier": "Production"
+  },
+  {
+    "name": "vertical_merge_algorithm_min_rows_to_activate",
+    "description": "\n    Minimal (approximate) sum of rows in\n    merging parts to activate Vertical merge algorithm.\n    ",
+    "type": "UInt64",
+    "default": "131072",
+    "tier": "Production"
+  },
+  {
+    "name": "vertical_merge_optimize_lightweight_delete",
+    "description": "\n    If true, lightweight delete is optimized on vertical merge.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "vertical_merge_optimize_ttl_delete",
+    "description": "\n    If true, rows TTL delete is optimized on vertical merge. Instead of forcing horizontal merge,\n    the TTL filter is evaluated and passed to the merging algorithm which sets skip flags in row sources.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "vertical_merge_remote_filesystem_prefetch",
+    "description": "\n    If true prefetching of data from remote filesystem is used for the next\n    column during merge\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "wait_for_unique_parts_send_before_shutdown_ms",
+    "description": "\n    Before shutdown table will wait for required amount time for unique parts\n    (exist only on current replica) to be fetched by other replicas (0 means\n    disabled).\n    ",
+    "type": "Milliseconds",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "write_marks_for_substreams_in_compact_parts",
+    "description": "\n    Enables writing marks per each substream instead of per each column in Compact parts.\n    It allows to read individual subcolumns from the data part efficiently.\n\n    For example, column `t Tuple(a String, b UInt32, c Array(Nullable(UInt32)))` is serialized in the next substreams:\n    - `t.a` for String data of tuple element `a`\n    - `t.b` for UInt32 data of tuple element `b`\n    - `t.c.size0` for array sizes of tuple element `c`\n    - `t.c.null` for null map of nested array elements of tuple element `c`\n    - `t.c` for UInt32 data pf nested array elements of tuple element `c`\n\n    When this setting is enabled, we will write a mark for each of these 5 substreams, which means that we will be able to read\n    the data of each individual substream from the granule separately if needed. For example, if we want to read the subcolumn `t.c` we will read only data of\n    substreams `t.c.size0`, `t.c.null` and `t.c` and won't read data from substreams `t.a` and `t.b`. When this setting is disabled,\n    we will write a mark only for top-level column `t`, which means that we will always read the whole column data from the granule, even if we need only data of some substreams.\n    ",
+    "type": "Bool",
+    "default": "1",
+    "tier": "Production"
+  },
+  {
+    "name": "zero_copy_concurrent_part_removal_max_postpone_ratio",
+    "description": "\n    Max percentage of top level parts to postpone removal in order to get\n    smaller independent ranges. Recommended not to change.\n    ",
+    "type": "Float",
+    "default": "0.05",
+    "tier": "Production"
+  },
+  {
+    "name": "zero_copy_concurrent_part_removal_max_split_times",
+    "description": "\n    Max recursion depth for splitting independent Outdated parts ranges into\n    smaller subranges. Recommended not to change.\n    ",
+    "type": "UInt64",
+    "default": "5",
+    "tier": "Production"
+  },
+  {
+    "name": "zero_copy_merge_mutation_min_parts_size_sleep_before_lock",
+    "description": "\n    If zero copy replication is enabled sleep random amount of time before trying\n    to lock depending on parts size for merge or mutation\n    ",
+    "type": "UInt64",
+    "default": "1073741824",
+    "tier": "Production"
+  },
+  {
+    "name": "zero_copy_merge_mutation_min_parts_size_sleep_no_scale_before_lock",
+    "description": "\n    If zero copy replication is enabled sleep random amount of time up to 500ms\n    before trying to lock for merge or mutation.\n    ",
+    "type": "UInt64",
+    "default": "0",
+    "tier": "Production"
+  },
+  {
+    "name": "zookeeper_session_expiration_check_period",
+    "description": "\n    ZooKeeper session expiration check period, in seconds.\n\n    Possible values:\n    - Any positive integer.\n    ",
+    "type": "Seconds",
+    "default": "60",
+    "tier": "Production"
+  }
+]
