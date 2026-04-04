@@ -11,6 +11,7 @@ pub struct SyntaxError {
 }
 
 /// Result of parsing: the syntax tree plus any errors collected.
+#[derive(Clone)]
 pub struct Parse {
     pub tree: super::syntax_tree::SyntaxTree,
     pub errors: Vec<SyntaxError>,
