@@ -122,7 +122,13 @@ fn parse_clickhouse_test_corpus() {
         eprintln!("  {count:3} errors  {}", relative.display());
     }
 
-    // This is informational — we don't fail the test.
-    // The coverage percentage serves as a baseline to track improvement.
+    // Machine-readable output for CI (parsed by the workflow)
+    println!("CORPUS_TOTAL_FILES={total_files}");
+    println!("CORPUS_CLEAN_FILES={clean_files}");
+    println!("CORPUS_FILE_PCT={file_pct:.1}");
+    println!("CORPUS_TOTAL_STMTS={total_statements}");
+    println!("CORPUS_CLEAN_STMTS={clean_statements}");
+    println!("CORPUS_STMT_PCT={stmt_pct:.1}");
+
     eprintln!("\n(This test is informational and does not fail on parse errors)");
 }
