@@ -63,6 +63,19 @@ impl Backend {
         self.documents.lock().unwrap_or_else(|e| e.into_inner())
     }
 
+    /// Re-publish diagnostics for all open documents (e.g., after connecting).
+    async fn refresh_all_diagnostics(&self) {
+        let docs: Vec<(Url, Parse, LineIndex)> = {
+            let docs = self.lock_documents();
+            docs.iter()
+                .map(|(uri, doc)| (uri.clone(), doc.parse.clone(), doc.line_index.clone()))
+                .collect()
+        };
+        for (uri, parse, line_index) in docs {
+            self.publish_diagnostics(uri, &parse, &line_index).await;
+        }
+    }
+
     async fn publish_diagnostics(&self, uri: Url, parse: &Parse, line_index: &LineIndex) {
         let enriched = diagnostics::enrich_diagnostics(parse, &parse.source);
 
@@ -207,7 +220,10 @@ impl Backend {
             Ok(()) => {
                 let version = meta.server_version.as_deref().unwrap_or("unknown");
                 let msg = format!("Connected to ClickHouse {} at {}", version, url);
+                drop(meta);
                 self.client.log_message(MessageType::INFO, msg).await;
+                // Re-validate all open documents now that we're connected
+                self.refresh_all_diagnostics().await;
             }
             Err(e) => {
                 let msg = format!("Failed to connect to {}: {}", url, e);
