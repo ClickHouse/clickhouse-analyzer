@@ -124,25 +124,52 @@ fn analyze_path(path: &[PathNode<'_>], source: &str, offset: u32) -> CursorConte
         return CursorContext::Unknown;
     }
 
+    // When the cursor is at the end of a statement (past the last token),
+    // find_node_path may not descend into the last clause if its Error child
+    // is empty. Check the last clause of the deepest statement node.
+    if let Some(ctx) = check_trailing_clause(path, source, offset) {
+        return ctx;
+    }
+
     // Check ancestors from deepest to shallowest
     for (i, node) in path.iter().enumerate().rev() {
+        // Skip Error nodes — look at their parent for context
+        if node.kind == SyntaxKind::Error {
+            continue;
+        }
+
         match node.kind {
-            // FROM / JOIN clause → table reference
-            SyntaxKind::FromClause | SyntaxKind::JoinClause => {
-                // Check if we're after a dot (database.table)
+            // FROM clause → table reference
+            SyntaxKind::FromClause => {
+                return table_ref_or_dot(node.tree, source, offset);
+            }
+
+            // JOIN clause → table reference OR expression (after ON/USING)
+            SyntaxKind::JoinClause => {
+                // Check if we're past the ON keyword
                 if let Some((prev_text, _)) = token_before_offset(node.tree, source, offset) {
-                    if prev_text == "." {
-                        // Find the identifier before the dot
-                        if let Some(db) = find_identifier_before_dot(node.tree, source, offset) {
-                            return CursorContext::TableReference {
-                                database_prefix: Some(db),
-                            };
-                        }
+                    if prev_text.eq_ignore_ascii_case("ON")
+                        || prev_text.eq_ignore_ascii_case("USING")
+                    {
+                        return CursorContext::Expression;
                     }
                 }
-                return CursorContext::TableReference {
-                    database_prefix: None,
-                };
+                // Check if we're inside a JoinConstraint child
+                for pn in path.iter().rev() {
+                    if pn.kind == SyntaxKind::JoinConstraint {
+                        return CursorContext::Expression;
+                    }
+                }
+                return table_ref_or_dot(node.tree, source, offset);
+            }
+
+            // INSERT statement → table reference after INTO
+            SyntaxKind::InsertStatement => {
+                // If we're directly inside the InsertStatement (not in a deeper clause),
+                // and the cursor is after INTO, suggest tables
+                if i == path.len() - 1 || path[i + 1].kind == SyntaxKind::TableIdentifier {
+                    return table_ref_or_dot(node.tree, source, offset);
+                }
             }
 
             // SETTINGS clause → setting name
@@ -166,6 +193,15 @@ fn analyze_path(path: &[PathNode<'_>], source: &str, offset: u32) -> CursorConte
             | SyntaxKind::ColumnTypeDefinition
             | SyntaxKind::DataTypeParameters => {
                 return CursorContext::DataType;
+            }
+
+            // Column definition — after the column name, expect a type
+            SyntaxKind::ColumnDefinition => {
+                // If we're directly in ColumnDefinition (not in a nested DataType etc.),
+                // the cursor is after the column name, expecting a type
+                if i == path.len() - 1 || path[i + 1].kind == SyntaxKind::Error {
+                    return CursorContext::DataType;
+                }
             }
 
             // Column codec
@@ -231,6 +267,72 @@ fn analyze_path(path: &[PathNode<'_>], source: &str, offset: u32) -> CursorConte
     }
 
     CursorContext::Unknown
+}
+
+/// When the cursor is past the end of the last clause in a statement (e.g., `HAVING |`
+/// where the Error node is empty), check the last child clause of the deepest statement.
+fn check_trailing_clause(path: &[PathNode<'_>], _source: &str, offset: u32) -> Option<CursorContext> {
+    // Find the deepest statement-like node in the path
+    let stmt = path.iter().rev().find(|n| matches!(n.kind,
+        SyntaxKind::SelectStatement | SyntaxKind::InsertStatement |
+        SyntaxKind::CreateStatement | SyntaxKind::AlterStatement |
+        SyntaxKind::DeleteStatement | SyntaxKind::UpdateStatement
+    ))?;
+
+    // Find the last clause child whose start is before the cursor
+    let mut last_clause = None;
+    for child in &stmt.tree.children {
+        if let SyntaxChild::Tree(subtree) = child {
+            if subtree.start <= offset {
+                last_clause = Some(subtree);
+            }
+        }
+    }
+
+    let clause = last_clause?;
+    // Only activate if the cursor is past the clause's end (i.e., the clause
+    // didn't fully contain our cursor — we're in trailing whitespace)
+    if offset <= clause.end {
+        return None;
+    }
+
+    match clause.kind {
+        SyntaxKind::HavingClause | SyntaxKind::WhereClause | SyntaxKind::PrewhereClause => {
+            Some(CursorContext::Expression)
+        }
+        SyntaxKind::FromClause => {
+            Some(CursorContext::TableReference { database_prefix: None })
+        }
+        SyntaxKind::SelectClause => {
+            Some(CursorContext::SelectExpression)
+        }
+        SyntaxKind::GroupByClause | SyntaxKind::OrderByClause => {
+            Some(CursorContext::Expression)
+        }
+        SyntaxKind::SettingsClause => {
+            Some(CursorContext::SettingName)
+        }
+        SyntaxKind::FormatClause => {
+            Some(CursorContext::FormatName)
+        }
+        _ => None,
+    }
+}
+
+/// Return TableReference, with database_prefix if after a dot.
+fn table_ref_or_dot(tree: &SyntaxTree, source: &str, offset: u32) -> CursorContext {
+    if let Some((prev_text, _)) = token_before_offset(tree, source, offset) {
+        if prev_text == "." {
+            if let Some(db) = find_identifier_before_dot(tree, source, offset) {
+                return CursorContext::TableReference {
+                    database_prefix: Some(db),
+                };
+            }
+        }
+    }
+    CursorContext::TableReference {
+        database_prefix: None,
+    }
 }
 
 /// Check if cursor is after a dot, indicating column access.
@@ -468,6 +570,65 @@ mod tests {
         assert_eq!(
             ctx_at("SELECT 1 FORMAT ", 16),
             CursorContext::FormatName
+        );
+    }
+
+    // --- Suspected gap tests ---
+
+    #[test]
+    fn group_by_expression() {
+        assert_eq!(
+            ctx_at("SELECT a FROM t GROUP BY ", 25),
+            CursorContext::Expression
+        );
+    }
+
+    #[test]
+    fn order_by_expression() {
+        assert_eq!(
+            ctx_at("SELECT a FROM t ORDER BY ", 25),
+            CursorContext::Expression
+        );
+    }
+
+    #[test]
+    fn having_expression() {
+        let sql = "SELECT a, count() FROM t GROUP BY a HAVING ";
+        assert_eq!(
+            ctx_at(sql, sql.len()),
+            CursorContext::Expression
+        );
+    }
+
+    #[test]
+    fn join_on_expression() {
+        assert_eq!(
+            ctx_at("SELECT a FROM t JOIN u ON ", 25),
+            CursorContext::Expression
+        );
+    }
+
+    #[test]
+    fn insert_into_table() {
+        assert_eq!(
+            ctx_at("INSERT INTO ", 12),
+            CursorContext::TableReference { database_prefix: None }
+        );
+    }
+
+    #[test]
+    fn after_comma_in_select() {
+        assert_eq!(
+            ctx_at("SELECT a, ", 10),
+            CursorContext::SelectExpression
+        );
+    }
+
+    #[test]
+    fn create_table_column_type() {
+        assert_eq!(
+            ctx_at("CREATE TABLE t (col ", 20),
+            CursorContext::DataType
         );
     }
 }
