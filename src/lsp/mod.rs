@@ -103,30 +103,31 @@ impl Backend {
             })
             .collect();
 
-        // Server-side validation via EXPLAIN SYNTAX (Tier 2+3)
+        // Server-side validation via EXPLAIN PLAN (Tier 2+3)
         // Only run if connected and local parse produced no errors
         // (no point sending broken SQL to the server)
+        // EXPLAIN PLAN validates columns, types, and table existence
+        // without actually executing the query.
         if parse.errors.is_empty() {
-            let source = parse.source.clone();
-            let meta = self.metadata.read().await;
-            if meta.is_connected() {
-                // Try each statement separately by splitting on semicolons
-                // Use EXPLAIN SYNTAX which validates without executing
-                let query = format!("EXPLAIN SYNTAX {}", source.trim().trim_end_matches(';'));
-                drop(meta); // release read lock before async call
+            let source = parse.source.trim().trim_end_matches(';').to_string();
+            if !source.is_empty() {
                 let meta = self.metadata.read().await;
-                if let Some(client) = meta.client_ref() {
-                    if let Err(e) = client.query_text(&query).await {
-                        let msg = format!("{e}");
-                        // ClickHouse error messages often contain line:col info,
-                        // but we put the diagnostic on the first line as fallback
-                        diags.push(Diagnostic {
-                            range: tower_lsp::lsp_types::Range::default(),
-                            severity: Some(DiagnosticSeverity::WARNING),
-                            source: Some("clickhouse-server".to_owned()),
-                            message: msg,
-                            ..Default::default()
-                        });
+                if meta.is_connected() {
+                    if let Some(client) = meta.client_ref() {
+                        let query = format!("EXPLAIN PLAN {source}");
+                        match client.query_text(&query).await {
+                            Ok(_) => {} // query is valid
+                            Err(e) => {
+                                let msg = format!("{e}");
+                                diags.push(Diagnostic {
+                                    range: tower_lsp::lsp_types::Range::default(),
+                                    severity: Some(DiagnosticSeverity::WARNING),
+                                    source: Some("clickhouse-server".to_owned()),
+                                    message: msg,
+                                    ..Default::default()
+                                });
+                            }
+                        }
                     }
                 }
             }
