@@ -1,5 +1,5 @@
 {
-  "name": "@clickhouse/analyzer-vscode",
+  "name": "clickhouse-analyzer",
   "displayName": "ClickHouse Analyzer",
   "description": "ClickHouse SQL Analyzer",
   "version": "0.1.0",
