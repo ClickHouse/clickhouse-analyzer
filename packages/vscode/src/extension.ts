@@ -54,28 +54,29 @@ export function activate(context: ExtensionContext) {
     }
   });
 
-  client.start().then(() => {
-    // Listen for log messages to detect connection
-    client?.onNotification("window/logMessage", (params: { type: number; message: string }) => {
-      if (params.message.includes("Connected to ClickHouse")) {
-        const version = params.message.match(/ClickHouse (\S+)/)?.[1] || "";
-        if (statusBarItem) {
-          statusBarItem.text = `$(database) CH: ${version}`;
-          statusBarItem.tooltip = `ClickHouse Analyzer - connected (${params.message})`;
-        }
-      } else if (params.message.includes("Failed to connect")) {
-        if (statusBarItem) {
-          statusBarItem.text = "$(database) CH: Connection Failed";
-          statusBarItem.tooltip = `ClickHouse Analyzer - ${params.message}`;
-        }
-      } else if (params.message.includes("connection disabled")) {
-        if (statusBarItem) {
-          statusBarItem.text = "$(database) CH: Offline";
-          statusBarItem.tooltip = "ClickHouse Analyzer - using compiled-in metadata";
-        }
+  // Register the log listener before starting so early messages
+  // (e.g. "Connected to ClickHouse") are not missed.
+  client.onNotification("window/logMessage", (params: { type: number; message: string }) => {
+    if (params.message.includes("Connected to ClickHouse")) {
+      const version = params.message.match(/ClickHouse (\S+)/)?.[1] || "";
+      if (statusBarItem) {
+        statusBarItem.text = `$(database) CH: ${version}`;
+        statusBarItem.tooltip = `ClickHouse Analyzer - connected (${params.message})`;
       }
-    });
+    } else if (params.message.includes("Failed to connect")) {
+      if (statusBarItem) {
+        statusBarItem.text = "$(database) CH: Connection Failed";
+        statusBarItem.tooltip = `ClickHouse Analyzer - ${params.message}`;
+      }
+    } else if (params.message.includes("connection disabled")) {
+      if (statusBarItem) {
+        statusBarItem.text = "$(database) CH: Offline";
+        statusBarItem.tooltip = "ClickHouse Analyzer - using compiled-in metadata";
+      }
+    }
   });
+
+  client.start();
 }
 
 function updateStatusBar() {

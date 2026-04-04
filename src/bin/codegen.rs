@@ -172,8 +172,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("  keywords: {} entries", keywords.len());
         }
         Err(e) => {
-            eprintln!("  keywords: skipped ({e})");
-            fs::write(out_dir.join("keywords.json"), "[]")?;
+            eprintln!("  keywords: skipped ({e}), keeping existing file");
         }
     }
 

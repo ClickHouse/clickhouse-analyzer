@@ -41,8 +41,11 @@ fn check_errors(input: &str, expected: Expect) {
     expected.assert_eq(&actual);
 }
 
-// ====================================================================// 1. Structural invariants — must hold for ALL inputs
-// =============================================================#[test]
+// ====================================================================
+// 1. Structural invariants — must hold for ALL inputs
+// ====================================================================
+
+#[test]
 fn parser_never_panics_on_garbage() {
     let inputs = [
         "",
@@ -555,8 +558,11 @@ fn valid_sql_produces_no_errors() {
     }
 }
 
-// ====================================================================// 2. Semicolons and multiple statements
-// =============================================================#[test]
+// ====================================================================
+// 2. Semicolons and multiple statements
+// ====================================================================
+
+#[test]
 fn trailing_semicolon() {
     check(
         "SELECT 1;",
@@ -624,8 +630,11 @@ fn only_semicolons() {
     );
 }
 
-// ====================================================================// 3. Empty literals (recent fixes)
-// =============================================================#[test]
+// ====================================================================
+// 3. Empty literals (recent fixes)
+// ====================================================================
+
+#[test]
 fn empty_array() {
     check(
         "SELECT []",
@@ -669,8 +678,11 @@ fn empty_parens_no_errors() {
     check_errors("SELECT ()", expect![[""]]);
 }
 
-// ====================================================================// 4. Interval edge cases (recent fix)
-// =============================================================#[test]
+// ====================================================================
+// 4. Interval edge cases (recent fix)
+// ====================================================================
+
+#[test]
 fn interval_without_unit_at_eof() {
     check(
         "SELECT INTERVAL 5",
@@ -724,8 +736,11 @@ fn interval_without_unit_does_not_eat_from() {
     );
 }
 
-// ====================================================================// 5. Error recovery — tree structure after errors
-// =============================================================#[test]
+// ====================================================================
+// 5. Error recovery — tree structure after errors
+// ====================================================================
+
+#[test]
 fn unclosed_paren_recovery() {
     check(
         "SELECT (1 + 2",
@@ -805,8 +820,11 @@ fn completely_invalid_input() {
     assert_eq!(reconstructed, "!!! @@@ ###");
 }
 
-// ====================================================================// 6. Keywords as function names
-// =============================================================#[test]
+// ====================================================================
+// 6. Keywords as function names
+// ====================================================================
+
+#[test]
 fn any_as_function_name() {
     check(
         "SELECT any(col) FROM t",
@@ -869,8 +887,11 @@ fn any_as_join_keyword() {
     );
 }
 
-// ====================================================================// 7. Full integration smoke test (preserved from original)
-// =============================================================#[test]
+// ====================================================================
+// 7. Full integration smoke test (preserved from original)
+// ====================================================================
+
+#[test]
 fn test_full_parse() {
     let sql = "
         WITH
@@ -907,8 +928,11 @@ fn test_full_parse() {
     assert_eq!(reconstructed, sql);
 }
 
-// ====================================================================// Tuple element access via dot (e.g. expr.1, expr.2)
-// =============================================================#[test]
+// ====================================================================
+// Tuple element access via dot (e.g. expr.1, expr.2)
+// ====================================================================
+
+#[test]
 fn tuple_dot_access_on_parenthesized_expr() {
     check(
         "SELECT (t).1",
@@ -1062,8 +1086,11 @@ fn named_tuple_cast_dot_access() {
     );
 }
 
-// ====================================================================// Parenthesized subquery in CREATE VIEW AS clause
-// =============================================================#[test]
+// ====================================================================
+// Parenthesized subquery in CREATE VIEW AS clause
+// ====================================================================
+
+#[test]
 fn create_view_as_parenthesized_subquery() {
     check(
         "CREATE VIEW v AS (SELECT 1)",
@@ -1097,8 +1124,11 @@ fn create_view_as_parenthesized_subquery_complex() {
     );
 }
 
-// ====================================================================// Modulo operator
-// =============================================================#[test]
+// ====================================================================
+// Modulo operator
+// ====================================================================
+
+#[test]
 fn modulo_operator() {
     check(
         "SELECT a % 5",
@@ -1124,8 +1154,11 @@ fn modulo_precedence_same_as_multiply() {
     check_errors("SELECT a + b % c * d", expect![[""]]);
 }
 
-// ====================================================================// Cast (::) on arbitrary expressions
-// =============================================================#[test]
+// ====================================================================
+// Cast (::) on arbitrary expressions
+// ====================================================================
+
+#[test]
 fn cast_on_function_call() {
     check(
         "SELECT func(x)::UInt32",
@@ -1168,8 +1201,11 @@ fn cast_on_parenthesized_expr() {
     check_errors("SELECT (a + b)::Float64", expect![[""]]);
 }
 
-// ====================================================================// Full integration tests
-// =============================================================#[test]
+// ====================================================================
+// Full integration tests
+// ====================================================================
+
+#[test]
 fn materialized_view_with_dot_access() {
     // Full integration: MV with expression alias + tuple dot access
     let sql = "\
@@ -1183,8 +1219,11 @@ fn materialized_view_with_dot_access() {
     assert_eq!(reconstructed, sql);
 }
 
-// ====================================================================// Error recovery tests
-// =============================================================#[test]
+// ====================================================================
+// Error recovery tests
+// ====================================================================
+
+#[test]
 fn recovery_misspelled_where() {
     // WHER should not cause cascading errors
     let result = parse("SELECT 1 FROM t WHER x > 1");
@@ -1214,8 +1253,11 @@ fn recovery_misspelled_from_in_show() {
     assert_eq!(collect_text(&result.tree, &result.source), "SHOW TABLES FORM default");
 }
 
-// ====================================================================// Query parameters in identifier positions
-// =============================================================#[test]
+// ====================================================================
+// Query parameters in identifier positions
+// ====================================================================
+
+#[test]
 fn query_parameter_as_table_identifier() {
     check("SELECT value FROM {database:Identifier}.{table:Identifier}", expect![[r#"
         File
@@ -1294,8 +1336,11 @@ fn query_parameter_mixed_with_bare_identifier() {
     "#]]);
 }
 
-// ====================================================================// ATTACH / DETACH / EXCHANGE / UNDROP / BACKUP / RESTORE statements
-// =============================================================#[test]
+// ====================================================================
+// ATTACH / DETACH / EXCHANGE / UNDROP / BACKUP / RESTORE statements
+// ====================================================================
+
+#[test]
 fn attach_table() {
     check(
         "ATTACH TABLE t",

@@ -130,15 +130,20 @@ impl MetadataCache {
     pub async fn connect(&mut self, config: ConnectionConfig) -> Result<(), ConnectionError> {
         let client = ClickHouseClient::new(config)?;
         client.ping().await?;
-        self.server_version = Some(
-            client
-                .query_text("SELECT version()")
-                .await?
-                .trim()
-                .to_string(),
-        );
+        let version = client
+            .query_text("SELECT version()")
+            .await?
+            .trim()
+            .to_string();
+        // Install client so refresh_global can use it, but fully
+        // reset to compiled defaults on failure so we never leave
+        // stale metadata from a previous connection behind.
         self.client = Some(client);
-        self.refresh_global().await?;
+        if let Err(e) = self.refresh_global().await {
+            self.disconnect();
+            return Err(e);
+        }
+        self.server_version = Some(version);
         self.live_overlay = true;
         Ok(())
     }
@@ -195,16 +200,26 @@ impl MetadataCache {
             (functions, settings, mt_settings, data_types, engines, formats, codecs, databases, keywords)
         };
         // Client borrow dropped — safe to mutate self now.
+        // Collect all results before mutating, so a single failure
+        // doesn't leave metadata in a partially-updated state.
+        let functions = functions?;
+        let settings = settings?;
+        let mt_settings = mt_settings?;
+        let data_types = data_types?;
+        let engines = engines?;
+        let formats = formats?;
+        let codecs = codecs?;
+        let databases = databases?;
 
-        self.functions = functions?;
+        self.functions = functions;
         self.rebuild_function_index();
-        self.settings = settings?;
-        self.merge_tree_settings = mt_settings?;
-        self.data_types = data_types?;
-        self.table_engines = engines?;
-        self.formats = formats?;
-        self.codecs = codecs?;
-        self.databases = databases?;
+        self.settings = settings;
+        self.merge_tree_settings = mt_settings;
+        self.data_types = data_types;
+        self.table_engines = engines;
+        self.formats = formats;
+        self.codecs = codecs;
+        self.databases = databases;
 
         // Keywords (system.keywords available since CH 24.4)
         match keywords {

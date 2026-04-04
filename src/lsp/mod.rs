@@ -21,6 +21,8 @@ use crate::formatter::{self, FormatConfig};
 use crate::metadata::cache::{MetadataCache, SharedMetadata};
 use crate::parser;
 use crate::parser::diagnostic::Parse;
+use crate::parser::syntax_kind::SyntaxKind;
+use crate::parser::syntax_tree::SyntaxChild;
 
 /// Maximum number of simultaneously open documents.
 const MAX_DOCUMENTS: usize = 1000;
@@ -122,31 +124,30 @@ impl Backend {
         // (no point sending broken SQL to the server)
         // EXPLAIN PLAN validates columns, types, and table existence
         // without actually executing the query.
-        // Split on semicolons to handle multi-statement files.
+        // Use CST statement nodes instead of raw `;` splitting to correctly
+        // handle semicolons inside string literals and comments.
         if parse.errors.is_empty() {
-            let source_owned = parse.source.clone();
-            let meta = self.metadata.read().await;
-            let connected = meta.is_connected();
-            let has_client = meta.client_ref().is_some();
-            drop(meta);
-
-            self.client.log_message(
-                MessageType::LOG,
-                format!("server validation: connected={connected} client={has_client} source_len={}", source_owned.len()),
-            ).await;
-
-            if connected && has_client {
+            // Clone the client out of the read lock so we don't hold
+            // the lock across awaited network calls.
+            let client = {
                 let meta = self.metadata.read().await;
-                let client = meta.client_ref().unwrap();
-                // Split on semicolons, validate each statement
-                let mut byte_offset = 0usize;
-                for stmt_text in source_owned.split(';') {
-                    let trimmed = stmt_text.trim();
-                    // Calculate absolute byte offset of the trimmed statement
-                    let leading_ws = stmt_text.len() - stmt_text.trim_start().len();
-                    let stmt_offset = byte_offset + leading_ws;
-                    byte_offset += stmt_text.len() + 1; // +1 for semicolon
+                meta.client_ref().cloned()
+            };
 
+            if let Some(client) = client {
+                self.client.log_message(
+                    MessageType::LOG,
+                    format!("server validation: source_len={}", parse.source.len()),
+                ).await;
+
+                for child in &parse.tree.children {
+                    let subtree = match child {
+                        SyntaxChild::Tree(t) => t,
+                        _ => continue,
+                    };
+
+                    let stmt_text = &parse.source[subtree.start as usize..subtree.end as usize];
+                    let trimmed = stmt_text.trim();
                     if trimmed.is_empty() {
                         continue;
                     }
@@ -160,6 +161,7 @@ impl Backend {
                         continue;
                     }
 
+                    let stmt_offset = subtree.start as usize;
                     let query = format!("EXPLAIN PLAN {trimmed}");
                     if let Err(e) = client.query_text(&query).await {
                         let msg = format!("{e}");
@@ -345,6 +347,7 @@ impl LanguageServer for Backend {
             let source = change.text;
 
             if source.len() > MAX_DOCUMENT_SIZE {
+                self.lock_documents().remove(&uri);
                 self.publish_size_error(uri).await;
                 return;
             }

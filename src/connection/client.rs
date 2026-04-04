@@ -21,6 +21,7 @@ impl Default for ConnectionConfig {
     }
 }
 
+#[derive(Clone)]
 pub struct ClickHouseClient {
     http: reqwest::Client,
     config: ConnectionConfig,
@@ -46,6 +47,7 @@ impl ClickHouseClient {
         let resp = self
             .http
             .get(&url)
+            .basic_auth(&self.config.username, Some(&self.config.password))
             .send()
             .await
             .map_err(ConnectionError::Http)?;

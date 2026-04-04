@@ -53,6 +53,10 @@ fn collect_scope(tree: &SyntaxTree, source: &str, scope: &mut QueryScope) {
 
     for child in &tree.children {
         if let SyntaxChild::Tree(subtree) = child {
+            // Don't recurse into subqueries — they have their own scope
+            if subtree.kind == SyntaxKind::SubqueryExpression {
+                continue;
+            }
             collect_scope(subtree, source, scope);
         }
     }
@@ -75,11 +79,21 @@ fn collect_ctes(tree: &SyntaxTree, source: &str, scope: &mut QueryScope) {
     }
 }
 
+/// Strip surrounding quotes (backticks or double-quotes) from an identifier.
+fn unquote(s: &str) -> &str {
+    if (s.starts_with('`') && s.ends_with('`'))
+        || (s.starts_with('"') && s.ends_with('"'))
+    {
+        &s[1..s.len() - 1]
+    } else {
+        s
+    }
+}
+
 /// Extract CTE name from a WITH expression item.
 /// CST pattern: `name 'AS' '(' SubqueryExpression ')'`
-/// The name is the first BareWord before AS.
+/// The name is the first BareWord or QuotedIdentifier before AS.
 fn extract_cte(tree: &SyntaxTree, source: &str) -> Option<NameBinding> {
-    // The name is the first BareWord child (before AS)
     for child in &tree.children {
         if let SyntaxChild::Token(token) = child {
             if token.kind == SyntaxKind::BareWord {
@@ -91,6 +105,13 @@ fn extract_cte(tree: &SyntaxTree, source: &str) -> Option<NameBinding> {
                         definition_range: (tree.start, tree.end),
                     });
                 }
+            } else if token.kind == SyntaxKind::QuotedIdentifier {
+                let text = unquote(token.text(source));
+                return Some(NameBinding {
+                    name: text.to_string(),
+                    range: (token.start, token.end),
+                    definition_range: (tree.start, tree.end),
+                });
             }
         }
     }
@@ -155,18 +176,21 @@ fn extract_alias_name<'a>(
     tree: &'a SyntaxTree,
     source: &'a str,
 ) -> Option<(String, &'a crate::Token)> {
-    let mut last_bareword = None;
+    let mut last_ident = None;
     for child in &tree.children {
         if let SyntaxChild::Token(token) = child {
             if token.kind == SyntaxKind::BareWord {
                 let text = token.text(source);
                 if !text.eq_ignore_ascii_case("AS") {
-                    last_bareword = Some((text.to_string(), token));
+                    last_ident = Some((text.to_string(), token));
                 }
+            } else if token.kind == SyntaxKind::QuotedIdentifier {
+                let text = unquote(token.text(source));
+                last_ident = Some((text.to_string(), token));
             }
         }
     }
-    last_bareword
+    last_ident
 }
 
 fn extract_table_identifier(tree: &SyntaxTree, source: &str) -> Option<TableRef> {
