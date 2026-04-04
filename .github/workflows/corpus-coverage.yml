@@ -15,7 +15,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: Swatinem/rust-cache@v3
+      - uses: Swatinem/rust-cache@v2
 
       - name: Sparse checkout ClickHouse test queries
         run: |
