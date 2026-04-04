@@ -1,6 +1,7 @@
 use tower_lsp::lsp_types::*;
 
 use crate::analysis::cursor_context::{cursor_context, CursorContext};
+use crate::analysis::scope::build_scope;
 use crate::metadata::cache::SharedMetadata;
 use crate::parser::diagnostic::Parse;
 
@@ -16,6 +17,33 @@ pub async fn handle_completion(
     let ctx = cursor_context(&parse.tree, &parse.source, offset);
     let prefix = extract_prefix(&parse.source, offset as usize);
     let lower_prefix = prefix.to_lowercase();
+
+    // Pre-fetch schema data if connected and context requires it.
+    // This needs a write lock to lazy-load tables/columns.
+    match &ctx {
+        CursorContext::TableReference { database_prefix } => {
+            let mut meta = metadata.write().await;
+            if meta.is_connected() {
+                let db = database_prefix
+                    .as_deref()
+                    .unwrap_or(meta.default_database());
+                let db = db.to_string();
+                let _ = meta.ensure_tables(&db).await;
+            }
+        }
+        CursorContext::ColumnOfTable { qualifier } => {
+            let mut meta = metadata.write().await;
+            if meta.is_connected() {
+                // Resolve qualifier to a table name via scope
+                let scope = build_scope(&parse.tree, &parse.source);
+                let default_db = meta.default_database().to_string();
+                if let Some((db, table)) = resolve_qualifier(qualifier, &scope, &default_db) {
+                    let _ = meta.ensure_columns(&db, &table).await;
+                }
+            }
+        }
+        _ => {}
+    }
 
     let meta = metadata.read().await;
     let mut items = Vec::new();
@@ -60,11 +88,25 @@ pub async fn handle_completion(
             }
         }
 
-        CursorContext::ColumnOfTable { qualifier: _ } => {
-            // Column completions require Tier 3 (connected + schema loaded).
-            // The qualifier needs to be resolved against table aliases/refs in scope,
-            // then columns fetched. For now, this works when connected.
-            // TODO: resolve qualifier to database.table via scope analysis
+        CursorContext::ColumnOfTable { ref qualifier } => {
+            // Resolve qualifier to database.table via scope, then show columns
+            let scope = build_scope(&parse.tree, &parse.source);
+            let default_db = meta.default_database().to_string();
+            if let Some((db, table)) = resolve_qualifier(qualifier, &scope, &default_db) {
+                for col in meta.get_columns(&db, &table) {
+                    items.push(CompletionItem {
+                        label: col.name.clone(),
+                        kind: Some(CompletionItemKind::FIELD),
+                        detail: Some(col.data_type.clone()),
+                        documentation: if col.comment.is_empty() {
+                            None
+                        } else {
+                            Some(Documentation::String(col.comment.clone()))
+                        },
+                        ..Default::default()
+                    });
+                }
+            }
         }
 
         CursorContext::SelectExpression | CursorContext::Expression => {
@@ -253,4 +295,35 @@ fn extract_prefix(source: &str, offset: usize) -> &str {
         }
     }
     &source[start..offset]
+}
+
+/// Resolve a qualifier (e.g., table alias or table name) to (database, table).
+fn resolve_qualifier(
+    qualifier: &str,
+    scope: &crate::analysis::scope::QueryScope,
+    default_db: &str,
+) -> Option<(String, String)> {
+    // Check if the qualifier matches a table alias
+    for alias in &scope.table_aliases {
+        if alias.name.eq_ignore_ascii_case(qualifier) {
+            // Find the table ref this alias belongs to
+            for tref in &scope.table_refs {
+                if tref.alias.as_deref() == Some(&alias.name) {
+                    let db = tref.database.clone().unwrap_or_else(|| default_db.to_string());
+                    return Some((db, tref.table.clone()));
+                }
+            }
+        }
+    }
+
+    // Check if the qualifier matches a table name directly
+    for tref in &scope.table_refs {
+        if tref.table.eq_ignore_ascii_case(qualifier) {
+            let db = tref.database.clone().unwrap_or_else(|| default_db.to_string());
+            return Some((db, tref.table.clone()));
+        }
+    }
+
+    // Fallback: treat qualifier as a table name in the default database
+    Some((default_db.to_string(), qualifier.to_string()))
 }

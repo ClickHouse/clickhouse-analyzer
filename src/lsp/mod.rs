@@ -14,6 +14,7 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
+use crate::connection::client::ConnectionConfig;
 use crate::diagnostics::{self, Severity as OurSeverity};
 use crate::formatter::{self, FormatConfig};
 use crate::metadata::cache::{MetadataCache, SharedMetadata};
@@ -103,6 +104,55 @@ impl Backend {
             .collect();
 
         self.client.publish_diagnostics(uri, diags, None).await;
+    }
+
+    async fn try_connect(&self, settings: &serde_json::Value) {
+        let ch = &settings["connection"];
+        let enabled = ch["enabled"].as_bool().unwrap_or(false);
+
+        if !enabled {
+            let mut meta = self.metadata.write().await;
+            if meta.is_connected() {
+                meta.disconnect();
+                self.client
+                    .log_message(MessageType::INFO, "ClickHouse connection disabled")
+                    .await;
+            }
+            return;
+        }
+
+        let config = ConnectionConfig {
+            url: ch["url"]
+                .as_str()
+                .unwrap_or("http://localhost:8123")
+                .to_string(),
+            database: ch["database"]
+                .as_str()
+                .unwrap_or("default")
+                .to_string(),
+            username: ch["username"]
+                .as_str()
+                .unwrap_or("default")
+                .to_string(),
+            password: ch["password"]
+                .as_str()
+                .unwrap_or("")
+                .to_string(),
+        };
+
+        let url = config.url.clone();
+        let mut meta = self.metadata.write().await;
+        match meta.connect(config).await {
+            Ok(()) => {
+                let version = meta.server_version.as_deref().unwrap_or("unknown");
+                let msg = format!("Connected to ClickHouse {} at {}", version, url);
+                self.client.log_message(MessageType::INFO, msg).await;
+            }
+            Err(e) => {
+                let msg = format!("Failed to connect to {}: {}", url, e);
+                self.client.log_message(MessageType::WARNING, msg).await;
+            }
+        }
     }
 
     async fn publish_size_error(&self, uri: Url) {
@@ -217,6 +267,18 @@ impl LanguageServer for Backend {
         let uri = params.text_document.uri;
         self.lock_documents().remove(&uri);
         self.client.publish_diagnostics(uri, vec![], None).await;
+    }
+
+    async fn did_change_configuration(&self, params: DidChangeConfigurationParams) {
+        // VS Code sends { "clickhouse-analyzer": { "connection": { ... } } }
+        // or just the inner object depending on the client.
+        let settings = &params.settings;
+        let ch_settings = if settings.get("clickhouse-analyzer").is_some() {
+            &settings["clickhouse-analyzer"]
+        } else {
+            settings
+        };
+        self.try_connect(ch_settings).await;
     }
 
     async fn formatting(
