@@ -489,13 +489,26 @@ fn extract_error_range(
         .or_else(|| extract_quoted(error_msg, '\''));
 
     if let Some(ident) = identifier {
-        // Find this identifier in the statement source (case-insensitive)
+        // Find this identifier as a whole word in the statement (case-insensitive)
         let lower_source = stmt_source.to_lowercase();
         let lower_ident = ident.to_lowercase();
-        if let Some(pos) = lower_source.find(&lower_ident) {
-            let abs_start = (stmt_offset + pos) as u32;
-            let abs_end = (stmt_offset + pos + ident.len()) as u32;
-            return line_index.range(abs_start, abs_end);
+        let ident_len = lower_ident.len();
+        let mut search_from = 0;
+        while let Some(pos) = lower_source[search_from..].find(&lower_ident) {
+            let abs_pos = search_from + pos;
+            // Check word boundaries
+            let before_ok = abs_pos == 0
+                || !stmt_source.as_bytes()[abs_pos - 1].is_ascii_alphanumeric()
+                    && stmt_source.as_bytes()[abs_pos - 1] != b'_';
+            let after_ok = abs_pos + ident_len >= stmt_source.len()
+                || !stmt_source.as_bytes()[abs_pos + ident_len].is_ascii_alphanumeric()
+                    && stmt_source.as_bytes()[abs_pos + ident_len] != b'_';
+            if before_ok && after_ok {
+                let abs_start = (stmt_offset + abs_pos) as u32;
+                let abs_end = (stmt_offset + abs_pos + ident_len) as u32;
+                return line_index.range(abs_start, abs_end);
+            }
+            search_from = abs_pos + 1;
         }
     }
 
