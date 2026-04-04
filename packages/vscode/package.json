@@ -32,6 +32,31 @@
           "type": "string",
           "default": "",
           "description": "Path to the clickhouse-lsp binary. If empty, searches $PATH."
+        },
+        "clickhouse-analyzer.connection.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable live ClickHouse connection for schema-aware completions (tables, columns)."
+        },
+        "clickhouse-analyzer.connection.url": {
+          "type": "string",
+          "default": "http://localhost:8123",
+          "description": "ClickHouse HTTP endpoint URL."
+        },
+        "clickhouse-analyzer.connection.database": {
+          "type": "string",
+          "default": "default",
+          "description": "Default database name."
+        },
+        "clickhouse-analyzer.connection.username": {
+          "type": "string",
+          "default": "default",
+          "description": "Username for authentication."
+        },
+        "clickhouse-analyzer.connection.password": {
+          "type": "string",
+          "default": "",
+          "description": "Password for authentication."
         }
       }
     }

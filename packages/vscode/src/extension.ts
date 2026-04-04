@@ -24,7 +24,12 @@ export function activate(context: ExtensionContext) {
       { scheme: "file", language: "sql" },
       { scheme: "file", language: "clickhouse" },
       { scheme: "file", pattern: "**/*.ch.sql" },
+      { scheme: "untitled", language: "sql" },
+      { scheme: "untitled", language: "clickhouse" },
     ],
+    synchronize: {
+      configurationSection: "clickhouse-analyzer",
+    },
   };
 
   client = new LanguageClient(

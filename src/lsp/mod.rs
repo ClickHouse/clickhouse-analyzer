@@ -1,17 +1,24 @@
+pub mod completion;
+pub mod goto_definition;
+pub mod hover;
 pub mod line_index;
 pub mod semantic_tokens;
+pub mod signature_help;
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use line_index::LineIndex;
+use tokio::sync::RwLock;
 use tower_lsp::lsp_types::*;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use crate::diagnostics::{self, Severity as OurSeverity};
 use crate::formatter::{self, FormatConfig};
+use crate::metadata::cache::{MetadataCache, SharedMetadata};
 use crate::parser;
+use crate::parser::diagnostic::Parse;
 
 /// Maximum number of simultaneously open documents.
 const MAX_DOCUMENTS: usize = 1000;
@@ -19,13 +26,26 @@ const MAX_DOCUMENTS: usize = 1000;
 const MAX_DOCUMENT_SIZE: usize = 10 * 1024 * 1024;
 
 struct DocumentState {
-    source: String,
+    parse: Parse,
     line_index: LineIndex,
+}
+
+impl DocumentState {
+    fn new(source: String) -> Self {
+        let line_index = LineIndex::new(&source);
+        let parse = parser::parse(&source);
+        Self { parse, line_index }
+    }
+
+    fn source(&self) -> &str {
+        &self.parse.source
+    }
 }
 
 pub struct Backend {
     client: Client,
     documents: Mutex<HashMap<Url, DocumentState>>,
+    metadata: SharedMetadata,
 }
 
 impl Backend {
@@ -33,6 +53,7 @@ impl Backend {
         Self {
             client,
             documents: Mutex::new(HashMap::new()),
+            metadata: Arc::new(RwLock::new(MetadataCache::from_compiled_defaults())),
         }
     }
 
@@ -40,9 +61,8 @@ impl Backend {
         self.documents.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    async fn publish_diagnostics(&self, uri: Url, source: &str, line_index: &LineIndex) {
-        let parse = parser::parse(source);
-        let enriched = diagnostics::enrich_diagnostics(&parse, source);
+    async fn publish_diagnostics(&self, uri: Url, parse: &Parse, line_index: &LineIndex) {
+        let enriched = diagnostics::enrich_diagnostics(parse, &parse.source);
 
         let diags: Vec<Diagnostic> = enriched
             .iter()
@@ -111,6 +131,20 @@ impl LanguageServer for Backend {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
                     TextDocumentSyncKind::FULL,
                 )),
+                completion_provider: Some(CompletionOptions {
+                    trigger_characters: Some(vec![
+                        ".".into(),
+                        " ".into(),
+                    ]),
+                    ..Default::default()
+                }),
+                hover_provider: Some(HoverProviderCapability::Simple(true)),
+                definition_provider: Some(OneOf::Left(true)),
+                signature_help_provider: Some(SignatureHelpOptions {
+                    trigger_characters: Some(vec!["(".into(), ",".into()]),
+                    retrigger_characters: Some(vec![",".into()]),
+                    ..Default::default()
+                }),
                 document_formatting_provider: Some(OneOf::Left(true)),
                 semantic_tokens_provider: Some(
                     SemanticTokensServerCapabilities::SemanticTokensOptions(
@@ -157,15 +191,9 @@ impl LanguageServer for Backend {
             }
         }
 
-        let line_index = LineIndex::new(&source);
-        self.publish_diagnostics(uri.clone(), &source, &line_index).await;
-        self.lock_documents().insert(
-            uri,
-            DocumentState {
-                source,
-                line_index,
-            },
-        );
+        let doc = DocumentState::new(source);
+        self.publish_diagnostics(uri.clone(), &doc.parse, &doc.line_index).await;
+        self.lock_documents().insert(uri, doc);
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -179,15 +207,9 @@ impl LanguageServer for Backend {
                 return;
             }
 
-            let line_index = LineIndex::new(&source);
-            self.publish_diagnostics(uri.clone(), &source, &line_index).await;
-            self.lock_documents().insert(
-                uri,
-                DocumentState {
-                    source,
-                    line_index,
-                },
-            );
+            let doc = DocumentState::new(source);
+            self.publish_diagnostics(uri.clone(), &doc.parse, &doc.line_index).await;
+            self.lock_documents().insert(uri, doc);
         }
     }
 
@@ -206,11 +228,10 @@ impl LanguageServer for Backend {
         let Some(doc) = docs.get(&uri) else {
             return Ok(None);
         };
-        let parse = parser::parse(&doc.source);
-        let formatted = formatter::format(&parse.tree, &FormatConfig::default(), &parse.source);
+        let formatted = formatter::format(&doc.parse.tree, &FormatConfig::default(), &doc.parse.source);
 
         // Replace the entire document.
-        let end_pos = doc.line_index.position(doc.source.len() as u32);
+        let end_pos = doc.line_index.position(doc.source().len() as u32);
         Ok(Some(vec![TextEdit {
             range: Range {
                 start: Position {
@@ -232,12 +253,93 @@ impl LanguageServer for Backend {
         let Some(doc) = docs.get(&uri) else {
             return Ok(None);
         };
-        let parse = parser::parse(&doc.source);
-        let tokens = semantic_tokens::compute(&parse.tree, &parse.source, &doc.line_index);
+        let tokens = semantic_tokens::compute(&doc.parse.tree, &doc.parse.source, &doc.line_index);
         Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
             result_id: None,
             data: tokens,
         })))
+    }
+
+    async fn completion(
+        &self,
+        params: CompletionParams,
+    ) -> Result<Option<CompletionResponse>> {
+        let uri = params.text_document_position.text_document.uri;
+        let position = params.text_document_position.position;
+        let doc_data = {
+            let docs = self.lock_documents();
+            docs.get(&uri)
+                .map(|doc| (doc.parse.clone(), doc.line_index.clone()))
+        };
+        let Some((parse, line_index)) = doc_data else {
+            self.client
+                .log_message(MessageType::WARNING, "completion: document not found")
+                .await;
+            return Ok(None);
+        };
+        let items =
+            completion::handle_completion(&parse, &line_index, position, &self.metadata).await;
+        let msg = format!(
+            "completion: {} items at line {} char {}",
+            items.len(),
+            position.line,
+            position.character
+        );
+        self.client.log_message(MessageType::INFO, msg).await;
+        Ok(Some(CompletionResponse::Array(items)))
+    }
+
+    async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
+        let uri = params.text_document_position_params.text_document.uri;
+        let position = params.text_document_position_params.position;
+        let (parse, line_index) = {
+            let docs = self.lock_documents();
+            let Some(doc) = docs.get(&uri) else {
+                return Ok(None);
+            };
+            (doc.parse.clone(), doc.line_index.clone())
+        };
+        Ok(hover::handle_hover(&parse, &line_index, position, &self.metadata).await)
+    }
+
+    async fn goto_definition(
+        &self,
+        params: GotoDefinitionParams,
+    ) -> Result<Option<GotoDefinitionResponse>> {
+        let uri = params.text_document_position_params.text_document.uri;
+        let position = params.text_document_position_params.position;
+        let (parse, line_index) = {
+            let docs = self.lock_documents();
+            let Some(doc) = docs.get(&uri) else {
+                return Ok(None);
+            };
+            (doc.parse.clone(), doc.line_index.clone())
+        };
+        Ok(goto_definition::handle_goto_definition(
+            &parse,
+            &line_index,
+            position,
+            &uri,
+        ))
+    }
+
+    async fn signature_help(
+        &self,
+        params: SignatureHelpParams,
+    ) -> Result<Option<SignatureHelp>> {
+        let uri = params.text_document_position_params.text_document.uri;
+        let position = params.text_document_position_params.position;
+        let (parse, line_index) = {
+            let docs = self.lock_documents();
+            let Some(doc) = docs.get(&uri) else {
+                return Ok(None);
+            };
+            (doc.parse.clone(), doc.line_index.clone())
+        };
+        Ok(
+            signature_help::handle_signature_help(&parse, &line_index, position, &self.metadata)
+                .await,
+        )
     }
 }
 
