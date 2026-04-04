@@ -20,7 +20,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Install clickhousectl
-        run: curl -fsSL https://raw.githubusercontent.com/ClickHouse/clickhousectl/main/install.sh | sh
+        run: curl -fsSL clickhouse.com/cli | sh
 
       - name: Install ClickHouse
         run: |
