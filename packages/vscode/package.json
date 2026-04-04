@@ -8,7 +8,7 @@
   "license": "Apache-2.0",
   "private": true,
   "engines": {
-    "vscode": "^1.75.0"
+    "vscode": "^1.85.0"
   },
   "categories": ["Programming Languages", "Linters", "Formatters"],
   "activationEvents": [
@@ -69,8 +69,8 @@
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/vscode": "^1.75.0",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.85.0",
     "typescript": "^5.0.0"
   }
 }
