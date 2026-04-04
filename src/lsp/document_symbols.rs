@@ -151,7 +151,12 @@ fn extract_statement_label(tree: &SyntaxTree, source: &str, kind_label: &str) ->
     // Truncate to keep it readable
     let label = tokens.join(" ");
     if label.len() > 60 {
-        format!("{}...", &label[..57])
+        // Find a char boundary at or before byte 57 to avoid splitting a multi-byte character
+        let mut end = 57;
+        while end > 0 && !label.is_char_boundary(end) {
+            end -= 1;
+        }
+        format!("{}...", &label[..end])
     } else {
         label
     }

@@ -79,13 +79,14 @@ impl ClickHouseClient {
         sql: &str,
         format: &str,
     ) -> Result<String, ConnectionError> {
-        let url = format!(
-            "{}/?database={}&default_format={}",
-            self.config.url, self.config.database, format,
-        );
+        let mut url = reqwest::Url::parse(&self.config.url)
+            .map_err(|e| ConnectionError::QueryFailed(format!("invalid base URL: {e}")))?;
+        url.query_pairs_mut()
+            .append_pair("database", &self.config.database)
+            .append_pair("default_format", format);
         let resp = self
             .http
-            .post(&url)
+            .post(url)
             .basic_auth(&self.config.username, Some(&self.config.password))
             .body(sql.to_owned())
             .send()

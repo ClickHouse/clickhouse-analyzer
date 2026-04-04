@@ -45,26 +45,34 @@ impl MetadataCache {
     /// Initialize with compiled-in defaults (Tier 1). Instant, no I/O.
     pub fn from_compiled_defaults() -> Self {
         let functions: Vec<FunctionInfo> =
-            serde_json::from_str(generated::FUNCTIONS_JSON).unwrap_or_default();
+            serde_json::from_str(generated::FUNCTIONS_JSON)
+                .expect("embedded functions.json is corrupt");
         let function_index = functions
             .iter()
             .enumerate()
             .map(|(i, f)| (f.name.to_lowercase(), i))
             .collect();
         let settings: Vec<SettingInfo> =
-            serde_json::from_str(generated::SETTINGS_JSON).unwrap_or_default();
+            serde_json::from_str(generated::SETTINGS_JSON)
+                .expect("embedded settings.json is corrupt");
         let merge_tree_settings: Vec<SettingInfo> =
-            serde_json::from_str(generated::MERGE_TREE_SETTINGS_JSON).unwrap_or_default();
+            serde_json::from_str(generated::MERGE_TREE_SETTINGS_JSON)
+                .expect("embedded merge_tree_settings.json is corrupt");
         let data_types: Vec<DataTypeInfo> =
-            serde_json::from_str(generated::DATA_TYPES_JSON).unwrap_or_default();
+            serde_json::from_str(generated::DATA_TYPES_JSON)
+                .expect("embedded data_types.json is corrupt");
         let table_engines: Vec<TableEngineInfo> =
-            serde_json::from_str(generated::TABLE_ENGINES_JSON).unwrap_or_default();
+            serde_json::from_str(generated::TABLE_ENGINES_JSON)
+                .expect("embedded table_engines.json is corrupt");
         let formats: Vec<FormatInfo> =
-            serde_json::from_str(generated::FORMATS_JSON).unwrap_or_default();
+            serde_json::from_str(generated::FORMATS_JSON)
+                .expect("embedded formats.json is corrupt");
         let codecs: Vec<CodecInfo> =
-            serde_json::from_str(generated::CODECS_JSON).unwrap_or_default();
+            serde_json::from_str(generated::CODECS_JSON)
+                .expect("embedded codecs.json is corrupt");
         let keywords: Vec<String> =
-            serde_json::from_str(generated::KEYWORDS_JSON).unwrap_or_default();
+            serde_json::from_str(generated::KEYWORDS_JSON)
+                .expect("embedded keywords.json is corrupt");
 
         Self {
             compiled_version: generated::CLICKHOUSE_VERSION.trim().to_string(),
@@ -137,24 +145,7 @@ impl MetadataCache {
 
     /// Disconnect and revert to compiled-in defaults (Tier 1).
     pub fn disconnect(&mut self) {
-        self.client = None;
-        self.server_version = None;
-        self.live_overlay = false;
-        // Revert to compiled-in defaults
-        let defaults = Self::from_compiled_defaults();
-        self.functions = defaults.functions;
-        self.function_index = defaults.function_index;
-        self.settings = defaults.settings;
-        self.merge_tree_settings = defaults.merge_tree_settings;
-        self.data_types = defaults.data_types;
-        self.table_engines = defaults.table_engines;
-        self.formats = defaults.formats;
-        self.codecs = defaults.codecs;
-        self.keywords = defaults.keywords;
-        // Clear schema
-        self.databases.clear();
-        self.tables.clear();
-        self.columns.clear();
+        *self = Self::from_compiled_defaults();
     }
 
     /// Refresh global metadata from the live server (Tier 2).
@@ -242,7 +233,7 @@ impl MetadataCache {
             .query_json(&format!(
                 "SELECT database, name, engine, comment \
                  FROM system.tables WHERE database = '{}' ORDER BY name",
-                database.replace('\'', "\\'")
+                database.replace('\\', "\\\\").replace('\'', "\\'")
             ))
             .await?;
         self.tables.insert(database.to_string(), tables);
@@ -273,8 +264,8 @@ impl MetadataCache {
                 "SELECT name, type, default_kind, default_expression, comment \
                  FROM system.columns WHERE database = '{}' AND table = '{}' \
                  ORDER BY position",
-                database.replace('\'', "\\'"),
-                table.replace('\'', "\\'")
+                database.replace('\\', "\\\\").replace('\'', "\\'"),
+                table.replace('\\', "\\\\").replace('\'', "\\'")
             ))
             .await?;
         self.columns.insert(key, columns);

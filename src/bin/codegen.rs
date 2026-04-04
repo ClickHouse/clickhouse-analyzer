@@ -29,10 +29,12 @@ impl Backend {
             Backend::Local { binary } => {
                 let output = Command::new(binary)
                     .args(["local", "--query", sql, "--format", "JSONEachRow"])
-                    .output()?;
+                    .output()
+                    .map_err(|e| format!("failed to execute '{binary}': {e}"))?;
                 if !output.status.success() {
                     let stderr = String::from_utf8_lossy(&output.stderr);
-                    return Err(format!("clickhouse-local failed: {stderr}").into());
+                    return Err(format!("clickhouse-local query failed (exit {}):\n  query: {}\n  stderr: {stderr}",
+                        output.status, sql).into());
                 }
                 let text = String::from_utf8(output.stdout)?;
                 text.lines()
@@ -51,10 +53,12 @@ impl Backend {
             Backend::Local { binary } => {
                 let output = Command::new(binary)
                     .args(["local", "--query", sql])
-                    .output()?;
+                    .output()
+                    .map_err(|e| format!("failed to execute '{binary}': {e}"))?;
                 if !output.status.success() {
                     let stderr = String::from_utf8_lossy(&output.stderr);
-                    return Err(format!("clickhouse-local failed: {stderr}").into());
+                    return Err(format!("clickhouse-local query failed (exit {}):\n  query: {}\n  stderr: {stderr}",
+                        output.status, sql).into());
                 }
                 Ok(String::from_utf8(output.stdout)?)
             }

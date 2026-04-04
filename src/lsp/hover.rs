@@ -148,9 +148,20 @@ fn hover_function(info: &crate::metadata::types::FunctionInfo) -> String {
     let mut md = String::new();
     if !info.syntax.is_empty() {
         md.push_str(&format!("```\n{}\n```\n", info.syntax));
+    } else {
+        md.push_str(&format!("**{}**\n", info.name));
     }
     if !info.description.is_empty() {
         md.push_str(&format!("\n{}\n", info.description));
+    }
+    if !info.arguments.is_empty() {
+        md.push_str(&format!("\n**Arguments:** {}\n", info.arguments));
+    }
+    if !info.returned_value.is_empty() {
+        md.push_str(&format!("\n**Returns:** {}\n", info.returned_value));
+    }
+    if info.is_aggregate {
+        md.push_str("\n*Aggregate function*\n");
     }
     md
 }

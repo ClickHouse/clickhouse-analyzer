@@ -127,7 +127,7 @@ fn analyze_path(path: &[PathNode<'_>], source: &str, offset: u32) -> CursorConte
     // When the cursor is at the end of a statement (past the last token),
     // find_node_path may not descend into the last clause if its Error child
     // is empty. Check the last clause of the deepest statement node.
-    if let Some(ctx) = check_trailing_clause(path, source, offset) {
+    if let Some(ctx) = check_trailing_clause(path, offset) {
         return ctx;
     }
 
@@ -271,7 +271,7 @@ fn analyze_path(path: &[PathNode<'_>], source: &str, offset: u32) -> CursorConte
 
 /// When the cursor is past the end of the last clause in a statement (e.g., `HAVING |`
 /// where the Error node is empty), check the last child clause of the deepest statement.
-fn check_trailing_clause(path: &[PathNode<'_>], _source: &str, offset: u32) -> Option<CursorContext> {
+fn check_trailing_clause(path: &[PathNode<'_>], offset: u32) -> Option<CursorContext> {
     // Find the deepest statement-like node in the path
     let stmt = path.iter().rev().find(|n| matches!(n.kind,
         SyntaxKind::SelectStatement | SyntaxKind::InsertStatement |

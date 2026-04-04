@@ -179,22 +179,19 @@ fn extract_table_identifier(tree: &SyntaxTree, source: &str) -> Option<TableRef>
         }
     }
 
-    match parts.len() {
-        1 => Some(TableRef {
+    match parts.as_slice() {
+        [table] => Some(TableRef {
             database: None,
-            table: parts.into_iter().next().unwrap(),
+            table: table.clone(),
             alias: None,
             range: (tree.start, tree.end),
         }),
-        2 => {
-            let mut iter = parts.into_iter();
-            Some(TableRef {
-                database: Some(iter.next().unwrap()),
-                table: iter.next().unwrap(),
-                alias: None,
-                range: (tree.start, tree.end),
-            })
-        }
+        [database, table] => Some(TableRef {
+            database: Some(database.clone()),
+            table: table.clone(),
+            alias: None,
+            range: (tree.start, tree.end),
+        }),
         _ => None,
     }
 }

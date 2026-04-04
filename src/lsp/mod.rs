@@ -535,12 +535,14 @@ fn extract_error_range(
         while let Some(pos) = lower_source[search_from..].find(&lower_ident) {
             let abs_pos = search_from + pos;
             // Check word boundaries
-            let before_ok = abs_pos == 0
-                || !stmt_source.as_bytes()[abs_pos - 1].is_ascii_alphanumeric()
-                    && stmt_source.as_bytes()[abs_pos - 1] != b'_';
-            let after_ok = abs_pos + ident_len >= stmt_source.len()
-                || !stmt_source.as_bytes()[abs_pos + ident_len].is_ascii_alphanumeric()
-                    && stmt_source.as_bytes()[abs_pos + ident_len] != b'_';
+            let before_ok = abs_pos == 0 || {
+                let b = stmt_source.as_bytes()[abs_pos - 1];
+                !b.is_ascii_alphanumeric() && b != b'_'
+            };
+            let after_ok = abs_pos + ident_len >= stmt_source.len() || {
+                let b = stmt_source.as_bytes()[abs_pos + ident_len];
+                !b.is_ascii_alphanumeric() && b != b'_'
+            };
             if before_ok && after_ok {
                 let abs_start = (stmt_offset + abs_pos) as u32;
                 let abs_end = (stmt_offset + abs_pos + ident_len) as u32;
