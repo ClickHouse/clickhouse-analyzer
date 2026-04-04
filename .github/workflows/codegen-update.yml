@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       clickhouse_version:
-        description: 'ClickHouse version (e.g. 25.3.1.1). Leave empty for latest stable.'
+        description: 'ClickHouse version (e.g. stable, lts, 25.3.1.1). Leave empty for stable.'
         required: false
 
 jobs:
@@ -19,27 +19,19 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Download ClickHouse binary
-        run: |
-          version="${{ inputs.clickhouse_version }}"
-          if [ -z "$version" ]; then
-            # Fetch latest stable version
-            version=$(curl -sf https://raw.githubusercontent.com/ClickHouse/ClickHouse/master/utils/list-versions/version_date.tsv \
-              | grep -v lts | head -1 | cut -f1)
-            echo "Latest stable: $version"
-          fi
-          echo "CH_VERSION=$version" >> "$GITHUB_ENV"
+      - name: Install clickhousectl
+        run: curl -fsSL https://raw.githubusercontent.com/ClickHouse/clickhousectl/main/install.sh | sh
 
-          # Download the static binary
-          curl -fSL "https://github.com/ClickHouse/ClickHouse/releases/download/v${version}-stable/clickhouse-linux-amd64" \
-            -o /tmp/clickhouse
-          chmod +x /tmp/clickhouse
-          /tmp/clickhouse local --query "SELECT version()"
+      - name: Install ClickHouse
+        run: |
+          version="${{ inputs.clickhouse_version || 'stable' }}"
+          ~/.local/bin/clickhousectl local use "$version"
 
       - name: Run codegen via clickhouse-local
         run: |
-          CLICKHOUSE_BIN=/tmp/clickhouse \
-            cargo run --bin codegen --features codegen
+          ch_bin=$(~/.local/bin/clickhousectl local which | awk '{print $2}' | tr -d '()')
+          echo "Using: $ch_bin"
+          CLICKHOUSE_BIN="$ch_bin" cargo run --bin codegen --features codegen
 
       - name: Check for changes
         id: diff
