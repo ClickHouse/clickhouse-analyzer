@@ -126,6 +126,14 @@ pub async fn handle_completion(
             for kw in &["DISTINCT", "CASE", "NOT", "NULL", "TRUE", "FALSE", "*"] {
                 items.push(keyword_item(kw));
             }
+            // Clause keywords that can follow a select expression
+            for kw in &[
+                "FROM", "WHERE", "GROUP BY", "ORDER BY", "HAVING", "LIMIT",
+                "FORMAT", "SETTINGS", "INTO OUTFILE", "UNION ALL", "EXCEPT",
+                "INTERSECT", "AS",
+            ] {
+                items.push(keyword_item(kw));
+            }
         }
 
         CursorContext::Expression => {
@@ -134,6 +142,13 @@ pub async fn handle_completion(
             for kw in &[
                 "AND", "OR", "NOT", "IN", "BETWEEN", "LIKE", "ILIKE", "IS",
                 "NULL", "TRUE", "FALSE", "CASE", "EXISTS",
+            ] {
+                items.push(keyword_item(kw));
+            }
+            // Clause keywords that can follow an expression
+            for kw in &[
+                "GROUP BY", "ORDER BY", "HAVING", "LIMIT",
+                "FORMAT", "SETTINGS", "UNION ALL",
             ] {
                 items.push(keyword_item(kw));
             }
