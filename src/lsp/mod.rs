@@ -1,4 +1,5 @@
 pub mod completion;
+pub mod document_symbols;
 pub mod goto_definition;
 pub mod hover;
 pub mod line_index;
@@ -215,7 +216,6 @@ impl LanguageServer for Backend {
                 completion_provider: Some(CompletionOptions {
                     trigger_characters: Some(vec![
                         ".".into(),
-                        " ".into(),
                     ]),
                     ..Default::default()
                 }),
@@ -226,6 +226,7 @@ impl LanguageServer for Backend {
                     retrigger_characters: Some(vec![",".into()]),
                     ..Default::default()
                 }),
+                document_symbol_provider: Some(OneOf::Left(true)),
                 document_formatting_provider: Some(OneOf::Left(true)),
                 semantic_tokens_provider: Some(
                     SemanticTokensServerCapabilities::SemanticTokensOptions(
@@ -433,6 +434,19 @@ impl LanguageServer for Backend {
             signature_help::handle_signature_help(&parse, &line_index, position, &self.metadata)
                 .await,
         )
+    }
+
+    async fn document_symbol(
+        &self,
+        params: DocumentSymbolParams,
+    ) -> Result<Option<DocumentSymbolResponse>> {
+        let uri = params.text_document.uri;
+        let docs = self.lock_documents();
+        let Some(doc) = docs.get(&uri) else {
+            return Ok(None);
+        };
+        let symbols = document_symbols::handle_document_symbols(&doc.parse, &doc.line_index);
+        Ok(Some(DocumentSymbolResponse::Nested(symbols)))
     }
 }
 
