@@ -1,5 +1,6 @@
 use tower_lsp::lsp_types::*;
 
+use crate::analysis::scope::build_scope;
 use crate::metadata::cache::SharedMetadata;
 use crate::parser::diagnostic::Parse;
 use crate::parser::syntax_kind::SyntaxKind;
@@ -16,6 +17,18 @@ pub async fn handle_hover(
     let offset = line_index.offset(position);
     let (text, parent_kind, token_start, token_end) =
         find_token_with_parent(&parse.tree, &parse.source, offset)?;
+
+    // Pre-fetch columns if hovering on a table identifier (needs write lock)
+    if parent_kind == SyntaxKind::TableIdentifier || parent_kind == SyntaxKind::FromClause {
+        let mut meta = metadata.write().await;
+        if meta.is_connected() {
+            // Resolve table — could be db.table or just table
+            let default_db = meta.default_database().to_string();
+            let scope = build_scope(&parse.tree, &parse.source);
+            let (db, table) = resolve_table_for_hover(text, &scope, &default_db);
+            let _ = meta.ensure_columns(&db, &table).await;
+        }
+    }
 
     let meta = metadata.read().await;
 
@@ -89,17 +102,33 @@ pub async fn handle_hover(
             md
         }
 
+        // Table identifier — show column list if connected
+        SyntaxKind::TableIdentifier | SyntaxKind::FromClause => {
+            let default_db = meta.default_database().to_string();
+            let scope = build_scope(&parse.tree, &parse.source);
+            let (db, table) = resolve_table_for_hover(text, &scope, &default_db);
+            let columns = meta.get_columns(&db, &table);
+            if !columns.is_empty() {
+                let mut md = format!("**{}.{}**\n\n", db, table);
+                md.push_str("| Column | Type |\n|--------|------|\n");
+                for col in columns {
+                    md.push_str(&format!("| {} | `{}` |\n", col.name, col.data_type));
+                }
+                md
+            } else {
+                // No columns cached — try function lookup as fallback
+                if let Some(info) = meta.lookup_function(text) {
+                    hover_function(info)
+                } else {
+                    return None;
+                }
+            }
+        }
+
         // For any bareword, try function lookup as fallback
         _ => {
             if let Some(info) = meta.lookup_function(text) {
-                let mut md = String::new();
-                if !info.syntax.is_empty() {
-                    md.push_str(&format!("```\n{}\n```\n", info.syntax));
-                }
-                if !info.description.is_empty() {
-                    md.push_str(&format!("\n{}\n", info.description));
-                }
-                md
+                hover_function(info)
             } else {
                 return None;
             }
@@ -113,6 +142,36 @@ pub async fn handle_hover(
         }),
         range: Some(line_index.range(token_start, token_end)),
     })
+}
+
+fn hover_function(info: &crate::metadata::types::FunctionInfo) -> String {
+    let mut md = String::new();
+    if !info.syntax.is_empty() {
+        md.push_str(&format!("```\n{}\n```\n", info.syntax));
+    }
+    if !info.description.is_empty() {
+        md.push_str(&format!("\n{}\n", info.description));
+    }
+    md
+}
+
+/// Resolve a table name for hover — check if it's an alias first.
+fn resolve_table_for_hover(
+    text: &str,
+    scope: &crate::analysis::scope::QueryScope,
+    default_db: &str,
+) -> (String, String) {
+    // Check table refs directly
+    for tref in &scope.table_refs {
+        if tref.table.eq_ignore_ascii_case(text) {
+            let db = tref
+                .database
+                .clone()
+                .unwrap_or_else(|| default_db.to_string());
+            return (db, tref.table.clone());
+        }
+    }
+    (default_db.to_string(), text.to_string())
 }
 
 /// Find the non-trivia token at `offset` and return (text, parent_kind, start, end).

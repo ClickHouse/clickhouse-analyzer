@@ -242,6 +242,30 @@ pub async fn handle_completion(
         items.retain(|item| item.label.to_lowercase().starts_with(&lower_prefix));
     }
 
+    // Assign sort order: exact prefix matches rank higher,
+    // then by item kind (keywords first, then fields, functions, etc.)
+    for item in &mut items {
+        let kind_priority = match item.kind {
+            Some(CompletionItemKind::KEYWORD) => "0",
+            Some(CompletionItemKind::FIELD) => "1",    // columns
+            Some(CompletionItemKind::CLASS) => "2",    // tables/engines
+            Some(CompletionItemKind::MODULE) => "2",   // databases
+            Some(CompletionItemKind::FUNCTION) => "3",
+            Some(CompletionItemKind::METHOD) => "3",   // aggregate functions
+            Some(CompletionItemKind::PROPERTY) => "4", // settings
+            _ => "5",
+        };
+        // Exact case match ranks above case-insensitive match
+        let case_priority = if !lower_prefix.is_empty()
+            && item.label.starts_with(prefix)
+        {
+            "0"
+        } else {
+            "1"
+        };
+        item.sort_text = Some(format!("{}{}{}", case_priority, kind_priority, item.label));
+    }
+
     items
 }
 
@@ -252,6 +276,9 @@ fn add_functions(
     for f in functions {
         if !f.alias_to.is_empty() {
             continue; // Skip aliases, show only canonical names
+        }
+        if f.name.starts_with("__") {
+            continue; // Skip internal/undocumented functions
         }
         let kind = if f.is_aggregate {
             CompletionItemKind::METHOD
