@@ -109,26 +109,47 @@ impl Backend {
         // (no point sending broken SQL to the server)
         // EXPLAIN PLAN validates columns, types, and table existence
         // without actually executing the query.
+        // Split on semicolons to handle multi-statement files.
         if parse.errors.is_empty() {
-            let source = parse.source.trim().trim_end_matches(';').to_string();
-            if !source.is_empty() {
-                let meta = self.metadata.read().await;
-                if meta.is_connected() {
-                    if let Some(client) = meta.client_ref() {
-                        let query = format!("EXPLAIN PLAN {source}");
-                        match client.query_text(&query).await {
-                            Ok(_) => {} // query is valid
-                            Err(e) => {
-                                let msg = format!("{e}");
-                                let range = extract_error_range(&msg, &source, line_index);
-                                diags.push(Diagnostic {
-                                    range,
-                                    severity: Some(DiagnosticSeverity::WARNING),
-                                    source: Some("clickhouse-server".to_owned()),
-                                    message: msg,
-                                    ..Default::default()
-                                });
-                            }
+            let meta = self.metadata.read().await;
+            if meta.is_connected() {
+                if let Some(client) = meta.client_ref() {
+                    // Track byte offset of each statement for error highlighting
+                    let full_source = &parse.source;
+                    let mut offset = 0usize;
+                    for stmt_text in full_source.split(';') {
+                        let trimmed = stmt_text.trim();
+                        let stmt_offset = offset
+                            + stmt_text
+                                .find(trimmed.chars().next().unwrap_or(' '))
+                                .unwrap_or(0);
+                        offset += stmt_text.len() + 1; // +1 for the semicolon
+
+                        if trimmed.is_empty() {
+                            continue;
+                        }
+
+                        // Skip non-query statements that EXPLAIN PLAN can't handle
+                        let upper = trimmed.to_uppercase();
+                        if !upper.starts_with("SELECT")
+                            && !upper.starts_with("WITH")
+                            && !upper.starts_with("INSERT")
+                        {
+                            continue;
+                        }
+
+                        let query = format!("EXPLAIN PLAN {trimmed}");
+                        if let Err(e) = client.query_text(&query).await {
+                            let msg = format!("{e}");
+                            let range =
+                                extract_error_range(&msg, trimmed, line_index, stmt_offset);
+                            diags.push(Diagnostic {
+                                range,
+                                severity: Some(DiagnosticSeverity::WARNING),
+                                source: Some("clickhouse-server".to_owned()),
+                                message: msg,
+                                ..Default::default()
+                            });
                         }
                     }
                 }
@@ -455,10 +476,12 @@ impl LanguageServer for Backend {
 /// Looks for backtick-quoted identifiers (e.g., `jdfdjfb`) or
 /// single-quoted identifiers (e.g., 'nonexistent_table') in the error,
 /// then finds them in the source to highlight the right word.
+/// `stmt_offset` is the byte offset of the statement within the full document.
 fn extract_error_range(
     error_msg: &str,
-    source: &str,
+    stmt_source: &str,
     line_index: &LineIndex,
+    stmt_offset: usize,
 ) -> tower_lsp::lsp_types::Range {
     // Try backtick-quoted identifier first: `name`
     // Then single-quoted: 'name'
@@ -466,17 +489,22 @@ fn extract_error_range(
         .or_else(|| extract_quoted(error_msg, '\''));
 
     if let Some(ident) = identifier {
-        // Find this identifier in the source (case-insensitive)
-        let lower_source = source.to_lowercase();
+        // Find this identifier in the statement source (case-insensitive)
+        let lower_source = stmt_source.to_lowercase();
         let lower_ident = ident.to_lowercase();
         if let Some(pos) = lower_source.find(&lower_ident) {
-            return line_index.range(pos as u32, (pos + ident.len()) as u32);
+            let abs_start = (stmt_offset + pos) as u32;
+            let abs_end = (stmt_offset + pos + ident.len()) as u32;
+            return line_index.range(abs_start, abs_end);
         }
     }
 
-    // Fallback: highlight the entire first line
-    let first_line_end = source.find('\n').unwrap_or(source.len());
-    line_index.range(0, first_line_end as u32)
+    // Fallback: highlight the first line of the statement
+    let first_line_end = stmt_source.find('\n').unwrap_or(stmt_source.len());
+    line_index.range(
+        stmt_offset as u32,
+        (stmt_offset + first_line_end) as u32,
+    )
 }
 
 fn extract_quoted(s: &str, quote: char) -> Option<String> {
