@@ -92,7 +92,7 @@ jobs:
       - name: Package extension
         working-directory: packages/vscode
         run: |
-          npx @vscode/vsce package --target ${{ matrix.code-target }} -o ../../clickhouse-analyzer-${{ matrix.code-target }}.vsix
+          npx @vscode/vsce package --pre-release --target ${{ matrix.code-target }} -o ../../clickhouse-analyzer-${{ matrix.code-target }}.vsix
 
       - name: Upload .vsix artifact
         uses: actions/upload-artifact@v4
@@ -117,7 +117,7 @@ jobs:
 
       - name: Publish to VS Code Marketplace
         run: |
-          npx @vscode/vsce publish --packagePath vsix/*.vsix
+          npx @vscode/vsce publish --pre-release --packagePath vsix/*.vsix
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
