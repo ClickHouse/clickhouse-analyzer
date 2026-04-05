@@ -5,6 +5,10 @@
   "version": "0.1.0",
   "publisher": "ClickHouse",
   "homepage": "https://clickhouse.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ClickHouse/clickhouse-analyzer"
+  },
   "license": "Apache-2.0",
   "private": true,
   "engines": {
@@ -31,7 +35,7 @@
         "clickhouse-analyzer.serverPath": {
           "type": "string",
           "default": "",
-          "description": "Path to the clickhouse-lsp binary. If empty, searches $PATH."
+          "description": "Path to the clickhouse-lsp binary. If empty, uses the bundled server or searches $PATH."
         },
         "clickhouse-analyzer.connection.enabled": {
           "type": "boolean",
@@ -71,6 +75,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.75.0",
+    "@vscode/vsce": "^3.0.0",
     "typescript": "^5.0.0"
   }
 }

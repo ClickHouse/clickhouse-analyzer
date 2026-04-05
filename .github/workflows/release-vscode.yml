@@ -1,0 +1,151 @@
+name: Release VS Code Extension
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish to VS Code Marketplace"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rust-target: x86_64-unknown-linux-gnu
+            code-target: linux-x64
+          - os: ubuntu-latest
+            rust-target: aarch64-unknown-linux-gnu
+            code-target: linux-arm64
+            cross: true
+          - os: macos-latest
+            rust-target: x86_64-apple-darwin
+            code-target: darwin-x64
+          - os: macos-latest
+            rust-target: aarch64-apple-darwin
+            code-target: darwin-arm64
+          - os: windows-latest
+            rust-target: x86_64-pc-windows-msvc
+            code-target: win32-x64
+          - os: windows-latest
+            rust-target: aarch64-pc-windows-msvc
+            code-target: win32-arm64
+
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.code-target }})
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.rust-target }}
+
+      - name: Install cross-compilation tools
+        if: matrix.cross
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Build LSP server
+        run: cargo build --release --features lsp --bin clickhouse-lsp --target ${{ matrix.rust-target }}
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.cross && 'aarch64-linux-gnu-gcc' || '' }}
+
+      - name: Copy server binary (unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p packages/vscode/server
+          cp target/${{ matrix.rust-target }}/release/clickhouse-lsp packages/vscode/server/
+          chmod +x packages/vscode/server/clickhouse-lsp
+
+      - name: Copy server binary (windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir -p packages/vscode/server
+          cp target/${{ matrix.rust-target }}/release/clickhouse-lsp.exe packages/vscode/server/
+        shell: bash
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies and build extension
+        working-directory: packages/vscode
+        run: |
+          npm ci
+          npm run build
+
+      - name: Package extension
+        working-directory: packages/vscode
+        run: |
+          npx @vscode/vsce package --target ${{ matrix.code-target }} -o ../../clickhouse-analyzer-${{ matrix.code-target }}.vsix
+
+      - name: Upload .vsix artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix-${{ matrix.code-target }}
+          path: clickhouse-analyzer-${{ matrix.code-target }}.vsix
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    steps:
+      - name: Download all .vsix artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: vsix-*
+          merge-multiple: true
+          path: vsix
+
+      - name: List artifacts
+        run: ls -la vsix/
+
+      - name: Publish to VS Code Marketplace
+        run: |
+          npx @vscode/vsce publish --packagePath vsix/*.vsix
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+      - name: Publish to Open VSX
+        run: |
+          for vsix in vsix/*.vsix; do
+            npx ovsx publish "$vsix" -p ${{ secrets.OVSX_PAT }}
+          done
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        if: env.OVSX_PAT != ''
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download all .vsix artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: vsix-*
+          merge-multiple: true
+          path: vsix
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: vsix/*.vsix
+          generate_release_notes: true
