@@ -1,3 +1,5 @@
+import * as path from "path";
+import * as fs from "fs";
 import { workspace, window, ExtensionContext, StatusBarAlignment, StatusBarItem } from "vscode";
 import {
   LanguageClient,
@@ -9,10 +11,26 @@ import {
 let client: LanguageClient | undefined;
 let statusBarItem: StatusBarItem | undefined;
 
-export function activate(context: ExtensionContext) {
+function getServerPath(context: ExtensionContext): string {
   const config = workspace.getConfiguration("clickhouse-analyzer");
-  const serverPath =
-    config.get<string>("serverPath") || "clickhouse-lsp";
+  const configPath = config.get<string>("serverPath");
+  if (configPath) {
+    return configPath;
+  }
+
+  // Look for the bundled server binary
+  const ext = process.platform === "win32" ? ".exe" : "";
+  const bundledPath = path.join(context.extensionPath, "server", `clickhouse-lsp${ext}`);
+  if (fs.existsSync(bundledPath)) {
+    return bundledPath;
+  }
+
+  // Fall back to PATH
+  return "clickhouse-lsp";
+}
+
+export function activate(context: ExtensionContext) {
+  const serverPath = getServerPath(context);
 
   const run: Executable = {
     command: serverPath,
