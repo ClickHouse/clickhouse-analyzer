@@ -1,4 +1,4 @@
-# clickhouse-analyzer - EXPERIMENTAL
+# clickhouse-analyzer
 
 A resilient parser and tooling backend for ClickHouse SQL.
 
