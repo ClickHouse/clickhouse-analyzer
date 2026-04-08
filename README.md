@@ -4,6 +4,12 @@ A resilient parser and tooling backend for ClickHouse SQL.
 
 > Note that this project is experimental. It only covers ~95% of ClickHouse SQL. The cli/WASM interfaces are subject to change.
 
+Includes:
+- A parser library for Rust
+- A parser wrapper for WASM / TypeScript
+- An LSP
+- VSCode extension for the LSP
+
 ## CLI
 
 Parse and format ClickHouse SQL from the command line.
