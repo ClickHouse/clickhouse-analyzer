@@ -103,7 +103,11 @@ fn token_before_impl<'a>(
                 if token.kind == SyntaxKind::Whitespace || token.kind == SyntaxKind::Comment {
                     continue;
                 }
-                if token.start <= offset {
+                // A token is "before" the cursor only if it has fully ended by
+                // the cursor position. Using start <= offset would pick up a
+                // token that merely begins at the cursor (e.g. the `FROM` in
+                // `SELECT t.|FROM t` where the user wants dot-access).
+                if token.end <= offset {
                     *best = Some((token.text(source), parent_kind));
                 }
             }
@@ -377,7 +381,10 @@ fn find_ident_before_dot_impl<'a>(
                 if token.kind == SyntaxKind::Whitespace || token.kind == SyntaxKind::Comment {
                     continue;
                 }
-                if token.start > offset {
+                // Only consider tokens that fully ended before the cursor.
+                // This matters when the user typed `t.|word` with no space:
+                // `word` starts at the cursor, but we want `.` as `prev`.
+                if token.end > offset {
                     return;
                 }
                 *prev_prev = *prev;

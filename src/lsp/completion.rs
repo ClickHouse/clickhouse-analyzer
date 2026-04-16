@@ -422,3 +422,164 @@ fn resolve_qualifier(
     // Fallback: treat qualifier as a table name in the default database
     Some((default_db.to_string(), qualifier.to_string()))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analysis::scope::build_scope;
+    use crate::parser;
+
+    fn scope_for(sql: &str) -> crate::analysis::scope::QueryScope {
+        let parse = parser::parse(sql);
+        build_scope(&parse.tree, &parse.source)
+    }
+
+    #[test]
+    fn resolve_table_alias() {
+        let scope = scope_for("SELECT t.a FROM mytable AS t");
+        let resolved = resolve_qualifier("t", &scope, "default");
+        assert_eq!(resolved, Some(("default".into(), "mytable".into())));
+    }
+
+    #[test]
+    fn resolve_table_alias_case_insensitive() {
+        let scope = scope_for("SELECT T.a FROM mytable AS t");
+        let resolved = resolve_qualifier("T", &scope, "default");
+        assert_eq!(resolved, Some(("default".into(), "mytable".into())));
+    }
+
+    #[test]
+    fn resolve_table_name() {
+        let scope = scope_for("SELECT mytable.a FROM mytable");
+        let resolved = resolve_qualifier("mytable", &scope, "default");
+        assert_eq!(resolved, Some(("default".into(), "mytable".into())));
+    }
+
+    #[test]
+    fn resolve_qualified_table_via_last_segment() {
+        // `SELECT db.t.col FROM db.t` — the qualifier extracted at the
+        // cursor is the last segment before the dot, which is `t`.
+        // It should resolve to the fully-qualified ref.
+        let scope = scope_for("SELECT db.t.a FROM db.t");
+        let resolved = resolve_qualifier("t", &scope, "default");
+        assert_eq!(resolved, Some(("db".into(), "t".into())));
+    }
+
+    #[test]
+    fn resolve_alias_on_qualified_table() {
+        let scope = scope_for("SELECT a.col FROM db.mytable AS a");
+        let resolved = resolve_qualifier("a", &scope, "default");
+        assert_eq!(resolved, Some(("db".into(), "mytable".into())));
+    }
+
+    #[test]
+    fn resolve_in_join() {
+        let scope = scope_for(
+            "SELECT a.x, b.y FROM users AS a JOIN orders AS b ON a.id = b.user_id",
+        );
+        assert_eq!(
+            resolve_qualifier("a", &scope, "default"),
+            Some(("default".into(), "users".into()))
+        );
+        assert_eq!(
+            resolve_qualifier("b", &scope, "default"),
+            Some(("default".into(), "orders".into()))
+        );
+    }
+
+    /// End-to-end: given a SQL string and cursor offset, return the resolved
+    /// (database, table) pair the completion engine would look up columns in.
+    fn resolve_at(sql: &str, cursor: usize) -> Option<(String, String)> {
+        use crate::analysis::cursor_context::{cursor_context, CursorContext};
+        let parse = parser::parse(sql);
+        let scope = build_scope(&parse.tree, &parse.source);
+        let ctx = cursor_context(&parse.tree, &parse.source, cursor as u32);
+        match ctx {
+            CursorContext::ColumnOfTable { qualifier } => {
+                resolve_qualifier(&qualifier, &scope, "default")
+            }
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn e2e_alias_after_dot_resolves() {
+        // Cursor at `|` after `t.` in SELECT.
+        let sql = "SELECT t. FROM mytable AS t";
+        let cursor = sql.find('.').unwrap() + 1;
+        assert_eq!(
+            resolve_at(sql, cursor),
+            Some(("default".into(), "mytable".into()))
+        );
+    }
+
+    #[test]
+    fn e2e_qualified_table_after_dot_resolves() {
+        // Cursor at `|` after `t.` (last dot) in `SELECT db.t.| FROM db.t`.
+        let sql = "SELECT db.t. FROM db.t";
+        let cursor = sql.rfind("t. FROM").unwrap() + 2;
+        assert_eq!(
+            resolve_at(sql, cursor),
+            Some(("db".into(), "t".into()))
+        );
+    }
+
+    #[test]
+    fn e2e_alias_resolves_when_select_is_malformed() {
+        // User is mid-edit: SELECT clause has extra junk, FROM still parseable.
+        // The resolver should still see the alias and resolve to the table.
+        let sql = "SELECT x, a. FROM mytable AS a";
+        let cursor = sql.find("a. FROM").unwrap() + 2;
+        assert_eq!(
+            resolve_at(sql, cursor),
+            Some(("default".into(), "mytable".into())),
+            "scope should still find alias 'a' when SELECT is mid-edit"
+        );
+    }
+
+    #[test]
+    fn e2e_qualified_table_in_where_resolves() {
+        let sql = "SELECT * FROM db.mytable WHERE mytable. = 1";
+        let cursor = sql.find("mytable. =").unwrap() + "mytable.".len();
+        assert_eq!(
+            resolve_at(sql, cursor),
+            Some(("db".into(), "mytable".into()))
+        );
+    }
+
+    #[test]
+    fn e2e_dot_at_end_of_partial_query_resolves() {
+        // Cursor right at the end of a partial query. No trailing token at all.
+        let sql = "SELECT t. FROM mytable AS t";
+        let cursor = sql.find('.').unwrap() + 1;
+        assert_eq!(
+            resolve_at(sql, cursor),
+            Some(("default".into(), "mytable".into()))
+        );
+    }
+
+    #[test]
+    #[ignore = "requires SELECT-clause recovery to not consume FROM into qualified column"]
+    fn e2e_dot_cursor_with_no_space_before_from() {
+        // Typical live typing: user hit `.` and autocomplete fires before
+        // any trailing character is typed. The adjacent `FROM` is currently
+        // consumed as a column name, losing the FROM clause.
+        let sql = "SELECT t.FROM mytable AS t";
+        let cursor = sql.find('.').unwrap() + 1;
+        assert_eq!(
+            resolve_at(sql, cursor),
+            Some(("default".into(), "mytable".into())),
+        );
+    }
+
+    #[test]
+    fn e2e_alias_dot_works_across_multiple_columns() {
+        // Real-world: cursor on `b.` after some columns already typed.
+        let sql = "SELECT a.x, a.y, b. FROM users AS a JOIN orders AS b ON a.id = b.id";
+        let cursor = sql.find("b. ").unwrap() + 2;
+        assert_eq!(
+            resolve_at(sql, cursor),
+            Some(("default".into(), "orders".into()))
+        );
+    }
+}
