@@ -45,19 +45,25 @@ pub fn parse_column_type(p: &mut Parser) {
 fn parse_type_parameter(p: &mut Parser) {
     if p.at(SyntaxKind::BareWord) {
         if p.at_keyword(Keyword::Skip) {
-            // SKIP path — JSON type parameter to skip a path.
-            // Consume SKIP keyword and the path identifier(s).
+            // SKIP <path> | SKIP REGEXP '<pattern>' — JSON type parameters
+            // that tell the engine not to materialise certain paths.
             p.advance(); // consume SKIP
-            // The path can be a dot-separated identifier or a REGEXP pattern
-            if p.at(SyntaxKind::BareWord) {
-                p.advance(); // consume path name
-                // Handle dot-separated paths like SKIP a.b.c
+            if p.at(SyntaxKind::BareWord)
+                && p.nth_text(0).eq_ignore_ascii_case("REGEXP")
+            {
+                p.advance(); // consume REGEXP
+                if p.at(SyntaxKind::StringToken) {
+                    p.advance();
+                } else {
+                    p.recover_with_error("Expected string literal after SKIP REGEXP");
+                }
+            } else if p.at(SyntaxKind::BareWord) {
+                p.advance(); // consume first path segment
                 while p.at(SyntaxKind::Dot) && p.nth(1) == SyntaxKind::BareWord {
                     p.advance(); // consume .
                     p.advance(); // consume identifier
                 }
             } else if p.at(SyntaxKind::StringToken) {
-                // SKIP REGEXP 'pattern' — already consumed SKIP, string follows
                 p.advance();
             }
         } else if p.nth(1) == SyntaxKind::Equals {
@@ -293,5 +299,32 @@ mod tests {
                             'String'
                           ')'
         "#]]);
+    }
+
+    #[test]
+    fn json_type_with_skip_regexp() {
+        // SKIP REGEXP 'pattern' inside a JSON(...) parameter list.
+        // Previously flagged with a red squiggle because REGEXP was consumed
+        // as the path and the string became a stray token.
+        let result = parse(
+            "CREATE TABLE t (c JSON(max_dynamic_paths=0, SKIP REGEXP 'utm_.*', loc String)) ENGINE = MergeTree ORDER BY tuple()",
+        );
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
+    }
+
+    #[test]
+    fn json_type_with_skip_path_still_works() {
+        let result = parse(
+            "CREATE TABLE t (c JSON(SKIP some.nested.path, a String)) ENGINE = MergeTree ORDER BY tuple()",
+        );
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
     }
 }
