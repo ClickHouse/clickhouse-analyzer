@@ -1,11 +1,19 @@
 use tower_lsp::lsp_types::*;
 
 use crate::analysis::cursor_context::{cursor_context, CursorContext};
-use crate::analysis::scope::build_scope;
+use crate::analysis::scope::{build_scope, find_enclosing_statement, QueryScope};
 use crate::metadata::cache::SharedMetadata;
 use crate::parser::diagnostic::Parse;
 
 use super::line_index::LineIndex;
+
+/// Build the scope for the statement enclosing the cursor. When the cursor is
+/// inside a subquery, this gives us the *inner* scope so column completions
+/// are resolved against the subquery's own FROM clause, not the outer query.
+fn scope_at(parse: &Parse, offset: u32) -> QueryScope {
+    let stmt = find_enclosing_statement(&parse.tree, offset).unwrap_or(&parse.tree);
+    build_scope(stmt, &parse.source)
+}
 
 pub async fn handle_completion(
     parse: &Parse,
@@ -34,10 +42,14 @@ pub async fn handle_completion(
         CursorContext::ColumnOfTable { qualifier } => {
             let mut meta = metadata.write().await;
             if meta.is_connected() {
-                let scope = build_scope(&parse.tree, &parse.source);
-                let default_db = meta.default_database().to_string();
-                if let Some((db, table)) = resolve_qualifier(qualifier, &scope, &default_db) {
-                    let _ = meta.ensure_columns(&db, &table).await;
+                let scope = scope_at(parse, offset);
+                // Subquery aliases resolve to their own projection — no
+                // server lookup needed. Only pre-fetch for real tables.
+                if scope.subquery_columns_for(qualifier).is_none() {
+                    let default_db = meta.default_database().to_string();
+                    if let Some((db, table)) = resolve_qualifier(qualifier, &scope, &default_db) {
+                        let _ = meta.ensure_columns(&db, &table).await;
+                    }
                 }
             }
         }
@@ -45,7 +57,7 @@ pub async fn handle_completion(
             // Pre-fetch columns for all tables in scope
             let mut meta = metadata.write().await;
             if meta.is_connected() {
-                let scope = build_scope(&parse.tree, &parse.source);
+                let scope = scope_at(parse, offset);
                 let default_db = meta.default_database().to_string();
                 for tref in &scope.table_refs {
                     let db = tref.database.as_deref().unwrap_or(&default_db);
@@ -100,28 +112,40 @@ pub async fn handle_completion(
         }
 
         CursorContext::ColumnOfTable { ref qualifier } => {
-            // Resolve qualifier to database.table via scope, then show columns
-            let scope = build_scope(&parse.tree, &parse.source);
-            let default_db = meta.default_database().to_string();
-            if let Some((db, table)) = resolve_qualifier(qualifier, &scope, &default_db) {
-                for col in meta.get_columns(&db, &table) {
+            let scope = scope_at(parse, offset);
+            // Subquery alias: expose the subquery's own projection directly.
+            if let Some(cols) = scope.subquery_columns_for(qualifier) {
+                for name in cols {
                     items.push(CompletionItem {
-                        label: col.name.clone(),
+                        label: name,
                         kind: Some(CompletionItemKind::FIELD),
-                        detail: Some(col.data_type.clone()),
-                        documentation: if col.comment.is_empty() {
-                            None
-                        } else {
-                            Some(Documentation::String(col.comment.clone()))
-                        },
+                        detail: Some("subquery projection".into()),
                         ..Default::default()
                     });
+                }
+            } else {
+                // Regular table or table alias — resolve and look up metadata.
+                let default_db = meta.default_database().to_string();
+                if let Some((db, table)) = resolve_qualifier(qualifier, &scope, &default_db) {
+                    for col in meta.get_columns(&db, &table) {
+                        items.push(CompletionItem {
+                            label: col.name.clone(),
+                            kind: Some(CompletionItemKind::FIELD),
+                            detail: Some(col.data_type.clone()),
+                            documentation: if col.comment.is_empty() {
+                                None
+                            } else {
+                                Some(Documentation::String(col.comment.clone()))
+                            },
+                            ..Default::default()
+                        });
+                    }
                 }
             }
         }
 
         CursorContext::SelectExpression => {
-            add_columns_in_scope(&meta, parse, &mut items);
+            add_columns_in_scope(&meta, parse, offset, &mut items);
             add_functions(&meta.functions, &mut items);
             for kw in &["DISTINCT", "CASE", "NOT", "NULL", "TRUE", "FALSE", "*"] {
                 items.push(keyword_item(kw));
@@ -137,7 +161,7 @@ pub async fn handle_completion(
         }
 
         CursorContext::Expression => {
-            add_columns_in_scope(&meta, parse, &mut items);
+            add_columns_in_scope(&meta, parse, offset, &mut items);
             add_functions(&meta.functions, &mut items);
             for kw in &[
                 "AND", "OR", "NOT", "IN", "BETWEEN", "LIKE", "ILIKE", "IS",
@@ -158,7 +182,7 @@ pub async fn handle_completion(
             // Only show completions if the user has started typing a prefix
             // Otherwise signature help is more useful here
             if !lower_prefix.is_empty() {
-                add_columns_in_scope(&meta, parse, &mut items);
+                add_columns_in_scope(&meta, parse, offset, &mut items);
                 add_functions(&meta.functions, &mut items);
             }
         }
@@ -301,12 +325,13 @@ pub async fn handle_completion(
 fn add_columns_in_scope(
     meta: &crate::metadata::cache::MetadataCache,
     parse: &Parse,
+    offset: u32,
     items: &mut Vec<CompletionItem>,
 ) {
     if !meta.is_connected() {
         return;
     }
-    let scope = build_scope(&parse.tree, &parse.source);
+    let scope = scope_at(parse, offset);
     let default_db = meta.default_database().to_string();
     let mut seen = std::collections::HashSet::new();
 
@@ -492,7 +517,7 @@ mod tests {
     fn resolve_at(sql: &str, cursor: usize) -> Option<(String, String)> {
         use crate::analysis::cursor_context::{cursor_context, CursorContext};
         let parse = parser::parse(sql);
-        let scope = build_scope(&parse.tree, &parse.source);
+        let scope = scope_at(&parse, cursor as u32);
         let ctx = cursor_context(&parse.tree, &parse.source, cursor as u32);
         match ctx {
             CursorContext::ColumnOfTable { qualifier } => {
@@ -569,6 +594,55 @@ mod tests {
             resolve_at(sql, cursor),
             Some(("default".into(), "mytable".into())),
         );
+    }
+
+    #[test]
+    fn e2e_cursor_inside_subquery_uses_inner_scope() {
+        // Cursor is inside a subquery; the inner `FROM inner_tbl` must be
+        // what defines the scope, not the outer query.
+        let sql = "SELECT * FROM (SELECT x. FROM inner_tbl AS x) outer_alias";
+        let cursor = sql.find("x. ").unwrap() + 2;
+        assert_eq!(
+            resolve_at(sql, cursor),
+            Some(("default".into(), "inner_tbl".into())),
+        );
+    }
+
+    #[test]
+    fn e2e_subquery_alias_exposes_projection() {
+        // Outer query references a subquery via its alias; the subquery's
+        // projected columns (`a`, `b`) should be resolvable through the alias.
+        let sql = "SELECT x. FROM (SELECT a, b FROM inner_tbl) x";
+        let parse = parser::parse(sql);
+        let scope = scope_at(&parse, (sql.find("x. ").unwrap() + 2) as u32);
+        // The subquery alias `x` should expose `a` and `b` as columns.
+        let cols = scope.subquery_columns_for("x");
+        assert_eq!(
+            cols,
+            Some(vec!["a".to_string(), "b".to_string()])
+        );
+    }
+
+    #[test]
+    fn e2e_subquery_alias_exposes_as_aliased_projection() {
+        // Inner columns via expression + AS alias — should surface the alias.
+        let sql = "SELECT x. FROM (SELECT count() AS total, user_id FROM t GROUP BY user_id) x";
+        let parse = parser::parse(sql);
+        let scope = scope_at(&parse, (sql.find("x. ").unwrap() + 2) as u32);
+        let cols = scope.subquery_columns_for("x");
+        assert_eq!(
+            cols,
+            Some(vec!["total".to_string(), "user_id".to_string()])
+        );
+    }
+
+    #[test]
+    fn e2e_subquery_alias_does_not_match_regular_table() {
+        // Regular alias (not a subquery) returns None for subquery_columns_for.
+        let sql = "SELECT x. FROM mytable AS x";
+        let parse = parser::parse(sql);
+        let scope = scope_at(&parse, (sql.find("x. ").unwrap() + 2) as u32);
+        assert!(scope.subquery_columns_for("x").is_none());
     }
 
     #[test]
