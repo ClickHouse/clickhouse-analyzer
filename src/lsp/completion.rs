@@ -559,11 +559,10 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "requires SELECT-clause recovery to not consume FROM into qualified column"]
     fn e2e_dot_cursor_with_no_space_before_from() {
-        // Typical live typing: user hit `.` and autocomplete fires before
-        // any trailing character is typed. The adjacent `FROM` is currently
-        // consumed as a column name, losing the FROM clause.
+        // Live typing: user just hit `.` and autocomplete fires before any
+        // trailing character. The adjacent `FROM` must not be consumed into
+        // the qualified column reference.
         let sql = "SELECT t.FROM mytable AS t";
         let cursor = sql.find('.').unwrap() + 1;
         assert_eq!(

@@ -3218,3 +3218,74 @@ fn with_totals_in_subquery_test() {
         expect![[""]],
     );
 }
+
+// ====================================================================
+// SELECT-clause resilience — in-flight edits must not eat the FROM
+// ====================================================================
+
+/// Assert that the given SQL, however malformed, produces a tree that
+/// contains a FromClause pointing at the expected table name.
+fn assert_from_clause_with_table(sql: &str, expected_table: &str) {
+    let result = parse(sql);
+    let mut buf = String::new();
+    result.tree.print(&mut buf, 0, &result.source);
+    assert!(
+        buf.contains("FromClause"),
+        "FROM clause should survive SELECT error recovery for {:?}\n{}",
+        sql,
+        buf
+    );
+    assert!(
+        buf.contains(expected_table),
+        "table {:?} should be preserved in tree for {:?}\n{}",
+        expected_table,
+        sql,
+        buf
+    );
+}
+
+#[test]
+fn resilience_dot_immediately_before_from() {
+    // `t.FROM` used to be consumed as a qualified column; the FROM clause
+    // must survive as a sibling.
+    assert_from_clause_with_table("SELECT t.FROM mytable AS t", "mytable");
+}
+
+#[test]
+fn resilience_dot_with_space_before_from() {
+    assert_from_clause_with_table("SELECT t. FROM mytable AS t", "mytable");
+}
+
+#[test]
+fn resilience_trailing_dot_before_from() {
+    // User paused after typing a dot, the FROM is on a new line.
+    assert_from_clause_with_table("SELECT t.\nFROM mytable AS t", "mytable");
+}
+
+#[test]
+fn resilience_dot_before_where() {
+    assert_from_clause_with_table("SELECT t. FROM mytable AS t WHERE 1=1", "mytable");
+}
+
+#[test]
+fn resilience_dot_before_group_by() {
+    assert_from_clause_with_table(
+        "SELECT t. FROM mytable AS t GROUP BY 1",
+        "mytable",
+    );
+}
+
+#[test]
+fn resilience_trailing_comma_in_select() {
+    assert_from_clause_with_table("SELECT a, b, FROM mytable", "mytable");
+}
+
+#[test]
+fn resilience_double_comma_in_select() {
+    assert_from_clause_with_table("SELECT a,, b FROM mytable", "mytable");
+}
+
+#[test]
+fn resilience_bare_as_without_alias() {
+    assert_from_clause_with_table("SELECT a AS FROM mytable", "mytable");
+}
