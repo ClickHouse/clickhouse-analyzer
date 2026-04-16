@@ -87,6 +87,26 @@ fn parse_create_table(p: &mut Parser) {
     // ON CLUSTER
     common::parse_on_cluster(p);
 
+    // CLONE AS [db.]source_table — copies the source table's schema and data
+    // into the new table. ClickHouse optionally accepts ENGINE/ORDER BY/etc.
+    // overrides after, so fall through to the standard clause handling.
+    if p.at_keyword(Keyword::Clone) {
+        let cm = p.start();
+        p.advance(); // consume CLONE
+        p.expect_keyword(Keyword::As);
+        common::parse_table_identifier(p);
+        p.complete(cm, SyntaxKind::AsClause);
+
+        common::skip_to_keywords(p, CREATE_TABLE_KEYWORDS);
+        if p.at_keyword(Keyword::Engine) {
+            parse_engine_clause(p);
+        }
+        common::skip_to_keywords(p, CREATE_TABLE_KEYWORDS);
+        parse_table_clauses(p);
+        p.complete(m, SyntaxKind::TableDefinition);
+        return;
+    }
+
     // UUID (optional, skip string literal)
     if p.at_keyword(Keyword::As) && !p.at(SyntaxKind::OpeningRoundBracket) {
         // Could be CREATE TABLE ... AS other_table or CREATE TABLE ... AS SELECT
@@ -1374,5 +1394,48 @@ mod tests {
         assert!(buf.contains("EngineClause"));
         assert!(buf.contains("'`a`'"));
         assert!(buf.contains("'`b`'"));
+    }
+
+    #[test]
+    fn test_create_table_clone_as() {
+        // CREATE TABLE ... CLONE AS source clones schema + data from source.
+        let result = parse(
+            "CREATE TABLE new_db.new_tbl CLONE AS src_db.src_tbl",
+        );
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
+        let mut buf = String::new();
+        result.tree.print(&mut buf, 0, &result.source);
+        assert!(buf.contains("AsClause"));
+        assert!(buf.contains("'CLONE'"));
+        assert!(buf.contains("'src_db'"));
+        assert!(buf.contains("'src_tbl'"));
+    }
+
+    #[test]
+    fn test_create_table_clone_as_with_engine_override() {
+        let result = parse(
+            "CREATE TABLE t CLONE AS src ENGINE = MergeTree ORDER BY tuple()",
+        );
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
+    }
+
+    #[test]
+    fn test_create_table_clone_as_with_if_not_exists_and_cluster() {
+        let result = parse(
+            "CREATE TABLE IF NOT EXISTS t ON CLUSTER my_cluster CLONE AS src",
+        );
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
     }
 }

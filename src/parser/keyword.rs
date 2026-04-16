@@ -320,6 +320,9 @@ pub enum Keyword {
     Setting,
     Reset,
     Option,
+
+    // CREATE TABLE ... CLONE AS
+    Clone,
 }
 
 impl Keyword {
@@ -561,6 +564,7 @@ impl Keyword {
             Keyword::Reset => "RESET",
             Keyword::Option => "OPTION",
             Keyword::Cleanup => "CLEANUP",
+            Keyword::Clone => "CLONE",
         }
     }
 }
