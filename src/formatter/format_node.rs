@@ -149,8 +149,8 @@ pub fn format_node(tree: &SyntaxTree, ctx: &mut FormatterContext) {
         SyntaxKind::WhenClause => format_when_clause(tree, ctx),
         SyntaxKind::SubqueryExpression => format_subquery(tree, ctx),
         SyntaxKind::CastExpression => format_inline(tree, ctx),
-        SyntaxKind::ColumnAlias => format_inline(tree, ctx),
-        SyntaxKind::TableAlias => format_inline(tree, ctx),
+        SyntaxKind::ColumnAlias => format_alias(tree, ctx),
+        SyntaxKind::TableAlias => format_alias(tree, ctx),
         SyntaxKind::OrderByItem => format_inline(tree, ctx),
         SyntaxKind::SettingItem => format_inline(tree, ctx),
         SyntaxKind::WithExpressionItem => format_inline(tree, ctx),
@@ -165,11 +165,11 @@ pub fn format_node(tree: &SyntaxTree, ctx: &mut FormatterContext) {
         SyntaxKind::ArrayAccessExpression => format_inline_no_spaces(tree, ctx),
         SyntaxKind::MapExpression => format_brace_list(tree, ctx),
         SyntaxKind::QueryParameterExpression => format_inline_no_spaces(tree, ctx),
-        SyntaxKind::TableIdentifier => format_inline(tree, ctx),
+        SyntaxKind::TableIdentifier => format_identifier_inline(tree, ctx),
         SyntaxKind::TableExpression => format_inline(tree, ctx),
         SyntaxKind::TableFunction => format_function_call(tree, ctx),
-        SyntaxKind::QualifiedName => format_inline_no_spaces(tree, ctx),
-        SyntaxKind::ColumnReference => format_inline(tree, ctx),
+        SyntaxKind::QualifiedName => format_identifier_inline_no_spaces(tree, ctx),
+        SyntaxKind::ColumnReference => format_identifier_inline(tree, ctx),
         SyntaxKind::DataType => format_data_type(tree, ctx),
         SyntaxKind::DataTypeParameters => format_data_type(tree, ctx),
         SyntaxKind::UsingList => format_inline(tree, ctx),
@@ -1261,6 +1261,71 @@ fn format_inline_no_spaces(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     }
 }
 
+/// Wrap format_inline with identifier-context so BareWords matching keywords
+/// (e.g. a column literally named `type`) are not re-cased.
+fn format_identifier_inline(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    ctx.enter_identifier();
+    format_inline(tree, ctx);
+    ctx.exit_identifier();
+}
+
+/// Wrap format_inline_no_spaces with identifier-context for qualified names.
+fn format_identifier_inline_no_spaces(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    ctx.enter_identifier();
+    format_inline_no_spaces(tree, ctx);
+    ctx.exit_identifier();
+}
+
+/// Format a TableAlias or ColumnAlias: the optional `AS` is a keyword, the
+/// alias name itself is an identifier and must keep its source case.
+fn format_alias(tree: &SyntaxTree, ctx: &mut FormatterContext) {
+    let mut prev_kind: Option<SyntaxKind> = None;
+    let mut seen_as = false;
+    for child in &tree.children {
+        match child {
+            SyntaxChild::Token(t) if t.kind == SyntaxKind::Whitespace => {
+                ctx.note_skipped_whitespace(t.text(ctx.source));
+            }
+            SyntaxChild::Token(t) if t.kind == SyntaxKind::Comment => {
+                emit_comment(t, ctx);
+            }
+            SyntaxChild::Token(t) => {
+                if !no_space_before(t) {
+                    if let Some(pk) = prev_kind {
+                        if !no_space_after(pk) {
+                            ctx.write_space();
+                        }
+                    }
+                }
+                let is_as_kw = t.kind == SyntaxKind::BareWord
+                    && !seen_as
+                    && t.text(ctx.source).eq_ignore_ascii_case("AS");
+                if is_as_kw {
+                    emit_token(t, ctx);
+                    seen_as = true;
+                } else if t.kind == SyntaxKind::BareWord {
+                    // Alias name — always preserve case.
+                    ctx.enter_identifier();
+                    emit_token(t, ctx);
+                    ctx.exit_identifier();
+                } else {
+                    emit_token(t, ctx);
+                }
+                prev_kind = Some(t.kind);
+            }
+            SyntaxChild::Tree(subtree) => {
+                if let Some(pk) = prev_kind {
+                    if !no_space_after(pk) {
+                        ctx.write_space();
+                    }
+                }
+                format_node(subtree, ctx);
+                prev_kind = Some(SyntaxKind::BareWord);
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Passthrough -- resilience backstop
 // ---------------------------------------------------------------------------
@@ -1315,7 +1380,13 @@ fn emit_token(token: &Token, ctx: &mut FormatterContext) {
     if token.kind == SyntaxKind::Whitespace {
         return;
     }
-    if token.kind == SyntaxKind::BareWord && is_keyword(token.text(ctx.source)) && !is_value_keyword(token.text(ctx.source)) {
+    // Preserve case for identifiers — a BareWord inside an identifier-bearing
+    // node (e.g. a table named `type`) must not be rewritten as a keyword.
+    if token.kind == SyntaxKind::BareWord
+        && !ctx.in_identifier()
+        && is_keyword(token.text(ctx.source))
+        && !is_value_keyword(token.text(ctx.source))
+    {
         ctx.write_keyword(token.text(ctx.source));
     } else {
         ctx.write_token(token.text(ctx.source));
