@@ -363,8 +363,9 @@ fn parse_expression_postfix(p: &mut Parser, mut lhs: CompletedMarker, min_bp: u8
     }
 
     // Ternary operator: expr ? expr : expr
-    // Lowest precedence — handled after all binary operators.
-    if p.at(SyntaxKind::QuestionMark) && 0 >= min_bp {
+    // Lowest precedence — only engage at the outermost level (min_bp == 0),
+    // so a ternary nested inside a higher-precedence operator stops here.
+    if p.at(SyntaxKind::QuestionMark) && min_bp == 0 {
         let m = p.precede(lhs);
         p.advance(); // consume ?
         parse_expression(p); // middle ("then") expression
