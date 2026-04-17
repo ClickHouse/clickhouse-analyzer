@@ -148,9 +148,7 @@ pub fn parse_describe_statement(p: &mut Parser) {
     let m = p.start();
 
     // DESCRIBE or DESC
-    if p.at_keyword(Keyword::Describe) {
-        p.advance();
-    } else if p.at_keyword(Keyword::Desc) {
+    if p.at_keyword(Keyword::Describe) || p.at_keyword(Keyword::Desc) {
         p.advance();
     }
 
@@ -461,9 +459,7 @@ fn parse_show_settings(p: &mut Parser) {
 fn parse_like_clause(p: &mut Parser) {
     let m = p.start();
 
-    if p.at_keyword(Keyword::Like) {
-        p.advance();
-    } else if p.at_keyword(Keyword::Ilike) {
+    if p.at_keyword(Keyword::Like) || p.at_keyword(Keyword::Ilike) {
         p.advance();
     }
 
@@ -595,10 +591,8 @@ fn parse_settings_list(p: &mut Parser) {
         && !at_show_statement(p)
         && !at_describe_statement(p)
     {
-        if !first {
-            if !p.eat(SyntaxKind::Comma) {
-                break;
-            }
+        if !first && !p.eat(SyntaxKind::Comma) {
+            break;
         }
         first = false;
 

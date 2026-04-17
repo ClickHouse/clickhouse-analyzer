@@ -52,21 +52,17 @@ pub fn parse_create_statement(p: &mut Parser) {
         parse_create_role(p);
     } else if p.at_keyword(Keyword::Quota) {
         parse_create_quota(p);
-    } else if p.at_keyword(Keyword::Row) {
+    } else if p.at_keyword(Keyword::Row) || p.at_keyword(Keyword::Policy) {
         parse_create_row_policy(p);
-    } else if p.at_keyword(Keyword::Policy) {
-        parse_create_row_policy(p);
-    } else if p.at_keyword(Keyword::Settings) && !is_temporary {
+    } else if (p.at_keyword(Keyword::Settings) && !is_temporary)
+        || p.at_keyword(Keyword::Profile)
+    {
         parse_create_settings_profile(p);
-    } else if p.at_keyword(Keyword::Profile) {
-        parse_create_settings_profile(p);
+    } else if is_temporary {
+        // TEMPORARY only valid with TABLE
+        p.recover_with_error("Expected TABLE after TEMPORARY");
     } else {
-        if is_temporary {
-            // TEMPORARY only valid with TABLE
-            p.recover_with_error("Expected TABLE after TEMPORARY");
-        } else {
-            p.advance_with_error("Expected TABLE, DATABASE, VIEW, MATERIALIZED VIEW, FUNCTION, or DICTIONARY");
-        }
+        p.advance_with_error("Expected TABLE, DATABASE, VIEW, MATERIALIZED VIEW, FUNCTION, or DICTIONARY");
     }
 
     p.complete(m, SyntaxKind::CreateStatement);
@@ -867,10 +863,8 @@ fn parse_settings_clause(p: &mut Parser) {
             break;
         }
 
-        if !first {
-            if !p.eat(SyntaxKind::Comma) {
-                break;
-            }
+        if !first && !p.eat(SyntaxKind::Comma) {
+            break;
         }
         first = false;
 

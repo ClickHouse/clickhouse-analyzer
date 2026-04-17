@@ -1621,11 +1621,10 @@ fn format_column_def_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
         let content = if let Some(ref c) = comment {
             // Strip the comment from the formatted content
             let trimmed = formatted.trim_end();
-            let content = trimmed.strip_suffix(c.as_str())
+            trimmed.strip_suffix(c.as_str())
                 .unwrap_or(trimmed)
                 .trim_end()
-                .to_string();
-            content
+                .to_string()
         } else {
             formatted.trim_end().to_string()
         };

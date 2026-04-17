@@ -12,9 +12,9 @@ pub struct FormatterContext<'a> {
     pending_newline: bool,
     /// Set when skipped whitespace contained a blank line (2+ newlines).
     pending_blank_line: bool,
-    /// >0 when emitting tokens inside an identifier-bearing node (table name,
-    /// column reference, etc.). A BareWord emitted in this region must never
-    /// be re-cased as a keyword, even if its text matches one.
+    /// Greater than 0 when emitting tokens inside an identifier-bearing node
+    /// (table name, column reference, etc.). A BareWord emitted in this region
+    /// must never be re-cased as a keyword, even if its text matches one.
     identifier_depth: usize,
 }
 
