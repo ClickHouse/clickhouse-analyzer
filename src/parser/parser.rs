@@ -65,14 +65,9 @@ impl Parser {
         for i in 0..event_count {
             if let Event::Open { forward_parent: Some(_), .. } = &events[i] {
                 let mut cur = i;
-                loop {
-                    match &events[cur] {
-                        Event::Open { forward_parent: Some(next), .. } => {
-                            opened_via_fp[*next as usize] = true;
-                            cur = *next as usize;
-                        }
-                        _ => break,
-                    }
+                while let Event::Open { forward_parent: Some(next), .. } = &events[cur] {
+                    opened_via_fp[*next as usize] = true;
+                    cur = *next as usize;
                 }
             }
         }
@@ -90,14 +85,9 @@ impl Parser {
                         // Collect the chain: self -> fp1 -> fp2 -> ... -> last
                         let mut chain = vec![i];
                         let mut cur = i;
-                        loop {
-                            match &events[cur] {
-                                Event::Open { forward_parent: Some(next), .. } => {
-                                    chain.push(*next as usize);
-                                    cur = *next as usize;
-                                }
-                                _ => break,
-                            }
+                        while let Event::Open { forward_parent: Some(next), .. } = &events[cur] {
+                            chain.push(*next as usize);
+                            cur = *next as usize;
                         }
                         // Open wrapper nodes from outermost (end of chain) to innermost,
                         // then the original node last
@@ -216,35 +206,23 @@ impl Parser {
             forward_parent: None,
         });
         // Point the original node's Open event to the new wrapper
-        match &mut self.events[m.index] {
-            Event::Open { forward_parent: _, .. } => {
-                // Follow any existing chain to the end
-                let mut target = m.index;
-                loop {
-                    match &self.events[target] {
-                        Event::Open { forward_parent: Some(next), .. } => {
-                            target = *next as usize;
-                        }
-                        _ => break,
-                    }
-                }
-                match &mut self.events[target] {
-                    Event::Open { forward_parent, .. } => {
-                        *forward_parent = Some(new_index as u32);
-                    }
-                    _ => {}
-                }
+        if matches!(self.events[m.index], Event::Open { .. }) {
+            // Follow any existing chain to the end
+            let mut target = m.index;
+            while let Event::Open { forward_parent: Some(next), .. } = &self.events[target] {
+                target = *next as usize;
             }
-            _ => {}
+            if let Event::Open { forward_parent, .. } = &mut self.events[target] {
+                *forward_parent = Some(new_index as u32);
+            }
         }
         Marker { index: new_index }
     }
 
     /// Retroactively change the SyntaxKind of an already-completed node.
     pub fn change_kind(&mut self, m: CompletedMarker, kind: SyntaxKind) {
-        match &mut self.events[m.index] {
-            Event::Open { kind: k, .. } => *k = kind,
-            _ => {}
+        if let Event::Open { kind: k, .. } = &mut self.events[m.index] {
+            *k = kind;
         }
     }
 
@@ -257,9 +235,8 @@ impl Parser {
     }
 
     pub fn complete(&mut self, m: Marker, kind: SyntaxKind) -> CompletedMarker {
-        match &mut self.events[m.index] {
-            Event::Open { kind: k, .. } => *k = kind,
-            _ => {}
+        if let Event::Open { kind: k, .. } = &mut self.events[m.index] {
+            *k = kind;
         }
         self.events.push(Event::Close);
         CompletedMarker { index: m.index }

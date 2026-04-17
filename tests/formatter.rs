@@ -933,6 +933,59 @@ fn format_clause_after_having() {
 }
 
 #[test]
+fn column_named_like_keyword_preserves_case() {
+    // A column named `type` (a keyword) must not be uppercased by the formatter.
+    check_format(
+        "select t.type from t",
+        expect![[r#"
+            SELECT
+                t.type
+            FROM t
+        "#]],
+    );
+}
+
+#[test]
+fn table_alias_named_like_keyword_preserves_case() {
+    // An alias named `final` (a keyword) must not be uppercased.
+    // (note: ClickHouse treats `final` as a soft keyword usable as alias)
+    check_format(
+        "select a from t as type",
+        expect![[r#"
+            SELECT
+                a
+            FROM t AS type
+        "#]],
+    );
+}
+
+#[test]
+fn qualified_table_with_keyword_parts_preserves_case() {
+    // A fully-qualified table where parts match keywords must not be uppercased.
+    check_format(
+        "select * from system.type",
+        expect![[r#"
+            SELECT
+                *
+            FROM system.type
+        "#]],
+    );
+}
+
+#[test]
+fn column_alias_named_like_keyword_preserves_case() {
+    // An output alias like `AS type` must not have the alias name uppercased.
+    check_format(
+        "select a as type from t",
+        expect![[r#"
+            SELECT
+                a AS type
+            FROM t
+        "#]],
+    );
+}
+
+#[test]
 fn idempotent_codec_types() {
     check_idempotent("CREATE TABLE t (`ts` DateTime64(9) CODEC(Delta(8), ZSTD(1))) ENGINE = MergeTree() ORDER BY ts");
 }

@@ -1,6 +1,6 @@
 use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::common::parse_optional_settings_clause;
-use crate::parser::grammar::select::{at_end_of_column_list, at_select_statement, parse_select_statement};
+use crate::parser::grammar::select::{at_end_of_column_list, at_select_statement, nth_is_clause_keyword, parse_select_statement};
 use crate::parser::grammar::types::parse_column_type;
 use crate::parser::interval_unit::IntervalUnit;
 use crate::parser::keyword::Keyword;
@@ -197,6 +197,11 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
             //   - a numeric index after an identifier chain: a.b.1
             //   - qualified asterisk: t1.*
             //   - JSON typed path access: json.path.:Type
+            // A clause keyword after the dot (`t.|FROM ...`) is never a valid
+            // field access; stop so the clause can be recognized.
+            if nth_is_clause_keyword(p, 1) {
+                break;
+            }
             if p.nth(1) == SyntaxKind::Colon {
                 // JSON typed path access: expr.:Type
                 let m = p.precede(lhs);
@@ -358,8 +363,9 @@ fn parse_expression_postfix(p: &mut Parser, mut lhs: CompletedMarker, min_bp: u8
     }
 
     // Ternary operator: expr ? expr : expr
-    // Lowest precedence — handled after all binary operators.
-    if p.at(SyntaxKind::QuestionMark) && 0 >= min_bp {
+    // Lowest precedence — only engage at the outermost level (min_bp == 0),
+    // so a ternary nested inside a higher-precedence operator stops here.
+    if p.at(SyntaxKind::QuestionMark) && min_bp == 0 {
         let m = p.precede(lhs);
         p.advance(); // consume ?
         parse_expression(p); // middle ("then") expression
@@ -494,12 +500,16 @@ fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
             // json.path.field).  Stops when the segment after a dot is NOT an
             // identifier — numeric tuple indices (a.1) are left for the
             // DotAccessExpression postfix handler, matching ClickHouse semantics.
+            // Also stops when the segment after the dot is an unambiguous SELECT
+            // clause keyword (FROM, WHERE, ...): live-edit scenarios like
+            // `SELECT t.|FROM x` must not swallow the next clause.
             else if !at_end_of_column_list(p) {
                 let m = p.start();
                 p.advance();
                 while p.at(SyntaxKind::Dot)
                     && (p.nth(1) == SyntaxKind::BareWord
                         || p.nth(1) == SyntaxKind::QuotedIdentifier)
+                    && !nth_is_clause_keyword(p, 1)
                     && !p.eof()
                 {
                     p.advance(); // consume .

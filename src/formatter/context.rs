@@ -12,6 +12,10 @@ pub struct FormatterContext<'a> {
     pending_newline: bool,
     /// Set when skipped whitespace contained a blank line (2+ newlines).
     pending_blank_line: bool,
+    /// Greater than 0 when emitting tokens inside an identifier-bearing node
+    /// (table name, column reference, etc.). A BareWord emitted in this region
+    /// must never be re-cased as a keyword, even if its text matches one.
+    identifier_depth: usize,
 }
 
 impl<'a> FormatterContext<'a> {
@@ -25,7 +29,20 @@ impl<'a> FormatterContext<'a> {
             needs_space: false,
             pending_newline: false,
             pending_blank_line: false,
+            identifier_depth: 0,
         }
+    }
+
+    pub fn enter_identifier(&mut self) {
+        self.identifier_depth += 1;
+    }
+
+    pub fn exit_identifier(&mut self) {
+        self.identifier_depth = self.identifier_depth.saturating_sub(1);
+    }
+
+    pub fn in_identifier(&self) -> bool {
+        self.identifier_depth > 0
     }
 
     pub fn write_newline(&mut self) {
@@ -113,6 +130,7 @@ impl<'a> FormatterContext<'a> {
             needs_space: false,
             pending_newline: false,
             pending_blank_line: false,
+            identifier_depth: self.identifier_depth,
         }
     }
 

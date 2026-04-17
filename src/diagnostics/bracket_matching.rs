@@ -25,12 +25,12 @@ fn collect_brackets(tree: &SyntaxTree, stack: &mut Vec<BracketInfo>) {
                     | SyntaxKind::ClosingCurlyBrace => {
                         // Pop matching opener
                         if let Some(last) = stack.last() {
-                            let matches = match (last.kind, token.kind) {
-                                (SyntaxKind::OpeningRoundBracket, SyntaxKind::ClosingRoundBracket) => true,
-                                (SyntaxKind::OpeningSquareBracket, SyntaxKind::ClosingSquareBracket) => true,
-                                (SyntaxKind::OpeningCurlyBrace, SyntaxKind::ClosingCurlyBrace) => true,
-                                _ => false,
-                            };
+                            let matches = matches!(
+                                (last.kind, token.kind),
+                                (SyntaxKind::OpeningRoundBracket, SyntaxKind::ClosingRoundBracket)
+                                    | (SyntaxKind::OpeningSquareBracket, SyntaxKind::ClosingSquareBracket)
+                                    | (SyntaxKind::OpeningCurlyBrace, SyntaxKind::ClosingCurlyBrace)
+                            );
                             if matches {
                                 stack.pop();
                             }

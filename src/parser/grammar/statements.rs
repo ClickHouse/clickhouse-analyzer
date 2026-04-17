@@ -141,15 +141,12 @@ pub fn parse_drop_statement(p: &mut Parser) {
 
     // Object kind: TABLE, DATABASE, VIEW, DICTIONARY, FUNCTION
     // TABLE is optional for DROP TABLE
-    if p.at_keyword(Keyword::Table) {
-        p.advance();
-    } else if p.at_keyword(Keyword::Database) {
-        p.advance();
-    } else if p.at_keyword(Keyword::View) {
-        p.advance();
-    } else if p.at_keyword(Keyword::Dictionary) {
-        p.advance();
-    } else if p.at_keyword(Keyword::Function) {
+    if p.at_keyword(Keyword::Table)
+        || p.at_keyword(Keyword::Database)
+        || p.at_keyword(Keyword::View)
+        || p.at_keyword(Keyword::Dictionary)
+        || p.at_keyword(Keyword::Function)
+    {
         p.advance();
     }
     // If none matched, that's ok -- DROP [IF EXISTS] name is valid shorthand
@@ -264,13 +261,11 @@ pub fn parse_exists_statement(p: &mut Parser) {
     let _ = p.eat_keyword(Keyword::Temporary);
 
     // Optional object type keyword
-    if p.at_keyword(Keyword::Table) {
-        p.advance();
-    } else if p.at_keyword(Keyword::Database) {
-        p.advance();
-    } else if p.at_keyword(Keyword::View) {
-        p.advance();
-    } else if p.at_keyword(Keyword::Dictionary) {
+    if p.at_keyword(Keyword::Table)
+        || p.at_keyword(Keyword::Database)
+        || p.at_keyword(Keyword::View)
+        || p.at_keyword(Keyword::Dictionary)
+    {
         p.advance();
     }
 
@@ -362,9 +357,7 @@ pub fn parse_attach_statement(p: &mut Parser) {
     p.expect_keyword(Keyword::Attach);
 
     // Object kind: TABLE, DATABASE
-    if p.at_keyword(Keyword::Table) {
-        p.advance();
-    } else if p.at_keyword(Keyword::Database) {
+    if p.at_keyword(Keyword::Table) || p.at_keyword(Keyword::Database) {
         p.advance();
     }
 
@@ -390,9 +383,7 @@ pub fn parse_detach_statement(p: &mut Parser) {
     p.expect_keyword(Keyword::Detach);
 
     // Object kind: TABLE, DATABASE
-    if p.at_keyword(Keyword::Table) {
-        p.advance();
-    } else if p.at_keyword(Keyword::Database) {
+    if p.at_keyword(Keyword::Table) || p.at_keyword(Keyword::Database) {
         p.advance();
     }
 
@@ -465,9 +456,7 @@ pub fn parse_backup_statement(p: &mut Parser) {
     p.expect_keyword(Keyword::Backup);
 
     // Object kind: TABLE, DATABASE
-    if p.at_keyword(Keyword::Table) {
-        p.advance();
-    } else if p.at_keyword(Keyword::Database) {
+    if p.at_keyword(Keyword::Table) || p.at_keyword(Keyword::Database) {
         p.advance();
     }
 
@@ -511,9 +500,7 @@ pub fn parse_restore_statement(p: &mut Parser) {
     p.expect_keyword(Keyword::Restore);
 
     // Object kind: TABLE, DATABASE
-    if p.at_keyword(Keyword::Table) {
-        p.advance();
-    } else if p.at_keyword(Keyword::Database) {
+    if p.at_keyword(Keyword::Table) || p.at_keyword(Keyword::Database) {
         p.advance();
     }
 
@@ -866,9 +853,7 @@ pub fn parse_system_statement(p: &mut Parser) {
     if is_flush_logs {
         // FLUSH LOGS can have comma-separated log target list: query_log, trace_log
         while !p.end_of_statement() {
-            if p.at_identifier() {
-                p.advance();
-            } else if p.at(SyntaxKind::Comma) {
+            if p.at_identifier() || p.at(SyntaxKind::Comma) {
                 p.advance();
             } else {
                 break;
@@ -907,9 +892,7 @@ pub fn parse_kill_statement(p: &mut Parser) {
 
     // QUERY or MUTATION — wrap in KillTarget
     let target = p.start();
-    if p.at_keyword(Keyword::Query) {
-        p.advance();
-    } else if p.at_keyword(Keyword::Mutation) {
+    if p.at_keyword(Keyword::Query) || p.at_keyword(Keyword::Mutation) {
         p.advance();
     } else {
         p.recover_with_error("Expected QUERY or MUTATION after KILL");

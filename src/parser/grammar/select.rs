@@ -186,6 +186,32 @@ pub fn at_end_of_column_list(p: &mut Parser) -> bool {
         || p.at_keyword(Keyword::Intersect)
 }
 
+/// True if the token at lookahead position `n` is a SELECT-statement clause
+/// keyword that unambiguously starts a new clause. Used by expression
+/// parsers to avoid consuming a clause keyword as if it were an identifier
+/// (e.g. `SELECT t.|FROM x` — the adjacent `FROM` must not be swallowed
+/// into the qualified column reference).
+pub fn nth_is_clause_keyword(p: &mut Parser, n: usize) -> bool {
+    if p.nth(n) != SyntaxKind::BareWord {
+        return false;
+    }
+    let text = p.nth_text(n);
+    for kw in SELECT_CLAUSE_KEYWORDS {
+        if text.eq_ignore_ascii_case(kw.as_str()) {
+            return true;
+        }
+    }
+    // Unambiguous join-starter keywords. Ambiguous ones like LEFT/RIGHT/ANY
+    // are excluded because they double as function names, so treating them
+    // as clause-terminators mid-expression would over-recover.
+    for kw in &[Keyword::Join, Keyword::Inner, Keyword::Cross, Keyword::Natural] {
+        if text.eq_ignore_ascii_case(kw.as_str()) {
+            return true;
+        }
+    }
+    false
+}
+
 const SELECT_CLAUSE_KEYWORDS: &[Keyword] = &[
     Keyword::Select, Keyword::From, Keyword::Where, Keyword::Order,
     Keyword::Limit, Keyword::Group, Keyword::Having, Keyword::Prewhere,
@@ -335,21 +361,19 @@ fn parse_select_clause(p: &mut Parser) {
     p.expect_keyword(Keyword::Select);
 
     // DISTINCT [ON (...)]
-    if p.eat_keyword(Keyword::Distinct) {
-        if p.at_keyword(Keyword::On) {
-            p.advance(); // consume ON
-            p.expect(SyntaxKind::OpeningRoundBracket);
-            // parse comma-separated column list inside parens
-            let mut first = true;
-            while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() && !p.end_of_statement() {
-                if !first {
-                    p.expect(SyntaxKind::Comma);
-                }
-                first = false;
-                parse_expression(p);
+    if p.eat_keyword(Keyword::Distinct) && p.at_keyword(Keyword::On) {
+        p.advance(); // consume ON
+        p.expect(SyntaxKind::OpeningRoundBracket);
+        // parse comma-separated column list inside parens
+        let mut first = true;
+        while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() && !p.end_of_statement() {
+            if !first {
+                p.expect(SyntaxKind::Comma);
             }
-            p.expect(SyntaxKind::ClosingRoundBracket);
+            first = false;
+            parse_expression(p);
         }
+        p.expect(SyntaxKind::ClosingRoundBracket);
     }
 
     parse_column_list(p);
@@ -672,11 +696,10 @@ fn parse_group_by_clause(p: &mut Parser) {
         // WITH TOTALS | WITH ROLLUP | WITH CUBE
         if p.at_keyword(Keyword::With) {
             p.advance(); // consume WITH
-            if p.at_keyword(Keyword::Totals) {
-                p.advance();
-            } else if p.at_keyword(Keyword::Rollup) {
-                p.advance();
-            } else if p.at_keyword(Keyword::Cube) {
+            if p.at_keyword(Keyword::Totals)
+                || p.at_keyword(Keyword::Rollup)
+                || p.at_keyword(Keyword::Cube)
+            {
                 p.advance();
             } else {
                 p.recover_with_error("Expected TOTALS, ROLLUP, or CUBE after WITH");
@@ -980,10 +1003,7 @@ fn parse_limit_clause(p: &mut Parser) {
     p.expect_keyword(Keyword::Limit);
     parse_expression(p);
 
-    if p.at_keyword(Keyword::Offset) {
-        p.advance();
-        parse_expression(p);
-    } else if p.at(SyntaxKind::Comma) {
+    if p.at_keyword(Keyword::Offset) || p.at(SyntaxKind::Comma) {
         p.advance();
         parse_expression(p);
     }

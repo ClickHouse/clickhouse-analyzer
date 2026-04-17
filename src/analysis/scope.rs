@@ -20,6 +20,15 @@ pub struct TableRef {
     pub range: (u32, u32),
 }
 
+/// A subquery used in a FROM position, together with its alias and the
+/// list of column names produced by its top-level projection. Gives the
+/// completion engine something to show when the user writes `alias.`.
+#[derive(Debug, Clone)]
+pub struct SubqueryRef {
+    pub alias: String,
+    pub columns: Vec<String>,
+}
+
 /// Resolved names within a single query.
 #[derive(Debug, Clone, Default)]
 pub struct QueryScope {
@@ -27,6 +36,17 @@ pub struct QueryScope {
     pub table_aliases: Vec<NameBinding>,
     pub column_aliases: Vec<NameBinding>,
     pub table_refs: Vec<TableRef>,
+    pub subquery_refs: Vec<SubqueryRef>,
+}
+
+impl QueryScope {
+    /// Columns produced by a subquery with the given alias, case-insensitive.
+    pub fn subquery_columns_for(&self, alias: &str) -> Option<Vec<String>> {
+        self.subquery_refs
+            .iter()
+            .find(|s| s.alias.eq_ignore_ascii_case(alias))
+            .map(|s| s.columns.clone())
+    }
 }
 
 /// Build a scope from the CST of a statement.
@@ -122,41 +142,59 @@ fn extract_cte(tree: &SyntaxTree, source: &str) -> Option<NameBinding> {
 /// CST structure: FromClause contains TableIdentifier and TableAlias as siblings.
 fn collect_table_refs(tree: &SyntaxTree, source: &str, scope: &mut QueryScope) {
     let mut last_table_ref: Option<TableRef> = None;
+    // Track the most recent subquery in the FROM position so a trailing
+    // TableAlias can be attached to it as a SubqueryRef.
+    let mut last_subquery_projection: Option<Vec<String>> = None;
 
     for child in &tree.children {
         if let SyntaxChild::Tree(subtree) = child {
             match subtree.kind {
                 SyntaxKind::TableIdentifier => {
-                    // Flush previous table ref before starting a new one
                     if let Some(tref) = last_table_ref.take() {
                         scope.table_refs.push(tref);
                     }
+                    last_subquery_projection = None;
                     last_table_ref = extract_table_identifier(subtree, source);
                 }
                 SyntaxKind::TableAlias => {
-                    // Attach alias to the most recent table ref
-                    if let Some(ref mut tref) = last_table_ref {
-                        if let Some((alias_name, alias_token)) =
-                            extract_alias_name(subtree, source)
-                        {
+                    if let Some((alias_name, alias_token)) =
+                        extract_alias_name(subtree, source)
+                    {
+                        if let Some(ref mut tref) = last_table_ref {
                             tref.alias = Some(alias_name.clone());
                             scope.table_aliases.push(NameBinding {
                                 name: alias_name,
                                 range: (alias_token.start, alias_token.end),
                                 definition_range: (subtree.start, subtree.end),
                             });
+                        } else if let Some(cols) = last_subquery_projection.take() {
+                            scope.table_aliases.push(NameBinding {
+                                name: alias_name.clone(),
+                                range: (alias_token.start, alias_token.end),
+                                definition_range: (subtree.start, subtree.end),
+                            });
+                            scope.subquery_refs.push(SubqueryRef {
+                                alias: alias_name,
+                                columns: cols,
+                            });
                         }
                     }
                 }
+                SyntaxKind::SubqueryExpression => {
+                    // Record the subquery's projection so a following alias
+                    // can claim it. The subquery's own FROM is intentionally
+                    // NOT added to the outer scope.
+                    last_subquery_projection =
+                        Some(extract_subquery_projection(subtree, source));
+                }
                 SyntaxKind::TableExpression => {
-                    // Recurse into table expressions
                     collect_table_refs(subtree, source, scope);
                 }
                 SyntaxKind::JoinClause => {
-                    // Flush before recursing into JOIN
                     if let Some(tref) = last_table_ref.take() {
                         scope.table_refs.push(tref);
                     }
+                    last_subquery_projection = None;
                     collect_table_refs(subtree, source, scope);
                 }
                 _ => {}
@@ -164,10 +202,108 @@ fn collect_table_refs(tree: &SyntaxTree, source: &str, scope: &mut QueryScope) {
         }
     }
 
-    // Flush the last table ref
     if let Some(tref) = last_table_ref {
         scope.table_refs.push(tref);
     }
+}
+
+/// Extract the top-level projection column names from a SubqueryExpression.
+/// Returns the AS-alias where present, otherwise the last segment of a
+/// dotted column reference, otherwise a synthetic name like `col_1`.
+fn extract_subquery_projection(tree: &SyntaxTree, source: &str) -> Vec<String> {
+    let Some(select_clause) = find_child(tree, SyntaxKind::SelectClause)
+        .or_else(|| find_descendant_select_clause(tree))
+    else {
+        return Vec::new();
+    };
+    let Some(column_list) = find_child(select_clause, SyntaxKind::ColumnList) else {
+        return Vec::new();
+    };
+
+    let mut out = Vec::new();
+    let mut pending_expr_name: Option<String> = None;
+    let mut index = 0usize;
+
+    for child in &column_list.children {
+        match child {
+            SyntaxChild::Tree(sub) => {
+                if sub.kind == SyntaxKind::ColumnAlias {
+                    if let Some((name, _)) = extract_alias_name(sub, source) {
+                        out.push(name);
+                        pending_expr_name = None;
+                        index += 1;
+                    }
+                } else {
+                    if let Some(prev) = pending_expr_name.take() {
+                        out.push(prev);
+                        index += 1;
+                    }
+                    pending_expr_name = Some(
+                        last_identifier_in(sub, source)
+                            .unwrap_or_else(|| format!("col_{}", index + 1)),
+                    );
+                }
+            }
+            SyntaxChild::Token(tok) => {
+                if tok.kind == SyntaxKind::Comma {
+                    if let Some(prev) = pending_expr_name.take() {
+                        out.push(prev);
+                        index += 1;
+                    }
+                }
+            }
+        }
+    }
+    if let Some(prev) = pending_expr_name {
+        out.push(prev);
+    }
+    out
+}
+
+fn find_child<'a>(tree: &'a SyntaxTree, kind: SyntaxKind) -> Option<&'a SyntaxTree> {
+    tree.children.iter().find_map(|c| match c {
+        SyntaxChild::Tree(t) if t.kind == kind => Some(t),
+        _ => None,
+    })
+}
+
+fn find_descendant_select_clause(tree: &SyntaxTree) -> Option<&SyntaxTree> {
+    for child in &tree.children {
+        if let SyntaxChild::Tree(t) = child {
+            if t.kind == SyntaxKind::SelectClause {
+                return Some(t);
+            }
+            if let Some(found) = find_descendant_select_clause(t) {
+                return Some(found);
+            }
+        }
+    }
+    None
+}
+
+/// Walk the rightmost identifier-bearing path of an expression subtree to
+/// guess the column name it would produce (e.g. `t.col` → `col`).
+fn last_identifier_in(tree: &SyntaxTree, source: &str) -> Option<String> {
+    let mut last: Option<String> = None;
+    for child in &tree.children {
+        match child {
+            SyntaxChild::Token(tok) => {
+                if tok.kind == SyntaxKind::BareWord || tok.kind == SyntaxKind::QuotedIdentifier {
+                    let text = tok.text(source);
+                    if text.eq_ignore_ascii_case("AS") {
+                        continue;
+                    }
+                    last = Some(unquote(text).to_string());
+                }
+            }
+            SyntaxChild::Tree(sub) => {
+                if let Some(inner) = last_identifier_in(sub, source) {
+                    last = Some(inner);
+                }
+            }
+        }
+    }
+    last
 }
 
 /// Extract the alias name from a TableAlias or ColumnAlias node.
