@@ -146,18 +146,19 @@ impl Backend {
                         _ => continue,
                     };
 
-                    let stmt_text = &parse.source[subtree.start as usize..subtree.end as usize];
-                    let trimmed = stmt_text.trim();
-                    if trimmed.is_empty() {
+                    // EXPLAIN PLAN only accepts SELECT (and UNION of SELECTs).
+                    // Running it against INSERT/CREATE/ALTER/etc. produces a
+                    // server-side error that isn't useful to the user.
+                    if !matches!(
+                        subtree.kind,
+                        SyntaxKind::SelectStatement | SyntaxKind::UnionClause
+                    ) {
                         continue;
                     }
 
-                    // Skip non-query statements that EXPLAIN PLAN can't handle
-                    let upper = trimmed.to_uppercase();
-                    if !upper.starts_with("SELECT")
-                        && !upper.starts_with("WITH")
-                        && !upper.starts_with("INSERT")
-                    {
+                    let stmt_text = &parse.source[subtree.start as usize..subtree.end as usize];
+                    let trimmed = stmt_text.trim();
+                    if trimmed.is_empty() {
                         continue;
                     }
 
