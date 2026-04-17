@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+#[cfg(any(feature = "lsp", feature = "codegen"))]
 use tokio::sync::RwLock;
+#[cfg(not(any(feature = "lsp", feature = "codegen")))]
+use std::sync::RwLock;
 
 use super::generated;
 use super::types::*;
