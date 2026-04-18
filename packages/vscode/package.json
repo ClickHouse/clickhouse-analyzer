@@ -5,24 +5,246 @@
   "version": "0.1.0",
   "publisher": "ClickHouse",
   "homepage": "https://clickhouse.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ClickHouse/clickhouse-analyzer"
+  },
   "license": "Apache-2.0",
   "private": true,
   "engines": {
-    "vscode": "^1.75.0"
+    "vscode": "^1.80.0"
   },
   "categories": ["Programming Languages", "Linters", "Formatters"],
   "activationEvents": [
     "onLanguage:sql",
-    "onLanguage:clickhouse"
+    "onLanguage:clickhouse",
+    "onView:clickhouse-servers"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "clickhouse-ctl",
+          "title": "ClickHouse",
+          "icon": "icons/clickhouse.svg"
+        }
+      ]
+    },
+    "views": {
+      "clickhouse-ctl": [
+        {
+          "id": "clickhouse-servers",
+          "name": "Local Servers"
+        },
+        {
+          "id": "clickhouse-versions",
+          "name": "Installed Versions"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "clickhouse-servers",
+        "contents": "Open a folder to manage local ClickHouse servers.\n[Open Folder](command:vscode.openFolder)",
+        "when": "workspaceFolderCount == 0"
+      },
+      {
+        "view": "clickhouse-servers",
+        "contents": "Initialize ClickHouse in this project to create and manage local servers.\n[Initialize ClickHouse](command:clickhouse-analyzer.initProject)",
+        "when": "workspaceFolderCount > 0 && !clickhouse-analyzer.projectInitialized"
+      },
+      {
+        "view": "clickhouse-servers",
+        "contents": "No local ClickHouse servers found.\n[Create Server](command:clickhouse-analyzer.createServer)",
+        "when": "workspaceFolderCount > 0 && clickhouse-analyzer.projectInitialized && clickhouse-analyzer.ctlInstalled"
+      },
+      {
+        "view": "clickhouse-servers",
+        "contents": "[clickhousectl](https://clickhouse.com/docs/install) is required to manage local servers.\n[Install clickhousectl](command:clickhouse-analyzer.installCtl)",
+        "when": "!clickhouse-analyzer.ctlInstalled"
+      },
+      {
+        "view": "clickhouse-versions",
+        "contents": "[clickhousectl](https://clickhouse.com/docs/install) is required to manage versions.\n[Install clickhousectl](command:clickhouse-analyzer.installCtl)",
+        "when": "!clickhouse-analyzer.ctlInstalled"
+      },
+      {
+        "view": "clickhouse-versions",
+        "contents": "No ClickHouse versions installed.\n[Install Version](command:clickhouse-analyzer.installVersion)",
+        "when": "clickhouse-analyzer.ctlInstalled"
+      }
+    ],
+    "commands": [
+      {
+        "command": "clickhouse-analyzer.installCtl",
+        "title": "Install clickhousectl CLI",
+        "category": "ClickHouse"
+      },
+      {
+        "command": "clickhouse-analyzer.initProject",
+        "title": "Initialize ClickHouse in Project",
+        "category": "ClickHouse",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "clickhouse-analyzer.installVersion",
+        "title": "Install ClickHouse Version",
+        "category": "ClickHouse",
+        "icon": "$(add)"
+      },
+      {
+        "command": "clickhouse-analyzer.useVersion",
+        "title": "Use as Default",
+        "category": "ClickHouse",
+        "icon": "$(star-full)"
+      },
+      {
+        "command": "clickhouse-analyzer.removeVersion",
+        "title": "Remove Version",
+        "category": "ClickHouse",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "clickhouse-analyzer.createServer",
+        "title": "Create Local Server",
+        "category": "ClickHouse",
+        "icon": "$(add)"
+      },
+      {
+        "command": "clickhouse-analyzer.startServer",
+        "title": "Start Server",
+        "category": "ClickHouse",
+        "icon": "$(debug-start)"
+      },
+      {
+        "command": "clickhouse-analyzer.stopServer",
+        "title": "Stop Server",
+        "category": "ClickHouse",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "clickhouse-analyzer.deleteServer",
+        "title": "Delete Server",
+        "category": "ClickHouse",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "clickhouse-analyzer.connectLsp",
+        "title": "Use as LSP Connection",
+        "category": "ClickHouse",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "clickhouse-analyzer.addToEnv",
+        "title": "Add to .env",
+        "category": "ClickHouse",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "clickhouse-analyzer.refreshServers",
+        "title": "Refresh",
+        "category": "ClickHouse",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "clickhouse-analyzer.refreshVersions",
+        "title": "Refresh",
+        "category": "ClickHouse",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "clickhouse-analyzer.createServer",
+          "when": "view == clickhouse-servers && clickhouse-analyzer.projectInitialized",
+          "group": "navigation"
+        },
+        {
+          "command": "clickhouse-analyzer.refreshServers",
+          "when": "view == clickhouse-servers && clickhouse-analyzer.projectInitialized",
+          "group": "navigation"
+        },
+        {
+          "command": "clickhouse-analyzer.installVersion",
+          "when": "view == clickhouse-versions",
+          "group": "navigation"
+        },
+        {
+          "command": "clickhouse-analyzer.refreshVersions",
+          "when": "view == clickhouse-versions",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "clickhouse-analyzer.startServer",
+          "when": "view == clickhouse-servers && viewItem == server-stopped",
+          "group": "inline"
+        },
+        {
+          "command": "clickhouse-analyzer.stopServer",
+          "when": "view == clickhouse-servers && viewItem == server-running",
+          "group": "inline"
+        },
+        {
+          "command": "clickhouse-analyzer.connectLsp",
+          "when": "view == clickhouse-servers && viewItem == server-running",
+          "group": "inline"
+        },
+        {
+          "command": "clickhouse-analyzer.addToEnv",
+          "when": "view == clickhouse-servers && viewItem == server-running",
+          "group": "inline"
+        },
+        {
+          "command": "clickhouse-analyzer.stopServer",
+          "when": "view == clickhouse-servers && viewItem == server-running",
+          "group": "context@1"
+        },
+        {
+          "command": "clickhouse-analyzer.connectLsp",
+          "when": "view == clickhouse-servers && viewItem == server-running",
+          "group": "context@2"
+        },
+        {
+          "command": "clickhouse-analyzer.addToEnv",
+          "when": "view == clickhouse-servers && viewItem == server-running",
+          "group": "context@3"
+        },
+        {
+          "command": "clickhouse-analyzer.deleteServer",
+          "when": "view == clickhouse-servers && viewItem =~ /^server-/",
+          "group": "context@4"
+        },
+        {
+          "command": "clickhouse-analyzer.removeVersion",
+          "when": "view == clickhouse-versions && viewItem =~ /^version/",
+          "group": "inline@2"
+        },
+        {
+          "command": "clickhouse-analyzer.useVersion",
+          "when": "view == clickhouse-versions && viewItem == version",
+          "group": "inline@1"
+        },
+        {
+          "command": "clickhouse-analyzer.useVersion",
+          "when": "view == clickhouse-versions && viewItem == version",
+          "group": "context"
+        }
+      ]
+    },
     "languages": [
       {
         "id": "clickhouse",
         "aliases": ["ClickHouse SQL", "clickhouse"],
         "extensions": [".clickhouse", ".ch.sql"],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/clickhouse.svg",
+          "dark": "./icons/clickhouse.svg"
+        }
       }
     ],
     "configuration": {
@@ -31,7 +253,7 @@
         "clickhouse-analyzer.serverPath": {
           "type": "string",
           "default": "",
-          "description": "Path to the clickhouse-lsp binary. If empty, searches $PATH."
+          "description": "Path to the clickhouse-lsp binary. If empty, uses the bundled server or searches $PATH."
         },
         "clickhouse-analyzer.connection.enabled": {
           "type": "boolean",
@@ -71,6 +293,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.75.0",
+    "@vscode/vsce": "^3.0.0",
     "typescript": "^5.0.0"
   }
 }
