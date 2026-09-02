@@ -203,6 +203,7 @@ export const SyntaxKind = {
     // Literals
     NumberLiteral: "NumberLiteral",
     StringLiteral: "StringLiteral",
+    TypedLiteral: "TypedLiteral",
     DateLiteral: "DateLiteral",
     BooleanLiteral: "BooleanLiteral",
     NullLiteral: "NullLiteral",
