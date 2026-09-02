@@ -146,7 +146,7 @@ fn parse_expression_rec(p: &mut Parser, min_bp: u8) {
                 if p.nth_keyword(1, Keyword::Nulls) {
                     let m = p.precede(lhs);
                     p.advance(); // consume IGNORE or RESPECT
-                    p.advance(); // consume NULLS
+                    p.expect_keyword(Keyword::Nulls);
                     lhs = p.complete(m, SyntaxKind::NullsModifier);
                 }
             }
@@ -422,8 +422,8 @@ fn parse_in_rhs(p: &mut Parser) {
 
 /// Parses a "delimited" (atomic) expression and any postfix operators.
 ///
-/// Atoms: identifiers, literals, `*`, parenthesized expressions, arrays, maps,
-/// subqueries, INTERVAL, CASE, NULL, TRUE, FALSE.
+/// Atoms: identifiers, literals, typed literals, `*`, parenthesized expressions,
+/// arrays, maps, subqueries, INTERVAL, CASE, NULL, TRUE, FALSE.
 /// Postfix: `::` cast operator.
 fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
     let result = match p.nth(0) {
@@ -482,6 +482,10 @@ fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
                 let m = p.start();
                 parse_interval_expression(p);
                 p.complete(m, SyntaxKind::IntervalExpression)
+            }
+            // SQL typed literals, e.g. DATE '2024-01-01' and TIMESTAMP '2024-01-01 12:00:00'.
+            else if at_typed_literal(p) {
+                parse_typed_literal(p)
             }
             // Subquery starting with SELECT/FROM/WITH
             else if at_select_statement(p) {
@@ -592,6 +596,18 @@ fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
     };
 
     Some(result)
+}
+
+fn at_typed_literal(p: &mut Parser) -> bool {
+    p.nth(1) == SyntaxKind::StringToken
+        && (p.at_keyword(Keyword::Date) || p.at_keyword(Keyword::Timestamp))
+}
+
+fn parse_typed_literal(p: &mut Parser) -> CompletedMarker {
+    let m = p.start();
+    p.advance();
+    p.expect(SyntaxKind::StringToken);
+    p.complete(m, SyntaxKind::TypedLiteral)
 }
 
 /// Parses: CASE [expr] WHEN expr THEN expr [WHEN ... THEN ...] [ELSE expr] END
@@ -1032,6 +1048,30 @@ mod tests {
                           '100'
                     ')'
         "#]]);
+    }
+
+    #[test]
+    fn typed_literals_parse_in_expression_contexts() {
+        let result = parse(
+            "SELECT DATE '2024-01-01', toDateTime(TIMESTAMP '2024-01-01 12:34:56'), occurred_at BETWEEN TIMESTAMP '2024-01-01 00:00:00' AND TIMESTAMP '2024-01-31 23:59:59'",
+        );
+        let mut tree = String::new();
+        result.tree.print(&mut tree, 0, &result.source);
+
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(tree.matches("TypedLiteral").count(), 4);
+    }
+
+    #[test]
+    fn typed_literals_are_case_insensitive_and_allow_trivia() {
+        let result = parse(
+            "SELECT date /* date value */ '2024-01-01', TiMeStAmP -- timestamp value\n '2024-01-01 12:34:56'",
+        );
+        let mut tree = String::new();
+        result.tree.print(&mut tree, 0, &result.source);
+
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(tree.matches("TypedLiteral").count(), 2);
     }
 
     #[test]
@@ -1817,13 +1857,25 @@ mod tests {
                               'x'
                           ')'
                       'IGNORE'
-                    ColumnAlias
                       'NULLS'
                 FromClause
                   'FROM'
                   TableIdentifier
                     't'
         "#]]);
+    }
+
+    #[test]
+    fn ignore_nulls_parses_before_window_clause() {
+        let result = parse(
+            "SELECT last_value(x) IGNORE NULLS OVER (ORDER BY day ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
+        );
+        let mut tree = String::new();
+        result.tree.print(&mut tree, 0, &result.source);
+
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert!(tree.contains("NullsModifier"));
+        assert!(tree.contains("WindowExpression"));
     }
 
     #[test]
@@ -1845,7 +1897,6 @@ mod tests {
                               'x'
                           ')'
                       'RESPECT'
-                    ColumnAlias
                       'NULLS'
                 FromClause
                   'FROM'

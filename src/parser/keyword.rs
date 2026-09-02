@@ -132,6 +132,8 @@ pub enum Keyword {
     False,
 
     // Types / INTERVAL
+    Date,
+    Timestamp,
     Interval,
 
     // CREATE TABLE specifics
@@ -425,6 +427,8 @@ impl Keyword {
             Keyword::Null => "NULL",
             Keyword::True => "TRUE",
             Keyword::False => "FALSE",
+            Keyword::Date => "DATE",
+            Keyword::Timestamp => "TIMESTAMP",
             Keyword::Interval => "INTERVAL",
             Keyword::Engine => "ENGINE",
             Keyword::Partition => "PARTITION",
