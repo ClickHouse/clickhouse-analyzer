@@ -131,9 +131,21 @@ impl<'a> Tokenizer<'a> {
             ';' => self.create_token(SyntaxKind::Semicolon),
             '.' => self.create_token(SyntaxKind::Dot),
 
+            // Unicode quotes, accepted by ClickHouse's lexer alongside the ASCII ones
+            '\u{2018}' => self.read_unicode_quoted(
+                '\u{2019}',
+                SyntaxKind::StringToken,
+                SyntaxKind::ErrorSingleQuoteIsNotClosed,
+            ),
+            '\u{201C}' => self.read_unicode_quoted(
+                '\u{201D}',
+                SyntaxKind::QuotedIdentifier,
+                SyntaxKind::ErrorDoubleQuoteIsNotClosed,
+            ),
+
             // Operators and symbols
             '*' => self.create_token(SyntaxKind::Star),
-            '$' => self.create_token(SyntaxKind::DollarSign),
+            '$' => self.read_dollar(),
             '+' => self.create_token(SyntaxKind::Plus),
             '-' => {
                 if self.match_char('>') {
@@ -142,6 +154,8 @@ impl<'a> Tokenizer<'a> {
                     self.create_token(SyntaxKind::Minus)
                 }
             }
+            // U+2212 MINUS SIGN
+            '\u{2212}' => self.create_token(SyntaxKind::Minus),
             '/' => self.create_token(SyntaxKind::Slash),
             '%' => self.create_token(SyntaxKind::Percent),
             '?' => self.create_token(SyntaxKind::QuestionMark),
@@ -503,6 +517,52 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    /// Read a string or identifier delimited by Unicode quotes. These have no
+    /// escape sequences: the token ends at the first closing quote.
+    fn read_unicode_quoted(
+        &mut self,
+        close: char,
+        success_type: SyntaxKind,
+        error_type: SyntaxKind,
+    ) -> Token {
+        match self.input[self.position..].find(close) {
+            Some(offset) => {
+                self.jump_to(self.position + offset + close.len_utf8());
+                self.create_token(success_type)
+            }
+            None => {
+                self.jump_to(self.input.len());
+                self.create_token(error_type)
+            }
+        }
+    }
+
+    /// Read a dollar-quoted string `$tag$...$tag$` (the tag may be empty), or a
+    /// standalone dollar sign when no such string starts here.
+    fn read_dollar(&mut self) -> Token {
+        let rest = &self.input[self.position..];
+        if let Some(tag_len) = rest.find('$') {
+            let tag_is_valid = rest[..tag_len]
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_');
+            if tag_is_valid {
+                let body_start = self.position + tag_len + 1;
+                let delimiter = &self.input[self.start..body_start];
+                if let Some(offset) = self.input[body_start..].find(delimiter) {
+                    self.jump_to(body_start + offset + delimiter.len());
+                    return self.create_token(SyntaxKind::HereDoc);
+                }
+            }
+        }
+        self.create_token(SyntaxKind::DollarSign)
+    }
+
+    /// Move the cursor to a byte offset that lies on a char boundary.
+    fn jump_to(&mut self, position: usize) {
+        self.position = position;
+        self.chars = self.input[position..].chars();
+    }
+
     /// Read a bareword (identifier or keyword)
     fn read_bare_word(&mut self) -> Token {
         while let Some(c) = self.peek() {
@@ -861,6 +921,91 @@ mod tests {
         //
         // let heredoc_token = tokens.iter().find(|t| t.kind == TokenType::HereDoc).unwrap();
         // assert!(heredoc_token.value.starts_with("<<<EOF"));
+    }
+
+    #[test]
+    fn test_unicode_quotes() {
+        let sql = "SELECT \u{2018}hello\u{2019}, \u{201C}name\u{201D} FROM t";
+        let tokens = tokenize(sql);
+
+        let string_token = tokens
+            .iter()
+            .find(|t| t.kind == SyntaxKind::StringToken)
+            .unwrap();
+        assert_eq!(string_token.text(sql), "\u{2018}hello\u{2019}");
+
+        let quoted_token = tokens
+            .iter()
+            .find(|t| t.kind == SyntaxKind::QuotedIdentifier)
+            .unwrap();
+        assert_eq!(quoted_token.text(sql), "\u{201C}name\u{201D}");
+
+        assert!(!tokens.iter().any(|t| t.kind == SyntaxKind::ErrorToken));
+    }
+
+    #[test]
+    fn test_unterminated_unicode_quotes() {
+        let sql = "SELECT \u{2018}hello";
+        let tokens = tokenize(sql);
+        let error_token = tokens
+            .iter()
+            .find(|t| t.kind == SyntaxKind::ErrorSingleQuoteIsNotClosed)
+            .unwrap();
+        assert_eq!(error_token.text(sql), "\u{2018}hello");
+
+        let sql = "SELECT \u{201C}name";
+        let tokens = tokenize(sql);
+        let error_token = tokens
+            .iter()
+            .find(|t| t.kind == SyntaxKind::ErrorDoubleQuoteIsNotClosed)
+            .unwrap();
+        assert_eq!(error_token.text(sql), "\u{201C}name");
+    }
+
+    #[test]
+    fn test_unicode_minus() {
+        let sql = "SELECT 1 \u{2212} 2";
+        let tokens = tokenize(sql);
+
+        let minus_token = tokens.iter().find(|t| t.kind == SyntaxKind::Minus).unwrap();
+        assert_eq!(minus_token.text(sql), "\u{2212}");
+        assert!(!tokens.iter().any(|t| t.kind == SyntaxKind::ErrorToken));
+    }
+
+    #[test]
+    fn test_heredoc() {
+        let sql = "SELECT $foo$ anything goes 'here' $foo$ FROM t";
+        let tokens = tokenize(sql);
+
+        let heredoc = tokens
+            .iter()
+            .find(|t| t.kind == SyntaxKind::HereDoc)
+            .unwrap();
+        assert_eq!(heredoc.text(sql), "$foo$ anything goes 'here' $foo$");
+        // SELECT, the heredoc, FROM, t
+        assert_eq!(tokens.len(), 4);
+
+        let sql = "SELECT $$ hello world $$ FROM t";
+        let tokens = tokenize(sql);
+        let heredoc = tokens
+            .iter()
+            .find(|t| t.kind == SyntaxKind::HereDoc)
+            .unwrap();
+        assert_eq!(heredoc.text(sql), "$$ hello world $$");
+    }
+
+    #[test]
+    fn test_dollar_sign_without_heredoc_closing() {
+        // No closing tag: the dollar sign stays a standalone token.
+        let sql = "SELECT $foo$ unterminated";
+        let tokens = tokenize(sql);
+        assert!(!tokens.iter().any(|t| t.kind == SyntaxKind::HereDoc));
+        assert_eq!(tokens[1].kind, SyntaxKind::DollarSign);
+        assert_eq!(tokens[1].text(sql), "$");
+
+        let sql = "SELECT $";
+        let tokens = tokenize(sql);
+        assert_eq!(tokens[1].kind, SyntaxKind::DollarSign);
     }
 
     #[test]

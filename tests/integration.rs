@@ -226,6 +226,13 @@ fn valid_sql_produces_no_errors() {
         "WITH a SELECT a",
         "SELECT []",
         "SELECT ()",
+        // Unicode quotes, the Unicode minus sign and dollar-quoted strings,
+        // which ClickHouse's own lexer accepts
+        "SELECT \u{2018}hello\u{2019} FROM t",
+        "SELECT \u{201C}name\u{201D} FROM t",
+        "SELECT 1 \u{2212} 2 FROM t",
+        "SELECT $foo$ anything goes 'here' $foo$ FROM t",
+        "SELECT $$ hello world $$ FROM t",
         // Keywords used as function names (ambiguous with JOIN keywords)
         "SELECT any(col) FROM t",
         "SELECT all(col) FROM t",
