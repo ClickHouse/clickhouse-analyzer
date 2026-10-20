@@ -1,5 +1,5 @@
-use clickhouse_analyzer::{parse, SyntaxChild, SyntaxKind, SyntaxTree};
-use expect_test::{expect, Expect};
+use clickhouse_analyzer::{SyntaxChild, SyntaxKind, SyntaxTree, parse};
+use expect_test::{Expect, expect};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1195,7 +1195,10 @@ fn cast_on_function_call() {
 #[test]
 fn cast_then_dot_access() {
     // Cast to named tuple type, then access field
-    check_errors("SELECT ('a', 'b')::Tuple(x String, y String).x", expect![[""]]);
+    check_errors(
+        "SELECT ('a', 'b')::Tuple(x String, y String).x",
+        expect![[""]],
+    );
 }
 
 #[test]
@@ -1235,29 +1238,45 @@ fn recovery_misspelled_where() {
     // WHER should not cause cascading errors
     let result = parse("SELECT 1 FROM t WHER x > 1");
     // Should have errors but not many "Unexpected token" errors
-    assert!(result.errors.len() <= 4, "Too many errors: {:?}", result.errors);
+    assert!(
+        result.errors.len() <= 4,
+        "Too many errors: {:?}",
+        result.errors
+    );
     // Tree should cover all bytes
-    assert_eq!(collect_text(&result.tree, &result.source), "SELECT 1 FROM t WHER x > 1");
+    assert_eq!(
+        collect_text(&result.tree, &result.source),
+        "SELECT 1 FROM t WHER x > 1"
+    );
 }
 
 #[test]
 fn recovery_misspelled_engine() {
     let result = parse("CREATE TABLE t (id UInt64) ENIGNE = MergeTree() ORDER BY id");
-    assert_eq!(collect_text(&result.tree, &result.source), "CREATE TABLE t (id UInt64) ENIGNE = MergeTree() ORDER BY id");
+    assert_eq!(
+        collect_text(&result.tree, &result.source),
+        "CREATE TABLE t (id UInt64) ENIGNE = MergeTree() ORDER BY id"
+    );
     // Should still parse something after ENIGNE, not eat ORDER BY as garbage
 }
 
 #[test]
 fn recovery_garbage_between_create_clauses() {
     let result = parse("CREATE TABLE t (id UInt64) ENGINE = MergeTree() GARBAGE ORDER BY id");
-    assert_eq!(collect_text(&result.tree, &result.source), "CREATE TABLE t (id UInt64) ENGINE = MergeTree() GARBAGE ORDER BY id");
+    assert_eq!(
+        collect_text(&result.tree, &result.source),
+        "CREATE TABLE t (id UInt64) ENGINE = MergeTree() GARBAGE ORDER BY id"
+    );
     // GARBAGE should be an error, ORDER BY should still parse
 }
 
 #[test]
 fn recovery_misspelled_from_in_show() {
     let result = parse("SHOW TABLES FORM default");
-    assert_eq!(collect_text(&result.tree, &result.source), "SHOW TABLES FORM default");
+    assert_eq!(
+        collect_text(&result.tree, &result.source),
+        "SHOW TABLES FORM default"
+    );
 }
 
 // ====================================================================
@@ -1266,7 +1285,9 @@ fn recovery_misspelled_from_in_show() {
 
 #[test]
 fn query_parameter_as_table_identifier() {
-    check("SELECT value FROM {database:Identifier}.{table:Identifier}", expect![[r#"
+    check(
+        "SELECT value FROM {database:Identifier}.{table:Identifier}",
+        expect![[r#"
         File
           SelectStatement
             SelectClause
@@ -1292,12 +1313,15 @@ fn query_parameter_as_table_identifier() {
                   DataType
                     'Identifier'
                   '}'
-    "#]]);
+    "#]],
+    );
 }
 
 #[test]
 fn query_parameter_as_single_table() {
-    check("SELECT 1 FROM {tbl:Identifier}", expect![[r#"
+    check(
+        "SELECT 1 FROM {tbl:Identifier}",
+        expect![[r#"
         File
           SelectStatement
             SelectClause
@@ -1315,12 +1339,15 @@ fn query_parameter_as_single_table() {
                   DataType
                     'Identifier'
                   '}'
-    "#]]);
+    "#]],
+    );
 }
 
 #[test]
 fn query_parameter_mixed_with_bare_identifier() {
-    check("SELECT 1 FROM {db:Identifier}.my_table", expect![[r#"
+    check(
+        "SELECT 1 FROM {db:Identifier}.my_table",
+        expect![[r#"
         File
           SelectStatement
             SelectClause
@@ -1340,7 +1367,8 @@ fn query_parameter_mixed_with_bare_identifier() {
                   '}'
                 '.'
                 'my_table'
-    "#]]);
+    "#]],
+    );
 }
 
 // ====================================================================
@@ -3200,7 +3228,10 @@ fn system_drop_query_condition_cache_test() {
 
 #[test]
 fn system_drop_format_schema_cache_for_protobuf_test() {
-    check_errors("SYSTEM DROP FORMAT SCHEMA CACHE FOR Protobuf", expect![[""]]);
+    check_errors(
+        "SYSTEM DROP FORMAT SCHEMA CACHE FOR Protobuf",
+        expect![[""]],
+    );
 }
 
 #[test]

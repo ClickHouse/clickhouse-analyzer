@@ -9,39 +9,223 @@ use crate::parser::syntax_tree::{SyntaxChild, SyntaxTree};
 
 /// All keyword uppercase forms for matching BareWord tokens.
 const KEYWORDS: &[&str] = &[
-    "SELECT", "FROM", "WHERE", "ORDER", "BY", "GROUP", "HAVING", "LIMIT",
-    "OFFSET", "WITH", "AS", "ON", "USING", "BETWEEN", "IN", "LIKE", "ILIKE",
-    "IS", "NOT", "CASE", "WHEN", "THEN", "ELSE", "END", "CAST", "DISTINCT",
-    "ALL", "EXISTS", "AND", "OR", "JOIN", "INNER", "LEFT", "RIGHT", "FULL",
-    "OUTER", "CROSS", "GLOBAL", "ANY", "SEMI", "ANTI", "ASOF", "NATURAL",
-    "ARRAY", "FINAL", "ASC", "DESC", "NULLS", "FIRST", "LAST", "TOTALS",
-    "ROLLUP", "CUBE", "UNION", "EXCEPT", "INTERSECT", "INSERT", "INTO",
-    "VALUES", "DELETE", "UPDATE", "SET", "CREATE", "ALTER", "DROP", "DETACH",
-    "ATTACH", "RENAME", "TRUNCATE", "SHOW", "USE", "OPTIMIZE", "SYSTEM",
-    "EXCHANGE", "UNDROP", "TABLE", "VIEW", "DATABASE", "DICTIONARY",
-    "FUNCTION", "MATERIALIZED", "TEMPORARY", "IF", "REPLACE", "LIVE",
-    "DEFAULT", "CODEC", "TTL", "COMMENT", "PRIMARY", "KEY", "ALIAS",
-    "EPHEMERAL", "PREWHERE", "SETTINGS", "FORMAT", "SAMPLE", "NULL", "TRUE",
-    "FALSE", "INTERVAL", "ENGINE", "PARTITION", "CLUSTER", "TO", "POPULATE",
-    "EMPTY", "PERMANENTLY", "AFTER", "COLUMN", "INDEX", "PROJECTION",
-    "CONSTRAINT", "ADD", "MODIFY", "CLEAR", "MOVE", "GRANULARITY", "TYPE",
-    "DEDUPLICATE", "EXPLAIN", "DESCRIBE", "AST", "PLAN", "PIPELINE",
-    "ESTIMATE", "TABLES", "DATABASES", "COLUMNS", "DICTIONARIES",
-    "FUNCTIONS", "PROCESSLIST", "PRIVILEGES", "GRANTS", "RELOAD", "FLUSH",
-    "STOP", "START", "MERGES", "REPLICA", "REPLICAS", "DISTRIBUTED",
-    "SENDING", "FETCHES", "MOVES", "LOGS", "CACHE", "DNS", "MARK",
-    "UNCOMPRESSED", "COMPILED", "MODELS", "DISKS", "GRANT", "REVOKE",
-    "USER", "ROLE", "QUOTA", "POLICY", "PROFILE", "ROW", "NONE", "KILL",
-    "QUERY", "MUTATION", "SYNC", "ASYNC", "TEST", "CHECK", "BEGIN", "COMMIT",
-    "ROLLBACK", "TRANSACTION", "BACKUP", "RESTORE", "LOCAL", "FREEZE",
-    "UNFREEZE", "FETCH", "APPLY", "DELETED", "SOURCE", "LAYOUT", "LIFETIME",
-    "RANGE", "HASHED", "FLAT", "COMPLEX", "DIRECT", "INJECTIVE",
-    "HIERARCHICAL", "WINDOW", "OVER", "ROWS", "GROUPS", "UNBOUNDED",
-    "PRECEDING", "FOLLOWING", "CURRENT", "DIV", "MOD",
-    "SYNTAX", "TREE", "OVERRIDE", "ENGINES", "FOR", "PART",
-    "MATERIALIZE", "SETTING", "RESET",
-    "FILL", "STEP", "INTERPOLATE", "OPTION",
-    "IDENTIFIED", "HOST", "KEYED",
+    "SELECT",
+    "FROM",
+    "WHERE",
+    "ORDER",
+    "BY",
+    "GROUP",
+    "HAVING",
+    "LIMIT",
+    "OFFSET",
+    "WITH",
+    "AS",
+    "ON",
+    "USING",
+    "BETWEEN",
+    "IN",
+    "LIKE",
+    "ILIKE",
+    "IS",
+    "NOT",
+    "CASE",
+    "WHEN",
+    "THEN",
+    "ELSE",
+    "END",
+    "CAST",
+    "DISTINCT",
+    "ALL",
+    "EXISTS",
+    "AND",
+    "OR",
+    "JOIN",
+    "INNER",
+    "LEFT",
+    "RIGHT",
+    "FULL",
+    "OUTER",
+    "CROSS",
+    "GLOBAL",
+    "ANY",
+    "SEMI",
+    "ANTI",
+    "ASOF",
+    "NATURAL",
+    "ARRAY",
+    "FINAL",
+    "ASC",
+    "DESC",
+    "NULLS",
+    "FIRST",
+    "LAST",
+    "TOTALS",
+    "ROLLUP",
+    "CUBE",
+    "UNION",
+    "EXCEPT",
+    "INTERSECT",
+    "INSERT",
+    "INTO",
+    "VALUES",
+    "DELETE",
+    "UPDATE",
+    "SET",
+    "CREATE",
+    "ALTER",
+    "DROP",
+    "DETACH",
+    "ATTACH",
+    "RENAME",
+    "TRUNCATE",
+    "SHOW",
+    "USE",
+    "OPTIMIZE",
+    "SYSTEM",
+    "EXCHANGE",
+    "UNDROP",
+    "TABLE",
+    "VIEW",
+    "DATABASE",
+    "DICTIONARY",
+    "FUNCTION",
+    "MATERIALIZED",
+    "TEMPORARY",
+    "IF",
+    "REPLACE",
+    "LIVE",
+    "DEFAULT",
+    "CODEC",
+    "TTL",
+    "COMMENT",
+    "PRIMARY",
+    "KEY",
+    "ALIAS",
+    "EPHEMERAL",
+    "PREWHERE",
+    "SETTINGS",
+    "FORMAT",
+    "SAMPLE",
+    "NULL",
+    "TRUE",
+    "FALSE",
+    "INTERVAL",
+    "ENGINE",
+    "PARTITION",
+    "CLUSTER",
+    "TO",
+    "POPULATE",
+    "EMPTY",
+    "PERMANENTLY",
+    "AFTER",
+    "COLUMN",
+    "INDEX",
+    "PROJECTION",
+    "CONSTRAINT",
+    "ADD",
+    "MODIFY",
+    "CLEAR",
+    "MOVE",
+    "GRANULARITY",
+    "TYPE",
+    "DEDUPLICATE",
+    "EXPLAIN",
+    "DESCRIBE",
+    "AST",
+    "PLAN",
+    "PIPELINE",
+    "ESTIMATE",
+    "TABLES",
+    "DATABASES",
+    "COLUMNS",
+    "DICTIONARIES",
+    "FUNCTIONS",
+    "PROCESSLIST",
+    "PRIVILEGES",
+    "GRANTS",
+    "RELOAD",
+    "FLUSH",
+    "STOP",
+    "START",
+    "MERGES",
+    "REPLICA",
+    "REPLICAS",
+    "DISTRIBUTED",
+    "SENDING",
+    "FETCHES",
+    "MOVES",
+    "LOGS",
+    "CACHE",
+    "DNS",
+    "MARK",
+    "UNCOMPRESSED",
+    "COMPILED",
+    "MODELS",
+    "DISKS",
+    "GRANT",
+    "REVOKE",
+    "USER",
+    "ROLE",
+    "QUOTA",
+    "POLICY",
+    "PROFILE",
+    "ROW",
+    "NONE",
+    "KILL",
+    "QUERY",
+    "MUTATION",
+    "SYNC",
+    "ASYNC",
+    "TEST",
+    "CHECK",
+    "BEGIN",
+    "COMMIT",
+    "ROLLBACK",
+    "TRANSACTION",
+    "BACKUP",
+    "RESTORE",
+    "LOCAL",
+    "FREEZE",
+    "UNFREEZE",
+    "FETCH",
+    "APPLY",
+    "DELETED",
+    "SOURCE",
+    "LAYOUT",
+    "LIFETIME",
+    "RANGE",
+    "HASHED",
+    "FLAT",
+    "COMPLEX",
+    "DIRECT",
+    "INJECTIVE",
+    "HIERARCHICAL",
+    "WINDOW",
+    "OVER",
+    "ROWS",
+    "GROUPS",
+    "UNBOUNDED",
+    "PRECEDING",
+    "FOLLOWING",
+    "CURRENT",
+    "DIV",
+    "MOD",
+    "SYNTAX",
+    "TREE",
+    "OVERRIDE",
+    "ENGINES",
+    "FOR",
+    "PART",
+    "MATERIALIZE",
+    "SETTING",
+    "RESET",
+    "FILL",
+    "STEP",
+    "INTERPOLATE",
+    "OPTION",
+    "IDENTIFIED",
+    "HOST",
+    "KEYED",
 ];
 
 fn is_keyword(text: &str) -> bool {
@@ -73,7 +257,6 @@ fn no_space_before(token: &Token) -> bool {
     )
 }
 
-
 /// Tokens after which no space should be emitted.
 fn no_space_after(kind: SyntaxKind) -> bool {
     matches!(
@@ -94,16 +277,16 @@ fn no_space_after(kind: SyntaxKind) -> bool {
 
 /// Returns true if any direct child is an Error node.
 fn has_error_child(tree: &SyntaxTree) -> bool {
-    tree.children.iter().any(|c| matches!(c, SyntaxChild::Tree(t) if t.kind == SyntaxKind::Error))
+    tree.children
+        .iter()
+        .any(|c| matches!(c, SyntaxChild::Tree(t) if t.kind == SyntaxKind::Error))
 }
 
 pub fn format_node(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     // If a non-root node contains Error children, emit it verbatim.
     // Reformatting error-recovery structures changes token boundaries on
     // re-parse, breaking idempotency.
-    if tree.kind != SyntaxKind::File
-        && tree.kind != SyntaxKind::QueryList
-        && has_error_child(tree)
+    if tree.kind != SyntaxKind::File && tree.kind != SyntaxKind::QueryList && has_error_child(tree)
     {
         format_error_verbatim(tree, ctx);
         return;
@@ -142,9 +325,7 @@ pub fn format_node(tree: &SyntaxTree, ctx: &mut FormatterContext) {
         SyntaxKind::SettingList => format_comma_list(tree, ctx),
         SyntaxKind::BinaryExpression => format_binary_expression(tree, ctx),
         SyntaxKind::UnaryExpression => format_unary_expression(tree, ctx),
-        SyntaxKind::FunctionCall | SyntaxKind::AggregateFunction => {
-            format_function_call(tree, ctx)
-        }
+        SyntaxKind::FunctionCall | SyntaxKind::AggregateFunction => format_function_call(tree, ctx),
         SyntaxKind::CaseExpression => format_case_expression(tree, ctx),
         SyntaxKind::WhenClause => format_when_clause(tree, ctx),
         SyntaxKind::SubqueryExpression => format_subquery(tree, ctx),
@@ -277,10 +458,8 @@ pub fn format_node(tree: &SyntaxTree, ctx: &mut FormatterContext) {
         | SyntaxKind::UndropStatement
         | SyntaxKind::BackupStatement
         | SyntaxKind::RestoreStatement => format_simple_clause(tree, ctx),
-        | SyntaxKind::GrantStatement
-        | SyntaxKind::RevokeStatement => format_simple_clause(tree, ctx),
-        | SyntaxKind::SystemStatement
-        | SyntaxKind::KillStatement => format_simple_clause(tree, ctx),
+        SyntaxKind::GrantStatement | SyntaxKind::RevokeStatement => format_simple_clause(tree, ctx),
+        SyntaxKind::SystemStatement | SyntaxKind::KillStatement => format_simple_clause(tree, ctx),
         SyntaxKind::SystemCommand => format_inline(tree, ctx),
         SyntaxKind::KillTarget => format_inline(tree, ctx),
         SyntaxKind::SetStatement => format_set_statement(tree, ctx),
@@ -431,9 +610,7 @@ fn format_select_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
                 ctx.write_space();
             }
             SyntaxChild::Token(t) => emit_token(t, ctx),
-            SyntaxChild::Tree(subtree)
-                if subtree.kind == SyntaxKind::ColumnList =>
-            {
+            SyntaxChild::Tree(subtree) if subtree.kind == SyntaxKind::ColumnList => {
                 ctx.write_newline();
                 ctx.indent();
                 format_node(subtree, ctx);
@@ -485,9 +662,10 @@ fn format_simple_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 
 fn format_group_by_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     // Check if items are directly in the clause (no GroupByList wrapper)
-    let has_list = tree.children.iter().any(|c| {
-        matches!(c, SyntaxChild::Tree(t) if t.kind == SyntaxKind::GroupByList)
-    });
+    let has_list = tree
+        .children
+        .iter()
+        .any(|c| matches!(c, SyntaxChild::Tree(t) if t.kind == SyntaxKind::GroupByList));
     let direct_item_count = if !has_list {
         tree.children
             .iter()
@@ -520,9 +698,7 @@ fn format_group_by_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
                 }
             }
             SyntaxChild::Token(t) => emit_token(t, ctx),
-            SyntaxChild::Tree(subtree)
-                if subtree.kind == SyntaxKind::GroupByList =>
-            {
+            SyntaxChild::Tree(subtree) if subtree.kind == SyntaxKind::GroupByList => {
                 let item_count = count_list_items(subtree);
                 if item_count > 1 {
                     ctx.write_newline();
@@ -553,9 +729,10 @@ fn format_group_by_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
 // ---------------------------------------------------------------------------
 
 fn format_order_by_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
-    let has_list = tree.children.iter().any(|c| {
-        matches!(c, SyntaxChild::Tree(t) if t.kind == SyntaxKind::OrderByList)
-    });
+    let has_list = tree
+        .children
+        .iter()
+        .any(|c| matches!(c, SyntaxChild::Tree(t) if t.kind == SyntaxKind::OrderByList));
     let direct_item_count = if !has_list {
         tree.children
             .iter()
@@ -588,9 +765,7 @@ fn format_order_by_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
                 }
             }
             SyntaxChild::Token(t) => emit_token(t, ctx),
-            SyntaxChild::Tree(subtree)
-                if subtree.kind == SyntaxKind::OrderByList =>
-            {
+            SyntaxChild::Tree(subtree) if subtree.kind == SyntaxKind::OrderByList => {
                 let item_count = count_list_items(subtree);
                 if item_count > 1 {
                     ctx.write_newline();
@@ -673,9 +848,7 @@ fn format_settings_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
                 ctx.write_space();
             }
             SyntaxChild::Token(t) => emit_token(t, ctx),
-            SyntaxChild::Tree(subtree)
-                if subtree.kind == SyntaxKind::SettingList =>
-            {
+            SyntaxChild::Tree(subtree) if subtree.kind == SyntaxKind::SettingList => {
                 ctx.write_newline();
                 ctx.indent();
                 format_node(subtree, ctx);
@@ -878,14 +1051,10 @@ fn format_function_call(tree: &SyntaxTree, ctx: &mut FormatterContext) {
             SyntaxChild::Token(t) if t.kind == SyntaxKind::Comment => {
                 emit_comment(t, ctx);
             }
-            SyntaxChild::Token(t)
-                if t.kind == SyntaxKind::OpeningRoundBracket =>
-            {
+            SyntaxChild::Token(t) if t.kind == SyntaxKind::OpeningRoundBracket => {
                 ctx.write_token("(");
             }
-            SyntaxChild::Token(t)
-                if t.kind == SyntaxKind::ClosingRoundBracket =>
-            {
+            SyntaxChild::Token(t) if t.kind == SyntaxKind::ClosingRoundBracket => {
                 ctx.write_token(")");
             }
             SyntaxChild::Token(t) if t.kind == SyntaxKind::BareWord => {
@@ -931,9 +1100,7 @@ fn format_case_expression(tree: &SyntaxTree, ctx: &mut FormatterContext) {
                 }
             }
             SyntaxChild::Token(t) => emit_token(t, ctx),
-            SyntaxChild::Tree(subtree)
-                if subtree.kind == SyntaxKind::WhenClause =>
-            {
+            SyntaxChild::Tree(subtree) if subtree.kind == SyntaxKind::WhenClause => {
                 ctx.write_newline();
                 format_node(subtree, ctx);
             }
@@ -986,16 +1153,12 @@ fn format_subquery(tree: &SyntaxTree, ctx: &mut FormatterContext) {
             SyntaxChild::Token(t) if t.kind == SyntaxKind::Comment => {
                 emit_comment(t, ctx);
             }
-            SyntaxChild::Token(t)
-                if t.kind == SyntaxKind::OpeningRoundBracket =>
-            {
+            SyntaxChild::Token(t) if t.kind == SyntaxKind::OpeningRoundBracket => {
                 ctx.write_token("(");
                 ctx.write_newline();
                 ctx.indent();
             }
-            SyntaxChild::Token(t)
-                if t.kind == SyntaxKind::ClosingRoundBracket =>
-            {
+            SyntaxChild::Token(t) if t.kind == SyntaxKind::ClosingRoundBracket => {
                 ctx.dedent();
                 ctx.write_newline();
                 ctx.write_token(")");
@@ -1020,14 +1183,10 @@ fn format_paren_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
                 ctx.write_token(",");
                 ctx.write_space();
             }
-            SyntaxChild::Token(t)
-                if t.kind == SyntaxKind::OpeningRoundBracket =>
-            {
+            SyntaxChild::Token(t) if t.kind == SyntaxKind::OpeningRoundBracket => {
                 ctx.write_token("(");
             }
-            SyntaxChild::Token(t)
-                if t.kind == SyntaxKind::ClosingRoundBracket =>
-            {
+            SyntaxChild::Token(t) if t.kind == SyntaxKind::ClosingRoundBracket => {
                 ctx.write_token(")");
             }
             SyntaxChild::Token(t) => emit_token(t, ctx),
@@ -1046,14 +1205,10 @@ fn format_bracket_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
                 ctx.write_token(",");
                 ctx.write_space();
             }
-            SyntaxChild::Token(t)
-                if t.kind == SyntaxKind::OpeningSquareBracket =>
-            {
+            SyntaxChild::Token(t) if t.kind == SyntaxKind::OpeningSquareBracket => {
                 ctx.write_token("[");
             }
-            SyntaxChild::Token(t)
-                if t.kind == SyntaxKind::ClosingSquareBracket =>
-            {
+            SyntaxChild::Token(t) if t.kind == SyntaxKind::ClosingSquareBracket => {
                 ctx.write_token("]");
             }
             SyntaxChild::Token(t) => emit_token(t, ctx),
@@ -1076,14 +1231,10 @@ fn format_brace_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
                 ctx.write_token(":");
                 ctx.write_space();
             }
-            SyntaxChild::Token(t)
-                if t.kind == SyntaxKind::OpeningCurlyBrace =>
-            {
+            SyntaxChild::Token(t) if t.kind == SyntaxKind::OpeningCurlyBrace => {
                 ctx.write_token("{");
             }
-            SyntaxChild::Token(t)
-                if t.kind == SyntaxKind::ClosingCurlyBrace =>
-            {
+            SyntaxChild::Token(t) if t.kind == SyntaxKind::ClosingCurlyBrace => {
                 ctx.write_token("}");
             }
             SyntaxChild::Token(t) => emit_token(t, ctx),
@@ -1144,7 +1295,10 @@ fn format_inline_tight_parens(tree: &SyntaxTree, ctx: &mut FormatterContext) {
             }
             SyntaxChild::Token(t) => {
                 let suppress_space = t.kind == SyntaxKind::OpeningRoundBracket
-                    && matches!(prev_kind, Some(SyntaxKind::BareWord | SyntaxKind::QuotedIdentifier));
+                    && matches!(
+                        prev_kind,
+                        Some(SyntaxKind::BareWord | SyntaxKind::QuotedIdentifier)
+                    );
                 if !no_space_before(t) && !suppress_space {
                     if let Some(pk) = prev_kind {
                         if !no_space_after(pk) {
@@ -1185,7 +1339,10 @@ fn format_engine_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
             }
             SyntaxChild::Token(t) => {
                 let suppress_space = t.kind == SyntaxKind::OpeningRoundBracket
-                    && matches!(prev_kind, Some(SyntaxKind::BareWord | SyntaxKind::QuotedIdentifier));
+                    && matches!(
+                        prev_kind,
+                        Some(SyntaxKind::BareWord | SyntaxKind::QuotedIdentifier)
+                    );
                 if need_sep && !no_space_before(t) && !suppress_space {
                     ctx.write_space();
                 }
@@ -1315,7 +1472,10 @@ fn emit_token(token: &Token, ctx: &mut FormatterContext) {
     if token.kind == SyntaxKind::Whitespace {
         return;
     }
-    if token.kind == SyntaxKind::BareWord && is_keyword(token.text(ctx.source)) && !is_value_keyword(token.text(ctx.source)) {
+    if token.kind == SyntaxKind::BareWord
+        && is_keyword(token.text(ctx.source))
+        && !is_value_keyword(token.text(ctx.source))
+    {
         ctx.write_keyword(token.text(ctx.source));
     } else {
         ctx.write_token(token.text(ctx.source));
@@ -1485,7 +1645,7 @@ fn format_column_def_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     // Pass 2: pad the non-comment part so all comments start at the same column.
 
     struct Line {
-        content: String,  // formatted column def (+ comma)
+        content: String, // formatted column def (+ comma)
         comment: Option<String>,
     }
 
@@ -1497,71 +1657,73 @@ fn format_column_def_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     // Tokens like comma attach to the previous line, comments attach as trailing.
     let mut current_parts: Vec<&SyntaxChild> = Vec::new();
 
-    let flush_line = |parts: &mut Vec<&SyntaxChild>, lines: &mut Vec<Line>, ctx: &FormatterContext| {
-        if parts.is_empty() {
-            return;
-        }
-        let mut tmp = ctx.child();
-        for child in parts.iter() {
-            match child {
-                SyntaxChild::Token(t) if t.kind == SyntaxKind::Whitespace => {}
-                SyntaxChild::Token(t) if t.kind == SyntaxKind::Comment => {}
-                SyntaxChild::Token(t) if t.kind == SyntaxKind::Comma => {
-                    tmp.write_token(",");
-                }
-                SyntaxChild::Token(t) => emit_token(t, &mut tmp),
-                SyntaxChild::Tree(subtree) => format_node(subtree, &mut tmp),
+    let flush_line =
+        |parts: &mut Vec<&SyntaxChild>, lines: &mut Vec<Line>, ctx: &FormatterContext| {
+            if parts.is_empty() {
+                return;
             }
-        }
-
-        // Extract trailing comment: could be a direct Comment token in parts,
-        // or the formatted output may end with one from a nested node.
-        let formatted = tmp.output().to_string();
-
-        // Check for direct comment token in parts
-        let mut comment = None;
-        for child in parts.iter().rev() {
-            match child {
-                SyntaxChild::Token(t) if t.kind == SyntaxKind::Whitespace => continue,
-                SyntaxChild::Token(t) if t.kind == SyntaxKind::Comment => {
-                    comment = Some(t.text(ctx.source).to_string());
-                    break;
-                }
-                _ => break,
-            }
-        }
-
-        // If no direct comment, check if the formatted output ends with a line comment
-        // (from a nested node that emit_comment formatted)
-        if comment.is_none() {
-            let trimmed = formatted.trim_end();
-            // Find if a line comment got appended by emit_comment (which adds \n after --)
-            // The output might be "col_b Int64 -- example2\n"
-            if let Some(pos) = trimmed.rfind("-- ").or_else(|| trimmed.rfind("--")) {
-                // Only if it looks like a trailing comment (not part of a string/identifier)
-                let before = &trimmed[..pos];
-                // Heuristic: there should be a space or line-start before --
-                if before.is_empty() || before.ends_with(' ') {
-                    comment = Some(trimmed[pos..].to_string());
+            let mut tmp = ctx.child();
+            for child in parts.iter() {
+                match child {
+                    SyntaxChild::Token(t) if t.kind == SyntaxKind::Whitespace => {}
+                    SyntaxChild::Token(t) if t.kind == SyntaxKind::Comment => {}
+                    SyntaxChild::Token(t) if t.kind == SyntaxKind::Comma => {
+                        tmp.write_token(",");
+                    }
+                    SyntaxChild::Token(t) => emit_token(t, &mut tmp),
+                    SyntaxChild::Tree(subtree) => format_node(subtree, &mut tmp),
                 }
             }
-        }
 
-        let content = if let Some(ref c) = comment {
-            // Strip the comment from the formatted content
-            let trimmed = formatted.trim_end();
-            let content = trimmed.strip_suffix(c.as_str())
-                .unwrap_or(trimmed)
-                .trim_end()
-                .to_string();
-            content
-        } else {
-            formatted.trim_end().to_string()
+            // Extract trailing comment: could be a direct Comment token in parts,
+            // or the formatted output may end with one from a nested node.
+            let formatted = tmp.output().to_string();
+
+            // Check for direct comment token in parts
+            let mut comment = None;
+            for child in parts.iter().rev() {
+                match child {
+                    SyntaxChild::Token(t) if t.kind == SyntaxKind::Whitespace => continue,
+                    SyntaxChild::Token(t) if t.kind == SyntaxKind::Comment => {
+                        comment = Some(t.text(ctx.source).to_string());
+                        break;
+                    }
+                    _ => break,
+                }
+            }
+
+            // If no direct comment, check if the formatted output ends with a line comment
+            // (from a nested node that emit_comment formatted)
+            if comment.is_none() {
+                let trimmed = formatted.trim_end();
+                // Find if a line comment got appended by emit_comment (which adds \n after --)
+                // The output might be "col_b Int64 -- example2\n"
+                if let Some(pos) = trimmed.rfind("-- ").or_else(|| trimmed.rfind("--")) {
+                    // Only if it looks like a trailing comment (not part of a string/identifier)
+                    let before = &trimmed[..pos];
+                    // Heuristic: there should be a space or line-start before --
+                    if before.is_empty() || before.ends_with(' ') {
+                        comment = Some(trimmed[pos..].to_string());
+                    }
+                }
+            }
+
+            let content = if let Some(ref c) = comment {
+                // Strip the comment from the formatted content
+                let trimmed = formatted.trim_end();
+
+                trimmed
+                    .strip_suffix(c.as_str())
+                    .unwrap_or(trimmed)
+                    .trim_end()
+                    .to_string()
+            } else {
+                formatted.trim_end().to_string()
+            };
+
+            lines.push(Line { content, comment });
+            parts.clear();
         };
-
-        lines.push(Line { content, comment });
-        parts.clear();
-    };
 
     for child in &tree.children {
         match child {
@@ -1584,7 +1746,8 @@ fn format_column_def_list(tree: &SyntaxTree, ctx: &mut FormatterContext) {
     flush_line(&mut current_parts, &mut lines, ctx);
 
     // Find max content width among lines that have comments
-    let max_width = lines.iter()
+    let max_width = lines
+        .iter()
         .filter(|l| l.comment.is_some())
         .map(|l| l.content.len())
         .max()
@@ -1646,23 +1809,21 @@ fn format_alter_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
                 emit_token(t, ctx);
                 need_sep = !no_space_after(t.kind);
             }
-            SyntaxChild::Tree(subtree) => {
-                match subtree.kind {
-                    SyntaxKind::AlterCommandList => {
-                        ctx.write_newline();
-                        ctx.indent();
-                        format_node(subtree, ctx);
-                        ctx.dedent();
-                    }
-                    _ => {
-                        if need_sep {
-                            ctx.write_space();
-                        }
-                        format_node(subtree, ctx);
-                        need_sep = true;
-                    }
+            SyntaxChild::Tree(subtree) => match subtree.kind {
+                SyntaxKind::AlterCommandList => {
+                    ctx.write_newline();
+                    ctx.indent();
+                    format_node(subtree, ctx);
+                    ctx.dedent();
                 }
-            }
+                _ => {
+                    if need_sep {
+                        ctx.write_space();
+                    }
+                    format_node(subtree, ctx);
+                    need_sep = true;
+                }
+            },
         }
     }
 }
@@ -1735,8 +1896,10 @@ fn format_union_clause(tree: &SyntaxTree, ctx: &mut FormatterContext) {
                 }
             }
             SyntaxChild::Token(t) => emit_token(t, ctx),
-            SyntaxChild::Tree(subtree) if subtree.kind == SyntaxKind::SelectStatement
-                || subtree.kind == SyntaxKind::UnionClause => {
+            SyntaxChild::Tree(subtree)
+                if subtree.kind == SyntaxKind::SelectStatement
+                    || subtree.kind == SyntaxKind::UnionClause =>
+            {
                 if after_first_select {
                     ctx.write_newline();
                 }
@@ -1768,9 +1931,11 @@ fn format_explain_statement(tree: &SyntaxTree, ctx: &mut FormatterContext) {
             SyntaxChild::Tree(subtree) if subtree.kind == SyntaxKind::ExplainKind => {
                 format_node(subtree, ctx);
             }
-            SyntaxChild::Tree(subtree) if subtree.kind == SyntaxKind::SelectStatement
-                || subtree.kind == SyntaxKind::ShowStatement
-                || subtree.kind == SyntaxKind::DescribeStatement => {
+            SyntaxChild::Tree(subtree)
+                if subtree.kind == SyntaxKind::SelectStatement
+                    || subtree.kind == SyntaxKind::ShowStatement
+                    || subtree.kind == SyntaxKind::DescribeStatement =>
+            {
                 ctx.write_newline();
                 ctx.indent();
                 format_node(subtree, ctx);

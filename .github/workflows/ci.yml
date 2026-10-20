@@ -36,4 +36,4 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Clippy (LSP)
-        run: cargo clippy --features lsp
+        run: cargo clippy --features lsp --all-targets -- -D warnings

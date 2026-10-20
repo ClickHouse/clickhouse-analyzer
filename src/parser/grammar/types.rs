@@ -1,7 +1,7 @@
-use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
+use crate::parser::syntax_kind::SyntaxKind;
 
 /// Parses a data type with optional parameters:
 ///   `Int32`, `String`, `Array(UInt64)`, `Tuple(Int32, String)`, `Nullable(Float64)`
@@ -80,7 +80,7 @@ fn parse_type_parameter(p: &mut Parser) {
 #[cfg(test)]
 mod tests {
     use crate::parser::parse;
-    use expect_test::{expect, Expect};
+    use expect_test::{Expect, expect};
 
     fn check(input: &str, expected: Expect) {
         let result = parse(input);
@@ -91,7 +91,9 @@ mod tests {
 
     #[test]
     fn simple_type_cast() {
-        check("SELECT x::Int32", expect![[r#"
+        check(
+            "SELECT x::Int32",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -103,12 +105,15 @@ mod tests {
                       '::'
                       DataType
                         'Int32'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn nested_type_cast() {
-        check("SELECT x::Array(Tuple(Int32, String))", expect![[r#"
+        check(
+            "SELECT x::Array(Tuple(Int32, String))",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -133,12 +138,15 @@ mod tests {
                                 'String'
                               ')'
                           ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn numeric_type_parameter() {
-        check("SELECT x::DateTime64(9)", expect![[r#"
+        check(
+            "SELECT x::DateTime64(9)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -155,12 +163,15 @@ mod tests {
                           NumberLiteral
                             '9'
                           ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn decimal_type_parameters() {
-        check("SELECT x::Decimal(18, 4)", expect![[r#"
+        check(
+            "SELECT x::Decimal(18, 4)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -180,12 +191,15 @@ mod tests {
                           NumberLiteral
                             '4'
                           ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn fixed_string_type() {
-        check("SELECT x::FixedString(100)", expect![[r#"
+        check(
+            "SELECT x::FixedString(100)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -202,12 +216,15 @@ mod tests {
                           NumberLiteral
                             '100'
                           ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn enum_type() {
-        check("SELECT x::Enum8('a' = 1, 'b' = 2)", expect![[r#"
+        check(
+            "SELECT x::Enum8('a' = 1, 'b' = 2)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -235,12 +252,15 @@ mod tests {
                             NumberLiteral
                               '2'
                           ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn nested_type_with_numeric_param() {
-        check("SELECT x::Array(DateTime64(9))", expect![[r#"
+        check(
+            "SELECT x::Array(DateTime64(9))",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -262,12 +282,15 @@ mod tests {
                                 '9'
                               ')'
                           ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn map_type_with_lowcardinality() {
-        check("SELECT x::Map(LowCardinality(String), String)", expect![[r#"
+        check(
+            "SELECT x::Map(LowCardinality(String), String)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -292,6 +315,7 @@ mod tests {
                           DataType
                             'String'
                           ')'
-        "#]]);
+        "#]],
+        );
     }
 }

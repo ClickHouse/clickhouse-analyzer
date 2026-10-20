@@ -11,8 +11,8 @@ use std::sync::{Arc, Mutex};
 
 use line_index::LineIndex;
 use tokio::sync::RwLock;
-use tower_lsp::lsp_types::*;
 use tower_lsp::jsonrpc::Result;
+use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use crate::connection::client::ConnectionConfig;
@@ -21,7 +21,6 @@ use crate::formatter::{self, FormatConfig};
 use crate::metadata::cache::{MetadataCache, SharedMetadata};
 use crate::parser;
 use crate::parser::diagnostic::Parse;
-use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::syntax_tree::SyntaxChild;
 
 /// Maximum number of simultaneously open documents.
@@ -99,8 +98,7 @@ impl Backend {
                             .map(|r| DiagnosticRelatedInformation {
                                 location: Location {
                                     uri: uri.clone(),
-                                    range: line_index
-                                        .range(r.range.0 as u32, r.range.1 as u32),
+                                    range: line_index.range(r.range.0 as u32, r.range.1 as u32),
                                 },
                                 message: r.message.clone(),
                             })
@@ -135,10 +133,12 @@ impl Backend {
             };
 
             if let Some(client) = client {
-                self.client.log_message(
-                    MessageType::LOG,
-                    format!("server validation: source_len={}", parse.source.len()),
-                ).await;
+                self.client
+                    .log_message(
+                        MessageType::LOG,
+                        format!("server validation: source_len={}", parse.source.len()),
+                    )
+                    .await;
 
                 for child in &parse.tree.children {
                     let subtree = match child {
@@ -165,8 +165,7 @@ impl Backend {
                     let query = format!("EXPLAIN PLAN {trimmed}");
                     if let Err(e) = client.query_text(&query).await {
                         let msg = format!("{e}");
-                        let range =
-                            extract_error_range(&msg, trimmed, line_index, stmt_offset);
+                        let range = extract_error_range(&msg, trimmed, line_index, stmt_offset);
                         diags.push(Diagnostic {
                             range,
                             severity: Some(DiagnosticSeverity::WARNING),
@@ -202,18 +201,9 @@ impl Backend {
                 .as_str()
                 .unwrap_or("http://localhost:8123")
                 .to_string(),
-            database: ch["database"]
-                .as_str()
-                .unwrap_or("default")
-                .to_string(),
-            username: ch["username"]
-                .as_str()
-                .unwrap_or("default")
-                .to_string(),
-            password: ch["password"]
-                .as_str()
-                .unwrap_or("")
-                .to_string(),
+            database: ch["database"].as_str().unwrap_or("default").to_string(),
+            username: ch["username"].as_str().unwrap_or("default").to_string(),
+            password: ch["password"].as_str().unwrap_or("").to_string(),
         };
 
         let url = config.url.clone();
@@ -251,20 +241,14 @@ impl Backend {
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
-    async fn initialize(
-        &self,
-        _params: InitializeParams,
-    ) -> Result<InitializeResult> {
+    async fn initialize(&self, _params: InitializeParams) -> Result<InitializeResult> {
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
                     TextDocumentSyncKind::FULL,
                 )),
                 completion_provider: Some(CompletionOptions {
-                    trigger_characters: Some(vec![
-                        ".".into(),
-                        " ".into(),
-                    ]),
+                    trigger_characters: Some(vec![".".into(), " ".into()]),
                     ..Default::default()
                 }),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
@@ -336,7 +320,8 @@ impl LanguageServer for Backend {
         }
 
         let doc = DocumentState::new(source);
-        self.publish_diagnostics(uri.clone(), &doc.parse, &doc.line_index).await;
+        self.publish_diagnostics(uri.clone(), &doc.parse, &doc.line_index)
+            .await;
         self.lock_documents().insert(uri, doc);
     }
 
@@ -353,7 +338,8 @@ impl LanguageServer for Backend {
             }
 
             let doc = DocumentState::new(source);
-            self.publish_diagnostics(uri.clone(), &doc.parse, &doc.line_index).await;
+            self.publish_diagnostics(uri.clone(), &doc.parse, &doc.line_index)
+                .await;
             self.lock_documents().insert(uri, doc);
         }
     }
@@ -376,16 +362,14 @@ impl LanguageServer for Backend {
         self.try_connect(ch_settings).await;
     }
 
-    async fn formatting(
-        &self,
-        params: DocumentFormattingParams,
-    ) -> Result<Option<Vec<TextEdit>>> {
+    async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
         let uri = params.text_document.uri;
         let docs = self.lock_documents();
         let Some(doc) = docs.get(&uri) else {
             return Ok(None);
         };
-        let formatted = formatter::format(&doc.parse.tree, &FormatConfig::default(), &doc.parse.source);
+        let formatted =
+            formatter::format(&doc.parse.tree, &FormatConfig::default(), &doc.parse.source);
 
         // Replace the entire document.
         let end_pos = doc.line_index.position(doc.source().len() as u32);
@@ -417,10 +401,7 @@ impl LanguageServer for Backend {
         })))
     }
 
-    async fn completion(
-        &self,
-        params: CompletionParams,
-    ) -> Result<Option<CompletionResponse>> {
+    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
         let uri = params.text_document_position.text_document.uri;
         let position = params.text_document_position.position;
         let doc_data = {
@@ -480,10 +461,7 @@ impl LanguageServer for Backend {
         ))
     }
 
-    async fn signature_help(
-        &self,
-        params: SignatureHelpParams,
-    ) -> Result<Option<SignatureHelp>> {
+    async fn signature_help(&self, params: SignatureHelpParams) -> Result<Option<SignatureHelp>> {
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
         let (parse, line_index) = {
@@ -526,8 +504,7 @@ fn extract_error_range(
 ) -> tower_lsp::lsp_types::Range {
     // Try backtick-quoted identifier first: `name`
     // Then single-quoted: 'name'
-    let identifier = extract_quoted(error_msg, '`')
-        .or_else(|| extract_quoted(error_msg, '\''));
+    let identifier = extract_quoted(error_msg, '`').or_else(|| extract_quoted(error_msg, '\''));
 
     if let Some(ident) = identifier {
         // Find this identifier as a whole word in the statement (case-insensitive)
@@ -557,10 +534,7 @@ fn extract_error_range(
 
     // Fallback: highlight the first line of the statement
     let first_line_end = stmt_source.find('\n').unwrap_or(stmt_source.len());
-    line_index.range(
-        stmt_offset as u32,
-        (stmt_offset + first_line_end) as u32,
-    )
+    line_index.range(stmt_offset as u32, (stmt_offset + first_line_end) as u32)
 }
 
 fn extract_quoted(s: &str, quote: char) -> Option<String> {

@@ -21,7 +21,7 @@ pub struct Parse {
 #[cfg(test)]
 mod tests {
     use crate::parser::parse;
-    use expect_test::{expect, Expect};
+    use expect_test::{Expect, expect};
 
     /// Format errors as `offset..offset: message` — stable, byte-based, no line/col coupling.
     fn check_errors(input: &str, expected: Expect) {
@@ -46,37 +46,52 @@ mod tests {
 
     #[test]
     fn missing_closing_paren() {
-        check_errors("SELECT (1 + 2", expect![[r#"
+        check_errors(
+            "SELECT (1 + 2",
+            expect![[r#"
             13..13: expected )
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn bad_interval_unit() {
-        check_errors("SELECT INTERVAL 5 POTATO", expect![[r#"
+        check_errors(
+            "SELECT INTERVAL 5 POTATO",
+            expect![[r#"
             18..24: Expected interval unit (e.g. SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER, YEAR)
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn expected_table_after_from() {
-        check_errors("SELECT 1 FROM", expect![[r#"
+        check_errors(
+            "SELECT 1 FROM",
+            expect![[r#"
             13..13: Expected table reference
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn expected_table_after_dot() {
-        check_errors("SELECT 1 FROM db.", expect![[r#"
+        check_errors(
+            "SELECT 1 FROM db.",
+            expect![[r#"
             17..17: Expected table name after dot
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn multiple_errors() {
-        check_errors("SELECT (1 FROM", expect![[r#"
+        check_errors(
+            "SELECT (1 FROM",
+            expect![[r#"
             10..14: expected )
             14..14: Expected table reference
-        "#]]);
+        "#]],
+        );
     }
 }

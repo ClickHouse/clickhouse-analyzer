@@ -1,5 +1,5 @@
-use clickhouse_analyzer::{format, parse, FormatConfig};
-use expect_test::{expect, Expect};
+use clickhouse_analyzer::{FormatConfig, format, parse};
+use expect_test::{Expect, expect};
 
 fn check_format(input: &str, expected: Expect) {
     let result = parse(input);
@@ -436,7 +436,10 @@ fn custom_indent_width() {
         uppercase_keywords: true,
     };
     let formatted = format(&result.tree, &config, &result.source);
-    assert!(formatted.contains("  a,"), "Expected 2-space indent, got:\n{formatted}");
+    assert!(
+        formatted.contains("  a,"),
+        "Expected 2-space indent, got:\n{formatted}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -492,14 +495,20 @@ fn formatter_handles_parse_errors() {
     // Invalid SQL should not panic, and should produce some output
     let result = parse("select from where");
     let formatted = format(&result.tree, &FormatConfig::default(), &result.source);
-    assert!(!formatted.is_empty(), "Formatter should produce output even for invalid SQL");
+    assert!(
+        !formatted.is_empty(),
+        "Formatter should produce output even for invalid SQL"
+    );
 }
 
 #[test]
 fn formatter_handles_garbage() {
     let result = parse("!@#$%");
     let formatted = format(&result.tree, &FormatConfig::default(), &result.source);
-    assert!(!formatted.is_empty(), "Formatter should handle garbage input");
+    assert!(
+        !formatted.is_empty(),
+        "Formatter should handle garbage input"
+    );
 }
 
 #[test]
@@ -934,7 +943,9 @@ fn format_clause_after_having() {
 
 #[test]
 fn idempotent_codec_types() {
-    check_idempotent("CREATE TABLE t (`ts` DateTime64(9) CODEC(Delta(8), ZSTD(1))) ENGINE = MergeTree() ORDER BY ts");
+    check_idempotent(
+        "CREATE TABLE t (`ts` DateTime64(9) CODEC(Delta(8), ZSTD(1))) ENGINE = MergeTree() ORDER BY ts",
+    );
 }
 
 #[test]

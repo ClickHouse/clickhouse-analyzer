@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-#[cfg(any(feature = "lsp", feature = "codegen"))]
-use tokio::sync::RwLock;
 #[cfg(not(any(feature = "lsp", feature = "codegen")))]
 use std::sync::RwLock;
+#[cfg(any(feature = "lsp", feature = "codegen"))]
+use tokio::sync::RwLock;
 
 use super::generated;
 use super::types::*;
@@ -47,35 +47,29 @@ pub struct MetadataCache {
 impl MetadataCache {
     /// Initialize with compiled-in defaults (Tier 1). Instant, no I/O.
     pub fn from_compiled_defaults() -> Self {
-        let functions: Vec<FunctionInfo> =
-            serde_json::from_str(generated::FUNCTIONS_JSON)
-                .expect("embedded functions.json is corrupt");
+        let functions: Vec<FunctionInfo> = serde_json::from_str(generated::FUNCTIONS_JSON)
+            .expect("embedded functions.json is corrupt");
         let function_index = functions
             .iter()
             .enumerate()
             .map(|(i, f)| (f.name.to_lowercase(), i))
             .collect();
-        let settings: Vec<SettingInfo> =
-            serde_json::from_str(generated::SETTINGS_JSON)
-                .expect("embedded settings.json is corrupt");
+        let settings: Vec<SettingInfo> = serde_json::from_str(generated::SETTINGS_JSON)
+            .expect("embedded settings.json is corrupt");
         let merge_tree_settings: Vec<SettingInfo> =
             serde_json::from_str(generated::MERGE_TREE_SETTINGS_JSON)
                 .expect("embedded merge_tree_settings.json is corrupt");
-        let data_types: Vec<DataTypeInfo> =
-            serde_json::from_str(generated::DATA_TYPES_JSON)
-                .expect("embedded data_types.json is corrupt");
+        let data_types: Vec<DataTypeInfo> = serde_json::from_str(generated::DATA_TYPES_JSON)
+            .expect("embedded data_types.json is corrupt");
         let table_engines: Vec<TableEngineInfo> =
             serde_json::from_str(generated::TABLE_ENGINES_JSON)
                 .expect("embedded table_engines.json is corrupt");
-        let formats: Vec<FormatInfo> =
-            serde_json::from_str(generated::FORMATS_JSON)
-                .expect("embedded formats.json is corrupt");
+        let formats: Vec<FormatInfo> = serde_json::from_str(generated::FORMATS_JSON)
+            .expect("embedded formats.json is corrupt");
         let codecs: Vec<CodecInfo> =
-            serde_json::from_str(generated::CODECS_JSON)
-                .expect("embedded codecs.json is corrupt");
-        let keywords: Vec<String> =
-            serde_json::from_str(generated::KEYWORDS_JSON)
-                .expect("embedded keywords.json is corrupt");
+            serde_json::from_str(generated::CODECS_JSON).expect("embedded codecs.json is corrupt");
+        let keywords: Vec<String> = serde_json::from_str(generated::KEYWORDS_JSON)
+            .expect("embedded keywords.json is corrupt");
 
         Self {
             compiled_version: generated::CLICKHOUSE_VERSION.trim().to_string(),
@@ -106,6 +100,7 @@ impl MetadataCache {
     }
 
     /// Rebuild the function index after replacing functions.
+    #[cfg(any(feature = "lsp", feature = "codegen"))]
     fn rebuild_function_index(&mut self) {
         self.function_index = self
             .functions
@@ -160,47 +155,72 @@ impl MetadataCache {
     pub async fn refresh_global(&mut self) -> Result<(), ConnectionError> {
         // Query all system tables concurrently, collecting results.
         // We scope the client borrow so it's dropped before we mutate self.
-        let (functions, settings, mt_settings, data_types, engines, formats, codecs, databases, keywords) = {
+        let (
+            functions,
+            settings,
+            mt_settings,
+            data_types,
+            engines,
+            formats,
+            codecs,
+            databases,
+            keywords,
+        ) = {
             let client = self.client.as_ref().ok_or(ConnectionError::NotConnected)?;
-            let (functions, settings, mt_settings, data_types, engines, formats, codecs, databases, keywords) =
-                tokio::join!(
-                    client.query_json::<FunctionInfo>(
-                        "SELECT name, is_aggregate, case_insensitive, alias_to, \
+            let (
+                functions,
+                settings,
+                mt_settings,
+                data_types,
+                engines,
+                formats,
+                codecs,
+                databases,
+                keywords,
+            ) = tokio::join!(
+                client.query_json::<FunctionInfo>(
+                    "SELECT name, is_aggregate, case_insensitive, alias_to, \
                          syntax, arguments, returned_value, description, categories \
                          FROM system.functions ORDER BY name"
-                    ),
-                    client.query_json::<SettingInfo>(
-                        "SELECT name, description, type, default, tier \
+                ),
+                client.query_json::<SettingInfo>(
+                    "SELECT name, description, type, default, tier \
                          FROM system.settings WHERE is_obsolete = 0 ORDER BY name"
-                    ),
-                    client.query_json::<SettingInfo>(
-                        "SELECT name, description, type, default, tier \
+                ),
+                client.query_json::<SettingInfo>(
+                    "SELECT name, description, type, default, tier \
                          FROM system.merge_tree_settings WHERE is_obsolete = 0 ORDER BY name"
-                    ),
-                    client.query_json::<DataTypeInfo>(
-                        "SELECT name, case_insensitive, alias_to \
+                ),
+                client.query_json::<DataTypeInfo>(
+                    "SELECT name, case_insensitive, alias_to \
                          FROM system.data_type_families ORDER BY name"
-                    ),
-                    client.query_json::<TableEngineInfo>(
-                        "SELECT name, supports_settings, supports_sort_order, \
+                ),
+                client.query_json::<TableEngineInfo>(
+                    "SELECT name, supports_settings, supports_sort_order, \
                          supports_ttl, supports_replication \
                          FROM system.table_engines ORDER BY name"
-                    ),
-                    client.query_json::<FormatInfo>(
-                        "SELECT name, is_input, is_output \
+                ),
+                client.query_json::<FormatInfo>(
+                    "SELECT name, is_input, is_output \
                          FROM system.formats ORDER BY name"
-                    ),
-                    client.query_json::<CodecInfo>(
-                        "SELECT name FROM system.codecs ORDER BY name"
-                    ),
-                    client.query_json::<DatabaseInfo>(
-                        "SELECT name, engine FROM system.databases ORDER BY name"
-                    ),
-                    client.query_text(
-                        "SELECT keyword FROM system.keywords ORDER BY keyword"
-                    ),
-                );
-            (functions, settings, mt_settings, data_types, engines, formats, codecs, databases, keywords)
+                ),
+                client.query_json::<CodecInfo>("SELECT name FROM system.codecs ORDER BY name"),
+                client.query_json::<DatabaseInfo>(
+                    "SELECT name, engine FROM system.databases ORDER BY name"
+                ),
+                client.query_text("SELECT keyword FROM system.keywords ORDER BY keyword"),
+            );
+            (
+                functions,
+                settings,
+                mt_settings,
+                data_types,
+                engines,
+                formats,
+                codecs,
+                databases,
+                keywords,
+            )
         };
         // Client borrow dropped — safe to mutate self now.
         // Collect all results before mutating, so a single failure
@@ -293,18 +313,14 @@ impl MetadataCache {
     /// Get cached columns for a table (call ensure_columns first).
     pub fn get_columns(&self, database: &str, table: &str) -> &[ColumnInfo] {
         let key = (database.to_string(), table.to_string());
-        self.columns
-            .get(&key)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[])
+        self.columns.get(&key).map(|v| v.as_slice()).unwrap_or(&[])
     }
 
     /// Invalidate cached schema for a database.
     pub fn invalidate_tables(&mut self, database: &str) {
         self.tables.remove(database);
         let db_owned = database.to_string();
-        self.columns
-            .retain(|key, _| key.0 != db_owned);
+        self.columns.retain(|key, _| key.0 != db_owned);
     }
 
     /// Invalidate all cached schema.

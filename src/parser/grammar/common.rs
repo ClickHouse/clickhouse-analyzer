@@ -50,8 +50,11 @@ pub fn parse_on_cluster(p: &mut Parser) {
         let m = p.start();
         p.expect_keyword(Keyword::On);
         p.expect_keyword(Keyword::Cluster);
-        if p.at_any(&[SyntaxKind::BareWord, SyntaxKind::QuotedIdentifier, SyntaxKind::StringToken])
-        {
+        if p.at_any(&[
+            SyntaxKind::BareWord,
+            SyntaxKind::QuotedIdentifier,
+            SyntaxKind::StringToken,
+        ]) {
             p.advance();
         } else {
             p.advance_with_error("Expected cluster name after ON CLUSTER");

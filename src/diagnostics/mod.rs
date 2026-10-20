@@ -1,23 +1,25 @@
-mod types;
 mod bracket_matching;
 mod context;
+mod types;
 
-pub use types::{Diagnostic, Severity, Suggestion, RelatedSpan};
+pub use types::{Diagnostic, RelatedSpan, Severity, Suggestion};
 
 use crate::parser::diagnostic::Parse;
 
 pub fn enrich_diagnostics(parse: &Parse, _source: &str) -> Vec<Diagnostic> {
     // Convert raw SyntaxErrors to base Diagnostics
-    let mut diagnostics: Vec<Diagnostic> = parse.errors.iter().map(|e| {
-        Diagnostic {
+    let mut diagnostics: Vec<Diagnostic> = parse
+        .errors
+        .iter()
+        .map(|e| Diagnostic {
             message: e.message.clone(),
             range: e.range,
             severity: Severity::Error,
             code: None,
             suggestion: None,
             related: Vec::new(),
-        }
-    }).collect();
+        })
+        .collect();
 
     // Run enrichment passes
     bracket_matching::enrich(&mut diagnostics, &parse.tree);
@@ -30,7 +32,7 @@ pub fn enrich_diagnostics(parse: &Parse, _source: &str) -> Vec<Diagnostic> {
 mod tests {
     use super::*;
     use crate::parser::parse;
-    use expect_test::{expect, Expect};
+    use expect_test::{Expect, expect};
 
     fn check_diagnostics(input: &str, expected: Expect) {
         let result = parse(input);
@@ -38,9 +40,17 @@ mod tests {
         let actual: String = diagnostics
             .iter()
             .map(|d| {
-                let mut s = format!("{}..{}: [{}] {}", d.range.0, d.range.1,
-                    match d.severity { Severity::Error => "error", Severity::Warning => "warning", Severity::Hint => "hint" },
-                    d.message);
+                let mut s = format!(
+                    "{}..{}: [{}] {}",
+                    d.range.0,
+                    d.range.1,
+                    match d.severity {
+                        Severity::Error => "error",
+                        Severity::Warning => "warning",
+                        Severity::Hint => "hint",
+                    },
+                    d.message
+                );
                 if let Some(ref sug) = d.suggestion {
                     s += &format!(" (suggestion: {})", sug.message);
                 }
@@ -64,9 +74,15 @@ mod tests {
         let result = parse("SELECT (1 + 2");
         let diagnostics = enrich_diagnostics(&result, "SELECT (1 + 2");
         let has_related = diagnostics.iter().any(|d| {
-            d.related.iter().any(|r| r.message.contains("Unclosed bracket"))
+            d.related
+                .iter()
+                .any(|r| r.message.contains("Unclosed bracket"))
         });
-        assert!(has_related, "Expected related span for unclosed bracket, got: {:?}", diagnostics);
+        assert!(
+            has_related,
+            "Expected related span for unclosed bracket, got: {:?}",
+            diagnostics
+        );
     }
 
     #[test]
@@ -81,6 +97,10 @@ mod tests {
                 || d.message.contains("statement")
                 || d.message.contains("clause")
         });
-        assert!(has_context, "Expected contextual message, got: {:?}", diagnostics);
+        assert!(
+            has_context,
+            "Expected contextual message, got: {:?}",
+            diagnostics
+        );
     }
 }

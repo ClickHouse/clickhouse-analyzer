@@ -1,4 +1,4 @@
-use clickhouse_analyzer::{format, parse, FormatConfig, SyntaxChild, SyntaxKind, SyntaxTree};
+use clickhouse_analyzer::{FormatConfig, SyntaxChild, SyntaxKind, SyntaxTree, format, parse};
 use proptest::prelude::*;
 
 // ---------------------------------------------------------------------------

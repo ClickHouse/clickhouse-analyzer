@@ -8,16 +8,16 @@ use super::line_index::LineIndex;
 /// The token types we report, in the order they appear in the legend.
 /// The index into this array is used as the token type ID in the encoded data.
 pub const TOKEN_TYPES: &[SemanticTokenType] = &[
-    SemanticTokenType::KEYWORD,    // 0
-    SemanticTokenType::FUNCTION,   // 1
-    SemanticTokenType::STRING,     // 2
-    SemanticTokenType::NUMBER,     // 3
-    SemanticTokenType::COMMENT,    // 4
-    SemanticTokenType::OPERATOR,   // 5
-    SemanticTokenType::VARIABLE,   // 6  — column references
-    SemanticTokenType::TYPE,       // 7  — data types
-    SemanticTokenType::PARAMETER,  // 8  — query parameters {param:Type}
-    SemanticTokenType::PROPERTY,   // 9  — table/database names
+    SemanticTokenType::KEYWORD,   // 0
+    SemanticTokenType::FUNCTION,  // 1
+    SemanticTokenType::STRING,    // 2
+    SemanticTokenType::NUMBER,    // 3
+    SemanticTokenType::COMMENT,   // 4
+    SemanticTokenType::OPERATOR,  // 5
+    SemanticTokenType::VARIABLE,  // 6  — column references
+    SemanticTokenType::TYPE,      // 7  — data types
+    SemanticTokenType::PARAMETER, // 8  — query parameters {param:Type}
+    SemanticTokenType::PROPERTY,  // 9  — table/database names
 ];
 
 pub const TOKEN_MODIFIERS: &[SemanticTokenModifier] = &[];
@@ -83,7 +83,9 @@ fn collect_tokens(tree: &SyntaxTree, source: &str, out: &mut Vec<(u32, u32, u32)
     for child in &tree.children {
         match child {
             SyntaxChild::Token(token) => {
-                if let Some(tt) = classify_token(token.kind, token.start, token.end, source, tree.kind) {
+                if let Some(tt) =
+                    classify_token(token.kind, token.start, token.end, source, tree.kind)
+                {
                     out.push((token.start, token.end, tt));
                 }
             }
@@ -143,7 +145,10 @@ fn classify_token(
 /// context of its parent tree node.
 fn classify_bareword(text: &str, parent: SyntaxKind) -> Option<u32> {
     // If parent is a data type node, this is a type name
-    if matches!(parent, SyntaxKind::DataType | SyntaxKind::DataTypeParameters | SyntaxKind::NestedDataType) {
+    if matches!(
+        parent,
+        SyntaxKind::DataType | SyntaxKind::DataTypeParameters | SyntaxKind::NestedDataType
+    ) {
         return Some(TT_TYPE);
     }
 
@@ -156,10 +161,9 @@ fn classify_bareword(text: &str, parent: SyntaxKind) -> Option<u32> {
     if matches!(
         parent,
         SyntaxKind::FunctionCall | SyntaxKind::AggregateFunction | SyntaxKind::TableFunction
-    ) {
-        if !is_keyword(text) {
-            return Some(TT_FUNCTION);
-        }
+    ) && !is_keyword(text)
+    {
+        return Some(TT_FUNCTION);
     }
 
     // Table/database identifiers
@@ -173,27 +177,23 @@ fn classify_bareword(text: &str, parent: SyntaxKind) -> Option<u32> {
             | SyntaxKind::MaterializedViewDefinition
             | SyntaxKind::DictionaryDefinition
             | SyntaxKind::TableAlias
-    ) {
-        if !is_keyword(text) {
-            return Some(TT_PROPERTY);
-        }
+    ) && !is_keyword(text)
+    {
+        return Some(TT_PROPERTY);
     }
 
     // Column aliases
-    if matches!(parent, SyntaxKind::ColumnAlias) {
-        if !is_keyword(text) {
-            return Some(TT_VARIABLE);
-        }
+    if matches!(parent, SyntaxKind::ColumnAlias) && !is_keyword(text) {
+        return Some(TT_VARIABLE);
     }
 
     // Column references
     if matches!(
         parent,
         SyntaxKind::ColumnReference | SyntaxKind::QualifiedName | SyntaxKind::Identifier
-    ) {
-        if !is_keyword(text) {
-            return Some(TT_VARIABLE);
-        }
+    ) && !is_keyword(text)
+    {
+        return Some(TT_VARIABLE);
     }
 
     // Query parameters
@@ -242,7 +242,7 @@ fn is_keyword(text: &str) -> bool {
     if text.len() < 2 {
         return false;
     }
-    KEYWORDS.contains(&text.to_ascii_uppercase().as_str())
+    KEYWORDS.contains(text.to_ascii_uppercase().as_str())
 }
 
 /// All known ClickHouse SQL keywords. This set is used purely for syntax highlighting

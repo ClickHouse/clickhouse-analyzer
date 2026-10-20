@@ -82,17 +82,53 @@ mod tests {
     #[test]
     fn single_line() {
         let idx = LineIndex::new("SELECT 1");
-        assert_eq!(idx.position(0), tower_lsp::lsp_types::Position { line: 0, character: 0 });
-        assert_eq!(idx.position(7), tower_lsp::lsp_types::Position { line: 0, character: 7 });
+        assert_eq!(
+            idx.position(0),
+            tower_lsp::lsp_types::Position {
+                line: 0,
+                character: 0
+            }
+        );
+        assert_eq!(
+            idx.position(7),
+            tower_lsp::lsp_types::Position {
+                line: 0,
+                character: 7
+            }
+        );
     }
 
     #[test]
     fn multi_line() {
         let idx = LineIndex::new("SELECT\n  1\nFROM t");
-        assert_eq!(idx.position(0), tower_lsp::lsp_types::Position { line: 0, character: 0 });
-        assert_eq!(idx.position(7), tower_lsp::lsp_types::Position { line: 1, character: 0 });
-        assert_eq!(idx.position(11), tower_lsp::lsp_types::Position { line: 2, character: 0 });
-        assert_eq!(idx.position(17), tower_lsp::lsp_types::Position { line: 2, character: 6 });
+        assert_eq!(
+            idx.position(0),
+            tower_lsp::lsp_types::Position {
+                line: 0,
+                character: 0
+            }
+        );
+        assert_eq!(
+            idx.position(7),
+            tower_lsp::lsp_types::Position {
+                line: 1,
+                character: 0
+            }
+        );
+        assert_eq!(
+            idx.position(11),
+            tower_lsp::lsp_types::Position {
+                line: 2,
+                character: 0
+            }
+        );
+        assert_eq!(
+            idx.position(17),
+            tower_lsp::lsp_types::Position {
+                line: 2,
+                character: 6
+            }
+        );
     }
 
     #[test]
@@ -100,10 +136,34 @@ mod tests {
         // '€' is 3 bytes in UTF-8, 1 code unit in UTF-16.
         // '𐍈' is 4 bytes in UTF-8, 2 code units in UTF-16 (surrogate pair).
         let idx = LineIndex::new("a€𐍈b");
-        assert_eq!(idx.position(0), tower_lsp::lsp_types::Position { line: 0, character: 0 }); // 'a'
-        assert_eq!(idx.position(1), tower_lsp::lsp_types::Position { line: 0, character: 1 }); // start of '€'
-        assert_eq!(idx.position(4), tower_lsp::lsp_types::Position { line: 0, character: 2 }); // start of '𐍈'
-        assert_eq!(idx.position(8), tower_lsp::lsp_types::Position { line: 0, character: 4 }); // 'b' (2 UTF-16 units for 𐍈)
+        assert_eq!(
+            idx.position(0),
+            tower_lsp::lsp_types::Position {
+                line: 0,
+                character: 0
+            }
+        ); // 'a'
+        assert_eq!(
+            idx.position(1),
+            tower_lsp::lsp_types::Position {
+                line: 0,
+                character: 1
+            }
+        ); // start of '€'
+        assert_eq!(
+            idx.position(4),
+            tower_lsp::lsp_types::Position {
+                line: 0,
+                character: 2
+            }
+        ); // start of '𐍈'
+        assert_eq!(
+            idx.position(8),
+            tower_lsp::lsp_types::Position {
+                line: 0,
+                character: 4
+            }
+        ); // 'b' (2 UTF-16 units for 𐍈)
     }
 
     #[test]
@@ -114,7 +174,11 @@ mod tests {
             // Only test at char boundaries
             if text.is_char_boundary(offset as usize) {
                 let pos = idx.position(offset);
-                assert_eq!(idx.offset(pos), offset, "roundtrip failed for offset {offset}");
+                assert_eq!(
+                    idx.offset(pos),
+                    offset,
+                    "roundtrip failed for offset {offset}"
+                );
             }
         }
     }

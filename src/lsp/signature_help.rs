@@ -1,6 +1,6 @@
 use tower_lsp::lsp_types::*;
 
-use crate::analysis::cursor_context::{cursor_context, CursorContext};
+use crate::analysis::cursor_context::{CursorContext, cursor_context};
 use crate::metadata::cache::SharedMetadata;
 use crate::parser::diagnostic::Parse;
 
@@ -108,10 +108,7 @@ mod tests {
 
     #[test]
     fn parse_params_single() {
-        assert_eq!(
-            parse_function_params("arrayJoin(arr)"),
-            vec!["arr"]
-        );
+        assert_eq!(parse_function_params("arrayJoin(arr)"), vec!["arr"]);
     }
 
     #[test]

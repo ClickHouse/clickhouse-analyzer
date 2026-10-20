@@ -1,7 +1,7 @@
 use super::types::Diagnostic;
-use crate::parser::syntax_tree::SyntaxTree;
-use crate::parser::syntax_tree::SyntaxChild;
 use crate::parser::syntax_kind::SyntaxKind;
+use crate::parser::syntax_tree::SyntaxChild;
+use crate::parser::syntax_tree::SyntaxTree;
 
 /// Find the innermost node with a display name that contains the given byte range.
 /// This walks down the tree and returns the deepest ancestor that has a display name.

@@ -24,7 +24,10 @@ enum Backend {
 }
 
 impl Backend {
-    async fn query_json<T: DeserializeOwned>(&self, sql: &str) -> Result<Vec<T>, Box<dyn std::error::Error>> {
+    async fn query_json<T: DeserializeOwned>(
+        &self,
+        sql: &str,
+    ) -> Result<Vec<T>, Box<dyn std::error::Error>> {
         match self {
             Backend::Local { binary } => {
                 let output = Command::new(binary)
@@ -33,8 +36,11 @@ impl Backend {
                     .map_err(|e| format!("failed to execute '{binary}': {e}"))?;
                 if !output.status.success() {
                     let stderr = String::from_utf8_lossy(&output.stderr);
-                    return Err(format!("clickhouse-local query failed (exit {}):\n  query: {}\n  stderr: {stderr}",
-                        output.status, sql).into());
+                    return Err(format!(
+                        "clickhouse-local query failed (exit {}):\n  query: {}\n  stderr: {stderr}",
+                        output.status, sql
+                    )
+                    .into());
                 }
                 let text = String::from_utf8(output.stdout)?;
                 text.lines()
@@ -42,9 +48,7 @@ impl Backend {
                     .map(|line| serde_json::from_str(line).map_err(Into::into))
                     .collect()
             }
-            Backend::Http(client) => {
-                Ok(client.query_json(sql).await?)
-            }
+            Backend::Http(client) => Ok(client.query_json(sql).await?),
         }
     }
 
@@ -57,14 +61,15 @@ impl Backend {
                     .map_err(|e| format!("failed to execute '{binary}': {e}"))?;
                 if !output.status.success() {
                     let stderr = String::from_utf8_lossy(&output.stderr);
-                    return Err(format!("clickhouse-local query failed (exit {}):\n  query: {}\n  stderr: {stderr}",
-                        output.status, sql).into());
+                    return Err(format!(
+                        "clickhouse-local query failed (exit {}):\n  query: {}\n  stderr: {stderr}",
+                        output.status, sql
+                    )
+                    .into());
                 }
                 Ok(String::from_utf8(output.stdout)?)
             }
-            Backend::Http(client) => {
-                Ok(client.query_text(sql).await?)
-            }
+            Backend::Http(client) => Ok(client.query_text(sql).await?),
         }
     }
 }
@@ -87,7 +92,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // clickhouse-local mode
         let binary = std::env::var("CLICKHOUSE_BIN").unwrap_or_else(|_| "clickhouse".into());
         // Verify binary exists
-        let check = Command::new(&binary).args(["local", "--query", "SELECT 1"]).output();
+        let check = Command::new(&binary)
+            .args(["local", "--query", "SELECT 1"])
+            .output();
         match check {
             Ok(o) if o.status.success() => {}
             _ => {
@@ -117,28 +124,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
          syntax, arguments, returned_value, description, categories \
          FROM system.functions ORDER BY name",
         &out_dir.join("functions.json"),
-    ).await?;
+    )
+    .await?;
 
     write_query::<SettingInfo>(
         &backend,
         "SELECT name, description, type, default, tier \
          FROM system.settings WHERE is_obsolete = 0 ORDER BY name",
         &out_dir.join("settings.json"),
-    ).await?;
+    )
+    .await?;
 
     write_query::<SettingInfo>(
         &backend,
         "SELECT name, description, type, default, tier \
          FROM system.merge_tree_settings WHERE is_obsolete = 0 ORDER BY name",
         &out_dir.join("merge_tree_settings.json"),
-    ).await?;
+    )
+    .await?;
 
     write_query::<DataTypeInfo>(
         &backend,
         "SELECT name, case_insensitive, alias_to \
          FROM system.data_type_families ORDER BY name",
         &out_dir.join("data_types.json"),
-    ).await?;
+    )
+    .await?;
 
     write_query::<TableEngineInfo>(
         &backend,
@@ -146,24 +157,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
          supports_ttl, supports_replication \
          FROM system.table_engines ORDER BY name",
         &out_dir.join("table_engines.json"),
-    ).await?;
+    )
+    .await?;
 
     write_query::<FormatInfo>(
         &backend,
         "SELECT name, is_input, is_output FROM system.formats ORDER BY name",
         &out_dir.join("formats.json"),
-    ).await?;
+    )
+    .await?;
 
     write_query::<CodecInfo>(
         &backend,
         "SELECT name FROM system.codecs ORDER BY name",
         &out_dir.join("codecs.json"),
-    ).await?;
+    )
+    .await?;
 
     // Keywords (system.keywords available since CH 24.4)
-    match backend.query_text("SELECT keyword FROM system.keywords ORDER BY keyword").await {
+    match backend
+        .query_text("SELECT keyword FROM system.keywords ORDER BY keyword")
+        .await
+    {
         Ok(text) => {
-            let keywords: Vec<String> = text.lines()
+            let keywords: Vec<String> = text
+                .lines()
                 .filter(|l| !l.is_empty())
                 .map(|l| l.trim().to_string())
                 .collect();

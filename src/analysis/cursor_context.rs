@@ -273,11 +273,17 @@ fn analyze_path(path: &[PathNode<'_>], source: &str, offset: u32) -> CursorConte
 /// where the Error node is empty), check the last child clause of the deepest statement.
 fn check_trailing_clause(path: &[PathNode<'_>], offset: u32) -> Option<CursorContext> {
     // Find the deepest statement-like node in the path
-    let stmt = path.iter().rev().find(|n| matches!(n.kind,
-        SyntaxKind::SelectStatement | SyntaxKind::InsertStatement |
-        SyntaxKind::CreateStatement | SyntaxKind::AlterStatement |
-        SyntaxKind::DeleteStatement | SyntaxKind::UpdateStatement
-    ))?;
+    let stmt = path.iter().rev().find(|n| {
+        matches!(
+            n.kind,
+            SyntaxKind::SelectStatement
+                | SyntaxKind::InsertStatement
+                | SyntaxKind::CreateStatement
+                | SyntaxKind::AlterStatement
+                | SyntaxKind::DeleteStatement
+                | SyntaxKind::UpdateStatement
+        )
+    })?;
 
     // Find the last clause child whose start is before the cursor
     let mut last_clause = None;
@@ -300,21 +306,13 @@ fn check_trailing_clause(path: &[PathNode<'_>], offset: u32) -> Option<CursorCon
         SyntaxKind::HavingClause | SyntaxKind::WhereClause | SyntaxKind::PrewhereClause => {
             Some(CursorContext::Expression)
         }
-        SyntaxKind::FromClause => {
-            Some(CursorContext::TableReference { database_prefix: None })
-        }
-        SyntaxKind::SelectClause => {
-            Some(CursorContext::SelectExpression)
-        }
-        SyntaxKind::GroupByClause | SyntaxKind::OrderByClause => {
-            Some(CursorContext::Expression)
-        }
-        SyntaxKind::SettingsClause => {
-            Some(CursorContext::SettingName)
-        }
-        SyntaxKind::FormatClause => {
-            Some(CursorContext::FormatName)
-        }
+        SyntaxKind::FromClause => Some(CursorContext::TableReference {
+            database_prefix: None,
+        }),
+        SyntaxKind::SelectClause => Some(CursorContext::SelectExpression),
+        SyntaxKind::GroupByClause | SyntaxKind::OrderByClause => Some(CursorContext::Expression),
+        SyntaxKind::SettingsClause => Some(CursorContext::SettingName),
+        SyntaxKind::FormatClause => Some(CursorContext::FormatName),
         _ => None,
     }
 }
@@ -348,11 +346,7 @@ fn check_dot_access(tree: &SyntaxTree, source: &str, offset: u32) -> Option<Curs
 }
 
 /// Find the identifier text immediately before a dot at the given offset.
-fn find_identifier_before_dot(
-    tree: &SyntaxTree,
-    source: &str,
-    offset: u32,
-) -> Option<String> {
+fn find_identifier_before_dot(tree: &SyntaxTree, source: &str, offset: u32) -> Option<String> {
     let mut prev_prev: Option<&str> = None;
     let mut prev: Option<&str> = None;
     find_ident_before_dot_impl(tree, source, offset, &mut prev_prev, &mut prev);
@@ -541,10 +535,7 @@ mod tests {
 
     #[test]
     fn settings_clause() {
-        assert_eq!(
-            ctx_at("SELECT 1 SETTINGS ", 18),
-            CursorContext::SettingName
-        );
+        assert_eq!(ctx_at("SELECT 1 SETTINGS ", 18), CursorContext::SettingName);
     }
 
     #[test]
@@ -567,10 +558,7 @@ mod tests {
 
     #[test]
     fn format_clause() {
-        assert_eq!(
-            ctx_at("SELECT 1 FORMAT ", 16),
-            CursorContext::FormatName
-        );
+        assert_eq!(ctx_at("SELECT 1 FORMAT ", 16), CursorContext::FormatName);
     }
 
     // --- Suspected gap tests ---
@@ -594,10 +582,7 @@ mod tests {
     #[test]
     fn having_expression() {
         let sql = "SELECT a, count() FROM t GROUP BY a HAVING ";
-        assert_eq!(
-            ctx_at(sql, sql.len()),
-            CursorContext::Expression
-        );
+        assert_eq!(ctx_at(sql, sql.len()), CursorContext::Expression);
     }
 
     #[test]
@@ -612,23 +597,19 @@ mod tests {
     fn insert_into_table() {
         assert_eq!(
             ctx_at("INSERT INTO ", 12),
-            CursorContext::TableReference { database_prefix: None }
+            CursorContext::TableReference {
+                database_prefix: None
+            }
         );
     }
 
     #[test]
     fn after_comma_in_select() {
-        assert_eq!(
-            ctx_at("SELECT a, ", 10),
-            CursorContext::SelectExpression
-        );
+        assert_eq!(ctx_at("SELECT a, ", 10), CursorContext::SelectExpression);
     }
 
     #[test]
     fn create_table_column_type() {
-        assert_eq!(
-            ctx_at("CREATE TABLE t (col ", 20),
-            CursorContext::DataType
-        );
+        assert_eq!(ctx_at("CREATE TABLE t (col ", 20), CursorContext::DataType);
     }
 }
