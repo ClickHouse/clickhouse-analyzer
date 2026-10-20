@@ -432,7 +432,7 @@ fn expr_delimited(p: &mut Parser) -> Option<CompletedMarker> {
             p.advance();
             p.complete(m, SyntaxKind::Asterisk)
         }
-        SyntaxKind::StringToken => {
+        SyntaxKind::StringToken | SyntaxKind::HereDoc => {
             let m = p.start();
             p.advance();
             p.complete(m, SyntaxKind::StringLiteral)
