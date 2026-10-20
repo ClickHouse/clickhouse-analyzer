@@ -15,8 +15,8 @@ pub mod analysis;
 #[cfg(feature = "lsp")]
 pub mod lsp;
 
-pub use diagnostics::{enrich_diagnostics, Diagnostic, RelatedSpan, Severity, Suggestion};
-pub use formatter::{format, FormatConfig};
+pub use diagnostics::{Diagnostic, RelatedSpan, Severity, Suggestion, enrich_diagnostics};
+pub use formatter::{FormatConfig, format};
 pub use lexer::token::Token;
 pub use parser::diagnostic::{Parse, SyntaxError};
 pub use parser::parse;

@@ -1,4 +1,3 @@
-use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::alter::{at_alter_statement, parse_alter_statement};
 use crate::parser::grammar::common;
 use crate::parser::grammar::create_table::{at_create_statement, parse_create_statement};
@@ -9,10 +8,15 @@ use crate::parser::grammar::select::{at_select_statement, parse_select_statement
 use crate::parser::grammar::statements::*;
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
+use crate::parser::syntax_kind::SyntaxKind;
 
 const SHOW_KEYWORDS: &[Keyword] = &[
-    Keyword::From, Keyword::Like, Keyword::Ilike, Keyword::Limit,
-    Keyword::Format, Keyword::Where,
+    Keyword::From,
+    Keyword::Like,
+    Keyword::Ilike,
+    Keyword::Limit,
+    Keyword::Format,
+    Keyword::Where,
 ];
 
 // ===========================================================================
@@ -138,8 +142,7 @@ fn parse_explain_kind(p: &mut Parser) {
 // ===========================================================================
 
 pub fn at_describe_statement(p: &mut Parser) -> bool {
-    p.at_keyword(Keyword::Describe)
-        || p.at_keyword(Keyword::Desc)
+    p.at_keyword(Keyword::Describe) || p.at_keyword(Keyword::Desc)
 }
 
 /// Parses: DESCRIBE|DESC [TABLE] [db.]table [FORMAT format]
@@ -148,9 +151,7 @@ pub fn parse_describe_statement(p: &mut Parser) {
     let m = p.start();
 
     // DESCRIBE or DESC
-    if p.at_keyword(Keyword::Describe) {
-        p.advance();
-    } else if p.at_keyword(Keyword::Desc) {
+    if p.at_keyword(Keyword::Describe) || p.at_keyword(Keyword::Desc) {
         p.advance();
     }
 
@@ -461,9 +462,7 @@ fn parse_show_settings(p: &mut Parser) {
 fn parse_like_clause(p: &mut Parser) {
     let m = p.start();
 
-    if p.at_keyword(Keyword::Like) {
-        p.advance();
-    } else if p.at_keyword(Keyword::Ilike) {
+    if p.at_keyword(Keyword::Like) || p.at_keyword(Keyword::Ilike) {
         p.advance();
     }
 
@@ -595,10 +594,8 @@ fn parse_settings_list(p: &mut Parser) {
         && !at_show_statement(p)
         && !at_describe_statement(p)
     {
-        if !first {
-            if !p.eat(SyntaxKind::Comma) {
-                break;
-            }
+        if !first && !p.eat(SyntaxKind::Comma) {
+            break;
         }
         first = false;
 
@@ -626,7 +623,7 @@ fn parse_settings_list(p: &mut Parser) {
 #[cfg(test)]
 mod tests {
     use crate::parser::parse;
-    use expect_test::{expect, Expect};
+    use expect_test::{Expect, expect};
 
     fn check(input: &str, expected: Expect) {
         let result = parse(input);

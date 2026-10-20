@@ -1,5 +1,5 @@
-use clickhouse_analyzer::{format, parse, FormatConfig};
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use clickhouse_analyzer::{FormatConfig, format, parse};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 const SMALL_QUERY: &str = "SELECT 1";
 
@@ -47,17 +47,11 @@ SETTINGS max_threads = 4";
 fn bench_parse(c: &mut Criterion) {
     let mut group = c.benchmark_group("parse");
 
-    group.bench_function("small", |b| {
-        b.iter(|| parse(black_box(SMALL_QUERY)))
-    });
+    group.bench_function("small", |b| b.iter(|| parse(black_box(SMALL_QUERY))));
 
-    group.bench_function("medium", |b| {
-        b.iter(|| parse(black_box(MEDIUM_QUERY)))
-    });
+    group.bench_function("medium", |b| b.iter(|| parse(black_box(MEDIUM_QUERY))));
 
-    group.bench_function("large", |b| {
-        b.iter(|| parse(black_box(LARGE_QUERY)))
-    });
+    group.bench_function("large", |b| b.iter(|| parse(black_box(LARGE_QUERY))));
 
     group.finish();
 }

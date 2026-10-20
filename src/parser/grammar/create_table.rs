@@ -1,14 +1,20 @@
-use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::grammar::select::{at_select_statement, parse_select_statement};
 use crate::parser::grammar::types::parse_column_type;
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
+use crate::parser::syntax_kind::SyntaxKind;
 
 const CREATE_TABLE_KEYWORDS: &[Keyword] = &[
-    Keyword::Engine, Keyword::Order, Keyword::Partition, Keyword::Primary,
-    Keyword::Sample, Keyword::Ttl, Keyword::Settings, Keyword::Comment,
+    Keyword::Engine,
+    Keyword::Order,
+    Keyword::Partition,
+    Keyword::Primary,
+    Keyword::Sample,
+    Keyword::Ttl,
+    Keyword::Settings,
+    Keyword::Comment,
     Keyword::As,
 ];
 
@@ -52,21 +58,17 @@ pub fn parse_create_statement(p: &mut Parser) {
         parse_create_role(p);
     } else if p.at_keyword(Keyword::Quota) {
         parse_create_quota(p);
-    } else if p.at_keyword(Keyword::Row) {
+    } else if p.at_keyword(Keyword::Row) || p.at_keyword(Keyword::Policy) {
         parse_create_row_policy(p);
-    } else if p.at_keyword(Keyword::Policy) {
-        parse_create_row_policy(p);
-    } else if p.at_keyword(Keyword::Settings) && !is_temporary {
+    } else if (p.at_keyword(Keyword::Settings) && !is_temporary) || p.at_keyword(Keyword::Profile) {
         parse_create_settings_profile(p);
-    } else if p.at_keyword(Keyword::Profile) {
-        parse_create_settings_profile(p);
+    } else if is_temporary {
+        // TEMPORARY only valid with TABLE
+        p.recover_with_error("Expected TABLE after TEMPORARY");
     } else {
-        if is_temporary {
-            // TEMPORARY only valid with TABLE
-            p.recover_with_error("Expected TABLE after TEMPORARY");
-        } else {
-            p.advance_with_error("Expected TABLE, DATABASE, VIEW, MATERIALIZED VIEW, FUNCTION, or DICTIONARY");
-        }
+        p.advance_with_error(
+            "Expected TABLE, DATABASE, VIEW, MATERIALIZED VIEW, FUNCTION, or DICTIONARY",
+        );
     }
 
     p.complete(m, SyntaxKind::CreateStatement);
@@ -424,9 +426,7 @@ fn parse_key_value_pairs(p: &mut Parser) {
                 // Parenthesized value block, e.g. STRUCTURE (a String, b Decimal(18, 8))
                 // Consume everything between matching parens, handling nesting.
                 consume_balanced_parens(p);
-            } else if p.at_identifier()
-                && !p.at(SyntaxKind::ClosingRoundBracket)
-            {
+            } else if p.at_identifier() && !p.at(SyntaxKind::ClosingRoundBracket) {
                 // bareword value (e.g. column name in RANGE)
                 p.advance();
             }
@@ -608,9 +608,7 @@ fn at_column_type(p: &mut Parser) -> bool {
 
 /// Check if at start of a column-level constraint keyword
 fn at_column_constraint_start(p: &mut Parser) -> bool {
-    p.at_keyword(Keyword::Codec)
-        || p.at_keyword(Keyword::Ttl)
-        || p.at_keyword(Keyword::Comment)
+    p.at_keyword(Keyword::Codec) || p.at_keyword(Keyword::Ttl) || p.at_keyword(Keyword::Comment)
 }
 
 /// Parse CODEC arguments (comma-separated identifiers with optional params)
@@ -847,10 +845,8 @@ fn parse_settings_clause(p: &mut Parser) {
             break;
         }
 
-        if !first {
-            if !p.eat(SyntaxKind::Comma) {
-                break;
-            }
+        if !first && !p.eat(SyntaxKind::Comma) {
+            break;
         }
         first = false;
 
@@ -1008,7 +1004,8 @@ mod tests {
 
     #[test]
     fn test_create_table_basic() {
-        let result = parse("CREATE TABLE test (id UInt64, name String) ENGINE = MergeTree() ORDER BY id");
+        let result =
+            parse("CREATE TABLE test (id UInt64, name String) ENGINE = MergeTree() ORDER BY id");
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         // Just verify it parses without panic and has CreateStatement
@@ -1022,7 +1019,9 @@ mod tests {
 
     #[test]
     fn test_create_table_if_not_exists() {
-        let result = parse("CREATE TABLE IF NOT EXISTS db.test (id UInt64) ENGINE = MergeTree() ORDER BY id");
+        let result = parse(
+            "CREATE TABLE IF NOT EXISTS db.test (id UInt64) ENGINE = MergeTree() ORDER BY id",
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("IfNotExistsClause"));
@@ -1031,7 +1030,9 @@ mod tests {
 
     #[test]
     fn test_create_table_on_cluster() {
-        let result = parse("CREATE TABLE test ON CLUSTER my_cluster (id UInt64) ENGINE = MergeTree() ORDER BY id");
+        let result = parse(
+            "CREATE TABLE test ON CLUSTER my_cluster (id UInt64) ENGINE = MergeTree() ORDER BY id",
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("OnClusterClause"));
@@ -1039,7 +1040,9 @@ mod tests {
 
     #[test]
     fn test_create_table_column_defaults() {
-        let result = parse("CREATE TABLE test (id UInt64 DEFAULT 0, name String ALIAS 'hello', ts DateTime CODEC(Delta, ZSTD)) ENGINE = MergeTree() ORDER BY id");
+        let result = parse(
+            "CREATE TABLE test (id UInt64 DEFAULT 0, name String ALIAS 'hello', ts DateTime CODEC(Delta, ZSTD)) ENGINE = MergeTree() ORDER BY id",
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("ColumnDefault"));
@@ -1048,7 +1051,9 @@ mod tests {
 
     #[test]
     fn test_create_table_column_comment() {
-        let result = parse("CREATE TABLE test (id UInt64 COMMENT 'primary key') ENGINE = MergeTree() ORDER BY id");
+        let result = parse(
+            "CREATE TABLE test (id UInt64 COMMENT 'primary key') ENGINE = MergeTree() ORDER BY id",
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("ColumnComment"));
@@ -1056,7 +1061,9 @@ mod tests {
 
     #[test]
     fn test_create_table_index() {
-        let result = parse("CREATE TABLE test (id UInt64, INDEX idx id TYPE minmax GRANULARITY 3) ENGINE = MergeTree() ORDER BY id");
+        let result = parse(
+            "CREATE TABLE test (id UInt64, INDEX idx id TYPE minmax GRANULARITY 3) ENGINE = MergeTree() ORDER BY id",
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("IndexDefinition"));
@@ -1064,7 +1071,9 @@ mod tests {
 
     #[test]
     fn test_create_table_constraint() {
-        let result = parse("CREATE TABLE test (id UInt64, CONSTRAINT c1 CHECK id > 0) ENGINE = MergeTree() ORDER BY id");
+        let result = parse(
+            "CREATE TABLE test (id UInt64, CONSTRAINT c1 CHECK id > 0) ENGINE = MergeTree() ORDER BY id",
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("ConstraintDefinition"));
@@ -1100,7 +1109,8 @@ mod tests {
 
     #[test]
     fn test_create_or_replace_table() {
-        let result = parse("CREATE OR REPLACE TABLE test (id UInt64) ENGINE = MergeTree() ORDER BY id");
+        let result =
+            parse("CREATE OR REPLACE TABLE test (id UInt64) ENGINE = MergeTree() ORDER BY id");
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("CreateStatement"));
@@ -1118,7 +1128,8 @@ mod tests {
 
     #[test]
     fn test_create_database() {
-        let result = parse("CREATE DATABASE IF NOT EXISTS mydb ENGINE = Atomic() COMMENT 'test db'");
+        let result =
+            parse("CREATE DATABASE IF NOT EXISTS mydb ENGINE = Atomic() COMMENT 'test db'");
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DatabaseDefinition"));
@@ -1155,7 +1166,11 @@ mod tests {
     #[test]
     fn test_create_function_if_not_exists() {
         let result = parse("CREATE FUNCTION IF NOT EXISTS myFunc AS (x) -> x + 1");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("FunctionDefinition"));
@@ -1165,8 +1180,13 @@ mod tests {
 
     #[test]
     fn test_create_function_multi_arg_lambda() {
-        let result = parse("CREATE FUNCTION IF NOT EXISTS testfn AS (param_a) -> bitAnd(param_a, 123)");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let result =
+            parse("CREATE FUNCTION IF NOT EXISTS testfn AS (param_a) -> bitAnd(param_a, 123)");
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("FunctionDefinition"));
@@ -1178,7 +1198,7 @@ mod tests {
     #[test]
     fn test_create_table_all_clauses() {
         let result = parse(
-            "CREATE TABLE test (id UInt64) ENGINE = MergeTree() ORDER BY id PARTITION BY id PRIMARY KEY id SAMPLE BY id TTL id SETTINGS index_granularity = 8192 COMMENT 'test'"
+            "CREATE TABLE test (id UInt64) ENGINE = MergeTree() ORDER BY id PARTITION BY id PRIMARY KEY id SAMPLE BY id TTL id SETTINGS index_granularity = 8192 COMMENT 'test'",
         );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
@@ -1193,7 +1213,9 @@ mod tests {
 
     #[test]
     fn test_create_table_projection() {
-        let result = parse("CREATE TABLE test (id UInt64, PROJECTION p1 (SELECT id ORDER BY id)) ENGINE = MergeTree() ORDER BY id");
+        let result = parse(
+            "CREATE TABLE test (id UInt64, PROJECTION p1 (SELECT id ORDER BY id)) ENGINE = MergeTree() ORDER BY id",
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("ProjectionDefinition"));
@@ -1201,7 +1223,9 @@ mod tests {
 
     #[test]
     fn test_create_table_complex_types() {
-        let result = parse("CREATE TABLE test (id UInt64, data Array(String), nested Tuple(a UInt32, b String)) ENGINE = MergeTree() ORDER BY id");
+        let result = parse(
+            "CREATE TABLE test (id UInt64, data Array(String), nested Tuple(a UInt32, b String)) ENGINE = MergeTree() ORDER BY id",
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DataType"));
@@ -1209,7 +1233,9 @@ mod tests {
 
     #[test]
     fn test_create_table_ttl_column() {
-        let result = parse("CREATE TABLE test (id UInt64, ts DateTime TTL ts + 1) ENGINE = MergeTree() ORDER BY id");
+        let result = parse(
+            "CREATE TABLE test (id UInt64, ts DateTime TTL ts + 1) ENGINE = MergeTree() ORDER BY id",
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("ColumnTtl"));
@@ -1236,7 +1262,9 @@ mod tests {
 
     #[test]
     fn test_create_dictionary() {
-        let result = parse("CREATE DICTIONARY mydict (id UInt64, name String) PRIMARY KEY id SOURCE(CLICKHOUSE(host 'localhost')) LAYOUT(HASHED()) LIFETIME(300)");
+        let result = parse(
+            "CREATE DICTIONARY mydict (id UInt64, name String) PRIMARY KEY id SOURCE(CLICKHOUSE(host 'localhost')) LAYOUT(HASHED()) LIFETIME(300)",
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DictionaryDefinition"));
@@ -1250,14 +1278,26 @@ mod tests {
 
     #[test]
     fn test_create_dictionary_no_errors() {
-        let result = parse("CREATE DICTIONARY mydict (id UInt64, name String) PRIMARY KEY id SOURCE(CLICKHOUSE(HOST 'localhost' PORT 9000 TABLE 'source_table' DB 'default')) LAYOUT(HASHED()) LIFETIME(MIN 300 MAX 600)");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let result = parse(
+            "CREATE DICTIONARY mydict (id UInt64, name String) PRIMARY KEY id SOURCE(CLICKHOUSE(HOST 'localhost' PORT 9000 TABLE 'source_table' DB 'default')) LAYOUT(HASHED()) LIFETIME(MIN 300 MAX 600)",
+        );
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
     }
 
     #[test]
     fn test_create_dictionary_lifetime_simple() {
-        let result = parse("CREATE DICTIONARY d (id UInt64) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(FLAT()) LIFETIME(300)");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let result = parse(
+            "CREATE DICTIONARY d (id UInt64) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(FLAT()) LIFETIME(300)",
+        );
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DictionaryLifetime"));
@@ -1265,8 +1305,14 @@ mod tests {
 
     #[test]
     fn test_create_dictionary_lifetime_min_max() {
-        let result = parse("CREATE DICTIONARY d (id UInt64) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(FLAT()) LIFETIME(MIN 300 MAX 600)");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let result = parse(
+            "CREATE DICTIONARY d (id UInt64) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(FLAT()) LIFETIME(MIN 300 MAX 600)",
+        );
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DictionaryLifetime"));
@@ -1275,8 +1321,14 @@ mod tests {
 
     #[test]
     fn test_create_dictionary_range() {
-        let result = parse("CREATE DICTIONARY d (id UInt64, start Date, end Date) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(RANGE_HASHED()) RANGE(MIN start MAX end) LIFETIME(300)");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let result = parse(
+            "CREATE DICTIONARY d (id UInt64, start Date, end Date) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(RANGE_HASHED()) RANGE(MIN start MAX end) LIFETIME(300)",
+        );
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DictionaryRange"));
@@ -1285,8 +1337,14 @@ mod tests {
 
     #[test]
     fn test_create_dictionary_source_key_values() {
-        let result = parse("CREATE DICTIONARY d (id UInt64) PRIMARY KEY id SOURCE(CLICKHOUSE(HOST 'localhost' PORT 9000 TABLE 'src' DB 'default' USER 'admin' PASSWORD 'secret')) LAYOUT(HASHED()) LIFETIME(300)");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let result = parse(
+            "CREATE DICTIONARY d (id UInt64) PRIMARY KEY id SOURCE(CLICKHOUSE(HOST 'localhost' PORT 9000 TABLE 'src' DB 'default' USER 'admin' PASSWORD 'secret')) LAYOUT(HASHED()) LIFETIME(300)",
+        );
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DictionarySource"));
@@ -1296,8 +1354,14 @@ mod tests {
 
     #[test]
     fn test_create_dictionary_complex_layout() {
-        let result = parse("CREATE DICTIONARY d (id UInt64) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(COMPLEX_KEY_HASHED()) LIFETIME(0)");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let result = parse(
+            "CREATE DICTIONARY d (id UInt64) PRIMARY KEY id SOURCE(CLICKHOUSE()) LAYOUT(COMPLEX_KEY_HASHED()) LIFETIME(0)",
+        );
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DictionaryLayout"));
@@ -1307,7 +1371,11 @@ mod tests {
     #[test]
     fn test_engine_without_equals() {
         let result = parse("CREATE TABLE t (a Int32) ENGINE MergeTree() ORDER BY a");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("EngineClause"));
@@ -1317,7 +1385,11 @@ mod tests {
     #[test]
     fn test_engine_without_equals_no_parens() {
         let result = parse("CREATE TABLE t (a Int32) ENGINE Memory");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("EngineClause"));
@@ -1327,7 +1399,11 @@ mod tests {
     #[test]
     fn test_create_view_with_columns() {
         let result = parse("CREATE VIEW v (n Nullable(Int32), f Float64) AS SELECT n, f FROM t");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("ViewDefinition"));
@@ -1337,7 +1413,11 @@ mod tests {
     #[test]
     fn test_create_database_query_parameter() {
         let result = parse("CREATE DATABASE {db:Identifier}");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DatabaseDefinition"));
@@ -1347,7 +1427,11 @@ mod tests {
     #[test]
     fn test_create_database_if_not_exists_query_parameter() {
         let result = parse("CREATE DATABASE IF NOT EXISTS {CLICKHOUSE_DATABASE:Identifier}");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("IfNotExistsClause"));
@@ -1356,8 +1440,14 @@ mod tests {
 
     #[test]
     fn test_dictionary_structure_nested_parens() {
-        let result = parse("CREATE DICTIONARY dict (a String, b Decimal(18, 8)) PRIMARY KEY a SOURCE(CLICKHOUSE(TABLE '' STRUCTURE (a String b Decimal(18, 8)))) LIFETIME(MIN 0 MAX 0) LAYOUT(FLAT())");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        let result = parse(
+            "CREATE DICTIONARY dict (a String, b Decimal(18, 8)) PRIMARY KEY a SOURCE(CLICKHOUSE(TABLE '' STRUCTURE (a String b Decimal(18, 8)))) LIFETIME(MIN 0 MAX 0) LAYOUT(FLAT())",
+        );
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("DictionarySource"));
@@ -1368,7 +1458,11 @@ mod tests {
     #[test]
     fn test_engine_backtick_args() {
         let result = parse("CREATE TABLE t (a String, b Int64) ENGINE = Join(ANY, LEFT, `a`, `b`)");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("EngineClause"));

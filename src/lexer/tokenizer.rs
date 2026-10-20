@@ -289,8 +289,7 @@ impl<'a> Tokenizer<'a> {
     /// Read a number (integer, float, hex, etc.)
     fn read_number(&mut self) -> Token {
         // Check if previous token was a dot - for chained tuple access operators (x.1.1)
-        let prev_was_dot =
-            self.start > 0 && self.input.as_bytes()[self.start - 1] == b'.';
+        let prev_was_dot = self.start > 0 && self.input.as_bytes()[self.start - 1] == b'.';
 
         if prev_was_dot {
             // Simple integer parsing for tuple access
@@ -589,7 +588,11 @@ impl<'a> Tokenizer<'a> {
 
     /// Create an EOF token
     fn eof_token(&self) -> Token {
-        Token::new(SyntaxKind::EndOfStream, self.position as u32, self.position as u32)
+        Token::new(
+            SyntaxKind::EndOfStream,
+            self.position as u32,
+            self.position as u32,
+        )
     }
 
     /// Advance to the next character

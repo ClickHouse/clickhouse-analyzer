@@ -1,13 +1,16 @@
-use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::grammar::select::{at_select_statement, parse_select_statement};
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
+use crate::parser::syntax_kind::SyntaxKind;
 
 const INSERT_KEYWORDS: &[Keyword] = &[
-    Keyword::Values, Keyword::Format, Keyword::Settings,
-    Keyword::Select, Keyword::With,
+    Keyword::Values,
+    Keyword::Format,
+    Keyword::Settings,
+    Keyword::Select,
+    Keyword::With,
 ];
 
 pub fn at_insert_statement(p: &mut Parser) -> bool {
@@ -85,7 +88,8 @@ fn parse_table_function(p: &mut Parser) {
             if !first {
                 p.expect(SyntaxKind::Comma);
                 if p.at_keyword(Keyword::Settings)
-                    && (p.nth(1) == SyntaxKind::BareWord || p.nth(1) == SyntaxKind::QuotedIdentifier)
+                    && (p.nth(1) == SyntaxKind::BareWord
+                        || p.nth(1) == SyntaxKind::QuotedIdentifier)
                     && p.nth(2) == SyntaxKind::Equals
                 {
                     common::parse_optional_settings_clause(p);
@@ -207,7 +211,7 @@ fn parse_format_clause(p: &mut Parser) {
 #[cfg(test)]
 mod tests {
     use crate::parser::parse;
-    use expect_test::{expect, Expect};
+    use expect_test::{Expect, expect};
 
     fn check(input: &str, expected_tree: Expect) {
         let result = parse(input);

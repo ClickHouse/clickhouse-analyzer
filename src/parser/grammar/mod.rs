@@ -9,7 +9,6 @@ pub mod show;
 pub mod statements;
 pub mod types;
 
-use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::alter::{at_alter_statement, parse_alter_statement};
 use crate::parser::grammar::create_table::{at_create_statement, parse_create_statement};
 use crate::parser::grammar::delete::{at_delete_statement, parse_delete_statement};
@@ -21,6 +20,7 @@ use crate::parser::grammar::show::{
 };
 use crate::parser::grammar::statements::*;
 use crate::parser::parser::Parser;
+use crate::parser::syntax_kind::SyntaxKind;
 
 /// Top-level grammar entry point. Parses a full source file containing
 /// one or more semicolon-separated SQL statements.

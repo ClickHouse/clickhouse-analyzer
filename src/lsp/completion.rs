@@ -1,6 +1,6 @@
 use tower_lsp::lsp_types::*;
 
-use crate::analysis::cursor_context::{cursor_context, CursorContext};
+use crate::analysis::cursor_context::{CursorContext, cursor_context};
 use crate::analysis::scope::build_scope;
 use crate::metadata::cache::SharedMetadata;
 use crate::parser::diagnostic::Parse;
@@ -41,7 +41,9 @@ pub async fn handle_completion(
                 }
             }
         }
-        CursorContext::SelectExpression | CursorContext::Expression | CursorContext::FunctionArgument { .. } => {
+        CursorContext::SelectExpression
+        | CursorContext::Expression
+        | CursorContext::FunctionArgument { .. } => {
             // Pre-fetch columns for all tables in scope
             let mut meta = metadata.write().await;
             if meta.is_connected() {
@@ -128,9 +130,19 @@ pub async fn handle_completion(
             }
             // Clause keywords that can follow a select expression
             for kw in &[
-                "FROM", "WHERE", "GROUP BY", "ORDER BY", "HAVING", "LIMIT",
-                "FORMAT", "SETTINGS", "INTO OUTFILE", "UNION ALL", "EXCEPT",
-                "INTERSECT", "AS",
+                "FROM",
+                "WHERE",
+                "GROUP BY",
+                "ORDER BY",
+                "HAVING",
+                "LIMIT",
+                "FORMAT",
+                "SETTINGS",
+                "INTO OUTFILE",
+                "UNION ALL",
+                "EXCEPT",
+                "INTERSECT",
+                "AS",
             ] {
                 items.push(keyword_item(kw));
             }
@@ -140,15 +152,20 @@ pub async fn handle_completion(
             add_columns_in_scope(&meta, parse, &mut items);
             add_functions(&meta.functions, &mut items);
             for kw in &[
-                "AND", "OR", "NOT", "IN", "BETWEEN", "LIKE", "ILIKE", "IS",
-                "NULL", "TRUE", "FALSE", "CASE", "EXISTS",
+                "AND", "OR", "NOT", "IN", "BETWEEN", "LIKE", "ILIKE", "IS", "NULL", "TRUE",
+                "FALSE", "CASE", "EXISTS",
             ] {
                 items.push(keyword_item(kw));
             }
             // Clause keywords that can follow an expression
             for kw in &[
-                "GROUP BY", "ORDER BY", "HAVING", "LIMIT",
-                "FORMAT", "SETTINGS", "UNION ALL",
+                "GROUP BY",
+                "ORDER BY",
+                "HAVING",
+                "LIMIT",
+                "FORMAT",
+                "SETTINGS",
+                "UNION ALL",
             ] {
                 items.push(keyword_item(kw));
             }
@@ -203,11 +220,7 @@ pub async fn handle_completion(
                         "{}{}",
                         if f.is_input { "input" } else { "" },
                         if f.is_output {
-                            if f.is_input {
-                                "/output"
-                            } else {
-                                "output"
-                            }
+                            if f.is_input { "/output" } else { "output" }
                         } else {
                             ""
                         }
@@ -245,12 +258,31 @@ pub async fn handle_completion(
 
         CursorContext::StatementStart => {
             for kw in &[
-                "SELECT", "INSERT INTO", "CREATE TABLE", "CREATE VIEW",
-                "CREATE MATERIALIZED VIEW", "CREATE DATABASE", "ALTER TABLE", "DROP TABLE",
-                "DROP DATABASE", "SHOW TABLES", "SHOW DATABASES", "SHOW CREATE TABLE",
-                "DESCRIBE", "EXPLAIN", "USE", "SET", "OPTIMIZE TABLE", "SYSTEM",
-                "TRUNCATE TABLE", "RENAME TABLE", "DELETE FROM", "UPDATE", "GRANT",
-                "REVOKE", "WITH",
+                "SELECT",
+                "INSERT INTO",
+                "CREATE TABLE",
+                "CREATE VIEW",
+                "CREATE MATERIALIZED VIEW",
+                "CREATE DATABASE",
+                "ALTER TABLE",
+                "DROP TABLE",
+                "DROP DATABASE",
+                "SHOW TABLES",
+                "SHOW DATABASES",
+                "SHOW CREATE TABLE",
+                "DESCRIBE",
+                "EXPLAIN",
+                "USE",
+                "SET",
+                "OPTIMIZE TABLE",
+                "SYSTEM",
+                "TRUNCATE TABLE",
+                "RENAME TABLE",
+                "DELETE FROM",
+                "UPDATE",
+                "GRANT",
+                "REVOKE",
+                "WITH",
             ] {
                 items.push(keyword_item(kw));
             }
@@ -259,16 +291,37 @@ pub async fn handle_completion(
         CursorContext::ClauseKeyword { .. } | CursorContext::Unknown => {
             // General SQL keywords
             for kw in &[
-                "SELECT", "FROM", "WHERE", "GROUP BY", "ORDER BY", "HAVING", "LIMIT",
-                "JOIN", "LEFT JOIN", "RIGHT JOIN", "INNER JOIN", "CROSS JOIN",
-                "ON", "USING", "AS", "UNION ALL", "EXCEPT", "INTERSECT",
-                "INSERT INTO", "VALUES", "FORMAT", "SETTINGS", "PREWHERE",
-                "SAMPLE", "ARRAY JOIN", "FINAL", "WITH",
+                "SELECT",
+                "FROM",
+                "WHERE",
+                "GROUP BY",
+                "ORDER BY",
+                "HAVING",
+                "LIMIT",
+                "JOIN",
+                "LEFT JOIN",
+                "RIGHT JOIN",
+                "INNER JOIN",
+                "CROSS JOIN",
+                "ON",
+                "USING",
+                "AS",
+                "UNION ALL",
+                "EXCEPT",
+                "INTERSECT",
+                "INSERT INTO",
+                "VALUES",
+                "FORMAT",
+                "SETTINGS",
+                "PREWHERE",
+                "SAMPLE",
+                "ARRAY JOIN",
+                "FINAL",
+                "WITH",
             ] {
                 items.push(keyword_item(kw));
             }
         }
-
     }
 
     // Prefix filter (case-insensitive)
@@ -281,11 +334,11 @@ pub async fn handle_completion(
     for item in &mut items {
         let kind_priority = match item.kind {
             Some(CompletionItemKind::KEYWORD) => "0",
-            Some(CompletionItemKind::FIELD) => "1",    // columns
-            Some(CompletionItemKind::CLASS) => "2",    // tables/engines
-            Some(CompletionItemKind::MODULE) => "2",   // databases
+            Some(CompletionItemKind::FIELD) => "1", // columns
+            Some(CompletionItemKind::CLASS) => "2", // tables/engines
+            Some(CompletionItemKind::MODULE) => "2", // databases
             Some(CompletionItemKind::FUNCTION) => "3",
-            Some(CompletionItemKind::METHOD) => "3",   // aggregate functions
+            Some(CompletionItemKind::METHOD) => "3", // aggregate functions
             Some(CompletionItemKind::PROPERTY) => "4", // settings
             _ => "5",
         };
@@ -404,7 +457,10 @@ fn resolve_qualifier(
             // Find the table ref this alias belongs to
             for tref in &scope.table_refs {
                 if tref.alias.as_deref() == Some(&alias.name) {
-                    let db = tref.database.clone().unwrap_or_else(|| default_db.to_string());
+                    let db = tref
+                        .database
+                        .clone()
+                        .unwrap_or_else(|| default_db.to_string());
                     return Some((db, tref.table.clone()));
                 }
             }
@@ -414,7 +470,10 @@ fn resolve_qualifier(
     // Check if the qualifier matches a table name directly
     for tref in &scope.table_refs {
         if tref.table.eq_ignore_ascii_case(qualifier) {
-            let db = tref.database.clone().unwrap_or_else(|| default_db.to_string());
+            let db = tref
+                .database
+                .clone()
+                .unwrap_or_else(|| default_db.to_string());
             return Some((db, tref.table.clone()));
         }
     }

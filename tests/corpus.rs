@@ -39,7 +39,11 @@ fn parse_clickhouse_test_corpus() {
         .map(|e| e.path().to_path_buf())
         .collect();
 
-    eprintln!("Found {} .sql files in {}", sql_files.len(), corpus_path.display());
+    eprintln!(
+        "Found {} .sql files in {}",
+        sql_files.len(),
+        corpus_path.display()
+    );
 
     let mut total_files = 0;
     let mut clean_files = 0;
@@ -66,10 +70,7 @@ fn parse_clickhouse_test_corpus() {
         let result = parse(&source);
         let errors = &result.errors;
 
-        let stmt_count = source
-            .split(';')
-            .filter(|s| !s.trim().is_empty())
-            .count() as u64;
+        let stmt_count = source.split(';').filter(|s| !s.trim().is_empty()).count() as u64;
         total_statements += stmt_count;
 
         if errors.is_empty() {

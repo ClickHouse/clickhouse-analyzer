@@ -1,11 +1,13 @@
-use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::common::parse_optional_settings_clause;
-use crate::parser::grammar::select::{at_end_of_column_list, at_select_statement, parse_select_statement};
+use crate::parser::grammar::select::{
+    at_end_of_column_list, at_select_statement, parse_select_statement,
+};
 use crate::parser::grammar::types::parse_column_type;
 use crate::parser::interval_unit::IntervalUnit;
 use crate::parser::keyword::Keyword;
 use crate::parser::marker::CompletedMarker;
 use crate::parser::parser::Parser;
+use crate::parser::syntax_kind::SyntaxKind;
 
 /// Binding power for prefix unary minus, above all binary operators.
 const UNARY_PREFIX_BP: u8 = 7;
@@ -359,7 +361,7 @@ fn parse_expression_postfix(p: &mut Parser, mut lhs: CompletedMarker, min_bp: u8
 
     // Ternary operator: expr ? expr : expr
     // Lowest precedence — handled after all binary operators.
-    if p.at(SyntaxKind::QuestionMark) && 0 >= min_bp {
+    if p.at(SyntaxKind::QuestionMark) && min_bp == 0 {
         let m = p.precede(lhs);
         p.advance(); // consume ?
         parse_expression(p); // middle ("then") expression
@@ -645,7 +647,9 @@ fn parse_interval_expression(p: &mut Parser) {
     if at_interval_unit(p) {
         p.advance();
     } else {
-        p.recover_with_error("Expected interval unit (e.g. SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER, YEAR)");
+        p.recover_with_error(
+            "Expected interval unit (e.g. SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER, YEAR)",
+        );
     }
 }
 
@@ -771,10 +775,7 @@ pub fn parse_window_spec(p: &mut Parser) {
         p.advance(); // ORDER
         p.expect_keyword(Keyword::By);
         let mut first = true;
-        while !p.eof()
-            && !p.at(SyntaxKind::ClosingRoundBracket)
-            && !at_window_frame_keyword(p)
-        {
+        while !p.eof() && !p.at(SyntaxKind::ClosingRoundBracket) && !at_window_frame_keyword(p) {
             if !first {
                 p.expect(SyntaxKind::Comma);
             }
@@ -847,7 +848,7 @@ fn parse_window_frame_bound(p: &mut Parser) {
 #[cfg(test)]
 mod tests {
     use crate::parser::parse;
-    use expect_test::{expect, Expect};
+    use expect_test::{Expect, expect};
 
     fn check(input: &str, expected: Expect) {
         let result = parse(input);
@@ -867,7 +868,9 @@ mod tests {
 
     #[test]
     fn binary_precedence() {
-        check("SELECT 1 + 2 * 3", expect![[r#"
+        check(
+            "SELECT 1 + 2 * 3",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -883,12 +886,15 @@ mod tests {
                         '*'
                         NumberLiteral
                           '3'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn function_call() {
-        check("SELECT now()", expect![[r#"
+        check(
+            "SELECT now()",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -900,12 +906,15 @@ mod tests {
                       ExpressionList
                         '('
                         ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn parametric_function() {
-        check("SELECT quantile(0.9)(x)", expect![[r#"
+        check(
+            "SELECT quantile(0.9)(x)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -926,12 +935,15 @@ mod tests {
                           ColumnReference
                             'x'
                         ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn cast_expression() {
-        check("SELECT x::Int32", expect![[r#"
+        check(
+            "SELECT x::Int32",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -943,12 +955,15 @@ mod tests {
                       '::'
                       DataType
                         'Int32'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn cast_expression_comma_syntax() {
-        check("SELECT CAST('value', 'UUID')", expect![[r#"
+        check(
+            "SELECT CAST('value', 'UUID')",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -963,12 +978,15 @@ mod tests {
                       StringLiteral
                         ''UUID''
                       ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn cast_expression_comma_syntax_with_alias() {
-        check("SELECT CAST(x, 'Nullable(String)') AS y", expect![[r#"
+        check(
+            "SELECT CAST(x, 'Nullable(String)') AS y",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -986,12 +1004,15 @@ mod tests {
                     ColumnAlias
                       'AS'
                       'y'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn settings_in_table_function() {
-        check("SELECT count() FROM mysql('host', db, tbl, 'user', '', SETTINGS connect_timeout = 100)", expect![[r#"
+        check(
+            "SELECT count() FROM mysql('host', db, tbl, 'user', '', SETTINGS connect_timeout = 100)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1031,12 +1052,15 @@ mod tests {
                         NumberLiteral
                           '100'
                     ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn interval_expression() {
-        check("SELECT INTERVAL 5 MINUTE", expect![[r#"
+        check(
+            "SELECT INTERVAL 5 MINUTE",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1047,12 +1071,15 @@ mod tests {
                       NumberLiteral
                         '5'
                       'MINUTE'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn interval_string_literal() {
-        check("SELECT INTERVAL '2 years'", expect![[r#"
+        check(
+            "SELECT INTERVAL '2 years'",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1061,7 +1088,8 @@ mod tests {
                     IntervalExpression
                       'INTERVAL'
                       ''2 years''
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
@@ -1073,7 +1101,9 @@ mod tests {
 
     #[test]
     fn array_literal() {
-        check("SELECT [1, 2, 3]", expect![[r#"
+        check(
+            "SELECT [1, 2, 3]",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1090,12 +1120,15 @@ mod tests {
                       NumberLiteral
                         '3'
                       ']'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn lambda_in_function() {
-        check("SELECT arrayMap(x -> x + 1, arr)", expect![[r#"
+        check(
+            "SELECT arrayMap(x -> x + 1, arr)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1121,12 +1154,15 @@ mod tests {
                           ColumnReference
                             'arr'
                         ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn logical_operators() {
-        check("SELECT 1 FROM t WHERE a > 1 AND b < 2 OR c = 3", expect![[r#"
+        check(
+            "SELECT 1 FROM t WHERE a > 1 AND b < 2 OR c = 3",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1162,12 +1198,15 @@ mod tests {
                       '='
                       NumberLiteral
                         '3'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn nested_dot_access() {
-        check("SELECT json.nested.path", expect![[r#"
+        check(
+            "SELECT json.nested.path",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1179,14 +1218,17 @@ mod tests {
                       'nested'
                       '.'
                       'path'
-        "#]]);
+        "#]],
+        );
     }
 
     // === New expression type tests ===
 
     #[test]
     fn unary_not() {
-        check("SELECT NOT true", expect![[r#"
+        check(
+            "SELECT NOT true",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1196,12 +1238,15 @@ mod tests {
                       'NOT'
                       BooleanLiteral
                         'true'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn unary_not_not() {
-        check("SELECT NOT NOT false", expect![[r#"
+        check(
+            "SELECT NOT NOT false",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1213,12 +1258,15 @@ mod tests {
                         'NOT'
                         BooleanLiteral
                           'false'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn unary_minus() {
-        check("SELECT -1", expect![[r#"
+        check(
+            "SELECT -1",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1228,12 +1276,15 @@ mod tests {
                       '-'
                       NumberLiteral
                         '1'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn unary_minus_paren() {
-        check("SELECT -(1 + 2)", expect![[r#"
+        check(
+            "SELECT -(1 + 2)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1250,12 +1301,15 @@ mod tests {
                           NumberLiteral
                             '2'
                         ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn between_expression() {
-        check("SELECT x BETWEEN 1 AND 10", expect![[r#"
+        check(
+            "SELECT x BETWEEN 1 AND 10",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1270,12 +1324,15 @@ mod tests {
                       'AND'
                       NumberLiteral
                         '10'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn not_between_expression() {
-        check("SELECT x NOT BETWEEN 1 AND 10", expect![[r#"
+        check(
+            "SELECT x NOT BETWEEN 1 AND 10",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1291,12 +1348,15 @@ mod tests {
                       'AND'
                       NumberLiteral
                         '10'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn in_expression() {
-        check("SELECT x IN (1, 2, 3)", expect![[r#"
+        check(
+            "SELECT x IN (1, 2, 3)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1316,12 +1376,15 @@ mod tests {
                       NumberLiteral
                         '3'
                       ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn not_in_expression() {
-        check("SELECT x NOT IN (1, 2, 3)", expect![[r#"
+        check(
+            "SELECT x NOT IN (1, 2, 3)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1342,12 +1405,15 @@ mod tests {
                       NumberLiteral
                         '3'
                       ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn global_in_expression() {
-        check("SELECT x GLOBAL IN (SELECT 1)", expect![[r#"
+        check(
+            "SELECT x GLOBAL IN (SELECT 1)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1367,12 +1433,15 @@ mod tests {
                               NumberLiteral
                                 '1'
                       ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn like_expression() {
-        check("SELECT x LIKE '%test%'", expect![[r#"
+        check(
+            "SELECT x LIKE '%test%'",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1384,12 +1453,15 @@ mod tests {
                       'LIKE'
                       StringLiteral
                         ''%test%''
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn not_like_expression() {
-        check("SELECT x NOT LIKE '%test%'", expect![[r#"
+        check(
+            "SELECT x NOT LIKE '%test%'",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1402,12 +1474,15 @@ mod tests {
                       'LIKE'
                       StringLiteral
                         ''%test%''
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn is_null_expression() {
-        check("SELECT x IS NULL", expect![[r#"
+        check(
+            "SELECT x IS NULL",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1418,12 +1493,15 @@ mod tests {
                         'x'
                       'IS'
                       'NULL'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn is_not_null_expression() {
-        check("SELECT x IS NOT NULL", expect![[r#"
+        check(
+            "SELECT x IS NOT NULL",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1435,12 +1513,15 @@ mod tests {
                       'IS'
                       'NOT'
                       'NULL'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn case_when_else() {
-        check("SELECT CASE WHEN x > 1 THEN 'a' ELSE 'b' END", expect![[r#"
+        check(
+            "SELECT CASE WHEN x > 1 THEN 'a' ELSE 'b' END",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1463,12 +1544,15 @@ mod tests {
                       StringLiteral
                         ''b''
                       'END'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn case_simple() {
-        check("SELECT CASE x WHEN 1 THEN 'one' WHEN 2 THEN 'two' END", expect![[r#"
+        check(
+            "SELECT CASE x WHEN 1 THEN 'one' WHEN 2 THEN 'two' END",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1493,12 +1577,15 @@ mod tests {
                         StringLiteral
                           ''two''
                       'END'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn null_literal() {
-        check("SELECT NULL", expect![[r#"
+        check(
+            "SELECT NULL",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1506,12 +1593,15 @@ mod tests {
                   ColumnList
                     NullLiteral
                       'NULL'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn boolean_literals() {
-        check("SELECT TRUE, FALSE", expect![[r#"
+        check(
+            "SELECT TRUE, FALSE",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1522,12 +1612,15 @@ mod tests {
                     ','
                     BooleanLiteral
                       'FALSE'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn map_literal() {
-        check("SELECT {'key': 'value', 'k2': 'v2'}", expect![[r#"
+        check(
+            "SELECT {'key': 'value', 'k2': 'v2'}",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1547,12 +1640,15 @@ mod tests {
                       StringLiteral
                         ''v2''
                       '}'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn empty_map_literal() {
-        check("SELECT {}", expect![[r#"
+        check(
+            "SELECT {}",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1561,12 +1657,15 @@ mod tests {
                     MapExpression
                       '{'
                       '}'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn query_parameter() {
-        check("SELECT {o:UInt32}", expect![[r#"
+        check(
+            "SELECT {o:UInt32}",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1579,12 +1678,15 @@ mod tests {
                       DataType
                         'UInt32'
                       '}'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn query_parameter_complex_type() {
-        check("SELECT {ts:DateTime64(3)}", expect![[r#"
+        check(
+            "SELECT {ts:DateTime64(3)}",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1602,12 +1704,15 @@ mod tests {
                             '3'
                           ')'
                       '}'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn query_parameter_in_where() {
-        check("SELECT 1 WHERE x >= {o:UInt32}", expect![[r#"
+        check(
+            "SELECT 1 WHERE x >= {o:UInt32}",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1628,7 +1733,8 @@ mod tests {
                       DataType
                         'UInt32'
                       '}'
-        "#]]);
+        "#]],
+        );
     }
 
     // === Array access (subscript) tests ===
@@ -1636,7 +1742,9 @@ mod tests {
     #[test]
     fn array_access_string_key() {
         // Map-style access: SpanAttributes['test.key']
-        check("SELECT SpanAttributes['test.key']", expect![[r#"
+        check(
+            "SELECT SpanAttributes['test.key']",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1649,12 +1757,15 @@ mod tests {
                       StringLiteral
                         ''test.key''
                       ']'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn array_access_numeric_index() {
-        check("SELECT arr[1]", expect![[r#"
+        check(
+            "SELECT arr[1]",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1667,13 +1778,16 @@ mod tests {
                       NumberLiteral
                         '1'
                       ']'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn array_access_chained() {
         // Nested access: matrix[0][1]
-        check("SELECT matrix[0][1]", expect![[r#"
+        check(
+            "SELECT matrix[0][1]",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1691,13 +1805,16 @@ mod tests {
                       NumberLiteral
                         '1'
                       ']'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn array_access_on_function_result() {
         // Access on function call: splitByChar(',', x)[1]
-        check("SELECT splitByChar(',', x)[1]", expect![[r#"
+        check(
+            "SELECT splitByChar(',', x)[1]",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1721,13 +1838,16 @@ mod tests {
                       NumberLiteral
                         '1'
                       ']'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn array_access_with_expression_key() {
         // Dynamic key: arr[i + 1]
-        check("SELECT arr[i + 1]", expect![[r#"
+        check(
+            "SELECT arr[i + 1]",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1744,12 +1864,15 @@ mod tests {
                         NumberLiteral
                           '1'
                       ']'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn array_access_in_where_clause() {
-        check("SELECT 1 FROM t WHERE attrs['status'] = 'ok'", expect![[r#"
+        check(
+            "SELECT 1 FROM t WHERE attrs['status'] = 'ok'",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1774,13 +1897,16 @@ mod tests {
                     '='
                     StringLiteral
                       ''ok''
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn array_access_with_dot_and_subscript() {
         // Dotted column + subscript: otel.SpanAttributes['key']
-        check("SELECT otel.SpanAttributes['key']", expect![[r#"
+        check(
+            "SELECT otel.SpanAttributes['key']",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1795,12 +1921,15 @@ mod tests {
                       StringLiteral
                         ''key''
                       ']'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn ignore_nulls() {
-        check("SELECT any(x) IGNORE NULLS FROM t", expect![[r#"
+        check(
+            "SELECT any(x) IGNORE NULLS FROM t",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1823,12 +1952,15 @@ mod tests {
                   'FROM'
                   TableIdentifier
                     't'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn respect_nulls() {
-        check("SELECT first_value(x) RESPECT NULLS FROM t", expect![[r#"
+        check(
+            "SELECT first_value(x) RESPECT NULLS FROM t",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1851,12 +1983,15 @@ mod tests {
                   'FROM'
                   TableIdentifier
                     't'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn column_transformer_apply() {
-        check("SELECT * APPLY(toString) FROM t", expect![[r#"
+        check(
+            "SELECT * APPLY(toString) FROM t",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1875,12 +2010,15 @@ mod tests {
                   'FROM'
                   TableIdentifier
                     't'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn column_transformer_except() {
-        check("SELECT * EXCEPT(id) FROM t", expect![[r#"
+        check(
+            "SELECT * EXCEPT(id) FROM t",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1899,12 +2037,15 @@ mod tests {
                   'FROM'
                   TableIdentifier
                     't'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn column_transformer_replace() {
-        check("SELECT * REPLACE(id + 1 AS id) FROM t", expect![[r#"
+        check(
+            "SELECT * REPLACE(id + 1 AS id) FROM t",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1930,12 +2071,15 @@ mod tests {
                   'FROM'
                   TableIdentifier
                     't'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn column_transformer_chained() {
-        check("SELECT * EXCEPT(id) APPLY(toString) FROM t", expect![[r#"
+        check(
+            "SELECT * EXCEPT(id) APPLY(toString) FROM t",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1961,6 +2105,7 @@ mod tests {
                   'FROM'
                   TableIdentifier
                     't'
-        "#]]);
+        "#]],
+        );
     }
 }

@@ -81,9 +81,7 @@ fn collect_ctes(tree: &SyntaxTree, source: &str, scope: &mut QueryScope) {
 
 /// Strip surrounding quotes (backticks or double-quotes) from an identifier.
 fn unquote(s: &str) -> &str {
-    if (s.starts_with('`') && s.ends_with('`'))
-        || (s.starts_with('"') && s.ends_with('"'))
-    {
+    if (s.starts_with('`') && s.ends_with('`')) || (s.starts_with('"') && s.ends_with('"')) {
         &s[1..s.len() - 1]
     } else {
         s
@@ -136,8 +134,7 @@ fn collect_table_refs(tree: &SyntaxTree, source: &str, scope: &mut QueryScope) {
                 SyntaxKind::TableAlias => {
                     // Attach alias to the most recent table ref
                     if let Some(ref mut tref) = last_table_ref {
-                        if let Some((alias_name, alias_token)) =
-                            extract_alias_name(subtree, source)
+                        if let Some((alias_name, alias_token)) = extract_alias_name(subtree, source)
                         {
                             tref.alias = Some(alias_name.clone());
                             scope.table_aliases.push(NameBinding {
@@ -277,11 +274,7 @@ pub fn find_enclosing_statement(tree: &SyntaxTree, offset: u32) -> Option<&Synta
         }
     }
 
-    if is_statement {
-        Some(tree)
-    } else {
-        None
-    }
+    if is_statement { Some(tree) } else { None }
 }
 
 #[cfg(test)]

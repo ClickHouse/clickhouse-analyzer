@@ -1,10 +1,10 @@
-use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::grammar::select::parse_select_statement;
 use crate::parser::grammar::types::parse_column_type;
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
+use crate::parser::syntax_kind::SyntaxKind;
 
 pub fn at_alter_statement(p: &mut Parser) -> bool {
     p.at_keyword(Keyword::Alter)
@@ -32,7 +32,8 @@ pub fn parse_alter_statement(p: &mut Parser) {
         // IF EXISTS
         common::parse_if_exists(p);
         // Entity name
-        if p.at_identifier() || p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::QuotedIdentifier) {
+        if p.at_identifier() || p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::QuotedIdentifier)
+        {
             p.advance();
         }
         // Consume remaining body generically
@@ -52,7 +53,8 @@ pub fn parse_alter_statement(p: &mut Parser) {
             p.advance(); // PROFILE
         }
         common::parse_if_exists(p);
-        if p.at_identifier() || p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::QuotedIdentifier) {
+        if p.at_identifier() || p.at(SyntaxKind::StringToken) || p.at(SyntaxKind::QuotedIdentifier)
+        {
             p.advance();
         }
         while !p.eof() && !p.end_of_statement() {
@@ -136,9 +138,18 @@ fn parse_alter_command(p: &mut Parser) {
 }
 
 const ALTER_COMMAND_KEYWORDS: &[Keyword] = &[
-    Keyword::Add, Keyword::Drop, Keyword::Modify, Keyword::Rename,
-    Keyword::Clear, Keyword::Comment, Keyword::Detach, Keyword::Attach,
-    Keyword::Freeze, Keyword::Delete, Keyword::Update, Keyword::Materialize,
+    Keyword::Add,
+    Keyword::Drop,
+    Keyword::Modify,
+    Keyword::Rename,
+    Keyword::Clear,
+    Keyword::Comment,
+    Keyword::Detach,
+    Keyword::Attach,
+    Keyword::Freeze,
+    Keyword::Delete,
+    Keyword::Update,
+    Keyword::Materialize,
     Keyword::Reset,
 ];
 
@@ -147,7 +158,8 @@ fn skip_unknown_command(p: &mut Parser) {
     if !p.eof() {
         p.advance();
     }
-    while !p.at(SyntaxKind::Comma) && !p.end_of_statement()
+    while !p.at(SyntaxKind::Comma)
+        && !p.end_of_statement()
         && !common::at_any_keyword(p, ALTER_COMMAND_KEYWORDS)
     {
         p.advance();
@@ -344,7 +356,9 @@ fn parse_drop_command(p: &mut Parser) {
         parse_partition_expression(p);
         p.complete(m, SyntaxKind::AlterDropPartition);
     } else {
-        p.advance_with_error("Expected COLUMN, INDEX, PROJECTION, CONSTRAINT, PARTITION, or PART after DROP");
+        p.advance_with_error(
+            "Expected COLUMN, INDEX, PROJECTION, CONSTRAINT, PARTITION, or PART after DROP",
+        );
         p.complete(m, SyntaxKind::Error);
     }
 }
@@ -389,7 +403,9 @@ fn parse_modify_command(p: &mut Parser) {
         parse_select_statement(p);
         p.complete(m, SyntaxKind::AlterModifyQuery);
     } else {
-        p.advance_with_error("Expected COLUMN, ORDER BY, TTL, SETTING, COMMENT, or QUERY after MODIFY");
+        p.advance_with_error(
+            "Expected COLUMN, ORDER BY, TTL, SETTING, COMMENT, or QUERY after MODIFY",
+        );
         p.complete(m, SyntaxKind::Error);
     }
 }
@@ -758,11 +774,7 @@ fn parse_column_definition(p: &mut Parser) {
     // column type — optional for MODIFY COLUMN (you can write
     // `MODIFY COLUMN c COMMENT 'x'` without specifying a type).
     // Only parse a type if the current token is NOT a known column modifier.
-    if !at_column_modifier(p)
-        && !p.at(SyntaxKind::Comma)
-        && !p.eof()
-        && !p.end_of_statement()
-    {
+    if !at_column_modifier(p) && !p.at(SyntaxKind::Comma) && !p.eof() && !p.end_of_statement() {
         parse_column_type(p);
     }
 
@@ -855,126 +867,244 @@ mod tests {
     #[test]
     fn test_alter_add_column() {
         let result = parse_to_string("ALTER TABLE t ADD COLUMN c Int32");
-        assert!(result.contains("AlterStatement"), "Expected AlterStatement in:\n{result}");
-        assert!(result.contains("AlterAddColumn"), "Expected AlterAddColumn in:\n{result}");
-        assert!(result.contains("ColumnDefinition"), "Expected ColumnDefinition in:\n{result}");
-        assert!(result.contains("DataType"), "Expected DataType in:\n{result}");
+        assert!(
+            result.contains("AlterStatement"),
+            "Expected AlterStatement in:\n{result}"
+        );
+        assert!(
+            result.contains("AlterAddColumn"),
+            "Expected AlterAddColumn in:\n{result}"
+        );
+        assert!(
+            result.contains("ColumnDefinition"),
+            "Expected ColumnDefinition in:\n{result}"
+        );
+        assert!(
+            result.contains("DataType"),
+            "Expected DataType in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_add_column_if_not_exists() {
-        let result = parse_to_string("ALTER TABLE t ADD COLUMN IF NOT EXISTS c String DEFAULT 'hello'");
-        assert!(result.contains("AlterAddColumn"), "Expected AlterAddColumn in:\n{result}");
-        assert!(result.contains("IfNotExistsClause"), "Expected IfNotExistsClause in:\n{result}");
-        assert!(result.contains("ColumnDefinition"), "Expected ColumnDefinition in:\n{result}");
+        let result =
+            parse_to_string("ALTER TABLE t ADD COLUMN IF NOT EXISTS c String DEFAULT 'hello'");
+        assert!(
+            result.contains("AlterAddColumn"),
+            "Expected AlterAddColumn in:\n{result}"
+        );
+        assert!(
+            result.contains("IfNotExistsClause"),
+            "Expected IfNotExistsClause in:\n{result}"
+        );
+        assert!(
+            result.contains("ColumnDefinition"),
+            "Expected ColumnDefinition in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_drop_column() {
         let result = parse_to_string("ALTER TABLE t DROP COLUMN c");
-        assert!(result.contains("AlterDropColumn"), "Expected AlterDropColumn in:\n{result}");
+        assert!(
+            result.contains("AlterDropColumn"),
+            "Expected AlterDropColumn in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_drop_column_if_exists() {
         let result = parse_to_string("ALTER TABLE t DROP COLUMN IF EXISTS c");
-        assert!(result.contains("AlterDropColumn"), "Expected AlterDropColumn in:\n{result}");
-        assert!(result.contains("IfExistsClause"), "Expected IfExistsClause in:\n{result}");
+        assert!(
+            result.contains("AlterDropColumn"),
+            "Expected AlterDropColumn in:\n{result}"
+        );
+        assert!(
+            result.contains("IfExistsClause"),
+            "Expected IfExistsClause in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_rename_column() {
         let result = parse_to_string("ALTER TABLE t RENAME COLUMN old_col TO new_col");
-        assert!(result.contains("AlterRenameColumn"), "Expected AlterRenameColumn in:\n{result}");
-        assert!(result.contains("'old_col'"), "Expected old_col in:\n{result}");
-        assert!(result.contains("'new_col'"), "Expected new_col in:\n{result}");
+        assert!(
+            result.contains("AlterRenameColumn"),
+            "Expected AlterRenameColumn in:\n{result}"
+        );
+        assert!(
+            result.contains("'old_col'"),
+            "Expected old_col in:\n{result}"
+        );
+        assert!(
+            result.contains("'new_col'"),
+            "Expected new_col in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_modify_column() {
         let result = parse_to_string("ALTER TABLE t MODIFY COLUMN c String");
-        assert!(result.contains("AlterModifyColumn"), "Expected AlterModifyColumn in:\n{result}");
-        assert!(result.contains("ColumnDefinition"), "Expected ColumnDefinition in:\n{result}");
+        assert!(
+            result.contains("AlterModifyColumn"),
+            "Expected AlterModifyColumn in:\n{result}"
+        );
+        assert!(
+            result.contains("ColumnDefinition"),
+            "Expected ColumnDefinition in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_delete_where() {
         let result = parse_to_string("ALTER TABLE t DELETE WHERE x > 5");
-        assert!(result.contains("AlterDeleteWhere"), "Expected AlterDeleteWhere in:\n{result}");
-        assert!(result.contains("BinaryExpression"), "Expected BinaryExpression in:\n{result}");
+        assert!(
+            result.contains("AlterDeleteWhere"),
+            "Expected AlterDeleteWhere in:\n{result}"
+        );
+        assert!(
+            result.contains("BinaryExpression"),
+            "Expected BinaryExpression in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_update_where() {
         let result = parse_to_string("ALTER TABLE t UPDATE x = 1 WHERE y > 5");
-        assert!(result.contains("AlterUpdateWhere"), "Expected AlterUpdateWhere in:\n{result}");
-        assert!(result.contains("AssignmentList"), "Expected AssignmentList in:\n{result}");
-        assert!(result.contains("Assignment"), "Expected Assignment in:\n{result}");
+        assert!(
+            result.contains("AlterUpdateWhere"),
+            "Expected AlterUpdateWhere in:\n{result}"
+        );
+        assert!(
+            result.contains("AssignmentList"),
+            "Expected AssignmentList in:\n{result}"
+        );
+        assert!(
+            result.contains("Assignment"),
+            "Expected Assignment in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_multiple_commands() {
         let result = parse_to_string("ALTER TABLE t ADD COLUMN a Int32, DROP COLUMN b");
-        assert!(result.contains("AlterAddColumn"), "Expected AlterAddColumn in:\n{result}");
-        assert!(result.contains("AlterDropColumn"), "Expected AlterDropColumn in:\n{result}");
-        assert!(result.contains("AlterCommandList"), "Expected AlterCommandList in:\n{result}");
+        assert!(
+            result.contains("AlterAddColumn"),
+            "Expected AlterAddColumn in:\n{result}"
+        );
+        assert!(
+            result.contains("AlterDropColumn"),
+            "Expected AlterDropColumn in:\n{result}"
+        );
+        assert!(
+            result.contains("AlterCommandList"),
+            "Expected AlterCommandList in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_on_cluster() {
         let result = parse_to_string("ALTER TABLE db.t ON CLUSTER my_cluster DROP COLUMN c");
-        assert!(result.contains("OnClusterClause"), "Expected OnClusterClause in:\n{result}");
-        assert!(result.contains("AlterDropColumn"), "Expected AlterDropColumn in:\n{result}");
-        assert!(result.contains("'my_cluster'"), "Expected cluster name in:\n{result}");
+        assert!(
+            result.contains("OnClusterClause"),
+            "Expected OnClusterClause in:\n{result}"
+        );
+        assert!(
+            result.contains("AlterDropColumn"),
+            "Expected AlterDropColumn in:\n{result}"
+        );
+        assert!(
+            result.contains("'my_cluster'"),
+            "Expected cluster name in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_drop_partition() {
         let result = parse_to_string("ALTER TABLE t DROP PARTITION 202301");
-        assert!(result.contains("AlterDropPartition"), "Expected AlterDropPartition in:\n{result}");
-        assert!(result.contains("PartitionExpression"), "Expected PartitionExpression in:\n{result}");
+        assert!(
+            result.contains("AlterDropPartition"),
+            "Expected AlterDropPartition in:\n{result}"
+        );
+        assert!(
+            result.contains("PartitionExpression"),
+            "Expected PartitionExpression in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_freeze_partition() {
         let result = parse_to_string("ALTER TABLE t FREEZE PARTITION 202301");
-        assert!(result.contains("AlterFreezePartition"), "Expected AlterFreezePartition in:\n{result}");
-        assert!(result.contains("PartitionExpression"), "Expected PartitionExpression in:\n{result}");
+        assert!(
+            result.contains("AlterFreezePartition"),
+            "Expected AlterFreezePartition in:\n{result}"
+        );
+        assert!(
+            result.contains("PartitionExpression"),
+            "Expected PartitionExpression in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_freeze_no_partition() {
         let result = parse_to_string("ALTER TABLE t FREEZE");
-        assert!(result.contains("AlterFreezePartition"), "Expected AlterFreezePartition in:\n{result}");
+        assert!(
+            result.contains("AlterFreezePartition"),
+            "Expected AlterFreezePartition in:\n{result}"
+        );
         // No PartitionExpression expected
-        assert!(!result.contains("PartitionExpression"), "Should NOT have PartitionExpression in:\n{result}");
+        assert!(
+            !result.contains("PartitionExpression"),
+            "Should NOT have PartitionExpression in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_modify_order_by() {
         let result = parse_to_string("ALTER TABLE t MODIFY ORDER BY (a, b)");
-        assert!(result.contains("AlterModifyOrderBy"), "Expected AlterModifyOrderBy in:\n{result}");
-        assert!(result.contains("TupleExpression"), "Expected TupleExpression in:\n{result}");
+        assert!(
+            result.contains("AlterModifyOrderBy"),
+            "Expected AlterModifyOrderBy in:\n{result}"
+        );
+        assert!(
+            result.contains("TupleExpression"),
+            "Expected TupleExpression in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_modify_ttl() {
         let result = parse_to_string("ALTER TABLE t MODIFY TTL d + 1");
-        assert!(result.contains("AlterModifyTtl"), "Expected AlterModifyTtl in:\n{result}");
-        assert!(result.contains("BinaryExpression"), "Expected BinaryExpression in:\n{result}");
+        assert!(
+            result.contains("AlterModifyTtl"),
+            "Expected AlterModifyTtl in:\n{result}"
+        );
+        assert!(
+            result.contains("BinaryExpression"),
+            "Expected BinaryExpression in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_modify_setting() {
         let result = parse_to_string("ALTER TABLE t MODIFY SETTING key1 = 1");
-        assert!(result.contains("AlterModifySetting"), "Expected AlterModifySetting in:\n{result}");
-        assert!(result.contains("SettingItem"), "Expected SettingItem in:\n{result}");
+        assert!(
+            result.contains("AlterModifySetting"),
+            "Expected AlterModifySetting in:\n{result}"
+        );
+        assert!(
+            result.contains("SettingItem"),
+            "Expected SettingItem in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_reset_setting() {
         let result = parse_to_string("ALTER TABLE t RESET SETTING key1, key2");
-        assert!(result.contains("AlterResetSetting"), "Expected AlterResetSetting in:\n{result}");
+        assert!(
+            result.contains("AlterResetSetting"),
+            "Expected AlterResetSetting in:\n{result}"
+        );
         assert!(result.contains("'key1'"), "Expected key1 in:\n{result}");
         assert!(result.contains("'key2'"), "Expected key2 in:\n{result}");
     }
@@ -982,142 +1112,259 @@ mod tests {
     #[test]
     fn test_alter_comment_column() {
         let result = parse_to_string("ALTER TABLE t COMMENT COLUMN c 'this is a comment'");
-        assert!(result.contains("AlterCommentColumn"), "Expected AlterCommentColumn in:\n{result}");
+        assert!(
+            result.contains("AlterCommentColumn"),
+            "Expected AlterCommentColumn in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_clear_column_in_partition() {
         let result = parse_to_string("ALTER TABLE t CLEAR COLUMN c IN PARTITION 202301");
-        assert!(result.contains("AlterClearColumn"), "Expected AlterClearColumn in:\n{result}");
-        assert!(result.contains("PartitionExpression"), "Expected PartitionExpression in:\n{result}");
+        assert!(
+            result.contains("AlterClearColumn"),
+            "Expected AlterClearColumn in:\n{result}"
+        );
+        assert!(
+            result.contains("PartitionExpression"),
+            "Expected PartitionExpression in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_detach_partition() {
         let result = parse_to_string("ALTER TABLE t DETACH PARTITION 202301");
-        assert!(result.contains("AlterDetachPartition"), "Expected AlterDetachPartition in:\n{result}");
-        assert!(result.contains("PartitionExpression"), "Expected PartitionExpression in:\n{result}");
+        assert!(
+            result.contains("AlterDetachPartition"),
+            "Expected AlterDetachPartition in:\n{result}"
+        );
+        assert!(
+            result.contains("PartitionExpression"),
+            "Expected PartitionExpression in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_attach_partition_from() {
         let result = parse_to_string("ALTER TABLE t ATTACH PARTITION 202301 FROM other_table");
-        assert!(result.contains("AlterAttachPartition"), "Expected AlterAttachPartition in:\n{result}");
-        assert!(result.contains("PartitionExpression"), "Expected PartitionExpression in:\n{result}");
-        assert!(result.contains("'other_table'"), "Expected other_table in:\n{result}");
+        assert!(
+            result.contains("AlterAttachPartition"),
+            "Expected AlterAttachPartition in:\n{result}"
+        );
+        assert!(
+            result.contains("PartitionExpression"),
+            "Expected PartitionExpression in:\n{result}"
+        );
+        assert!(
+            result.contains("'other_table'"),
+            "Expected other_table in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_add_constraint() {
         let result = parse_to_string("ALTER TABLE t ADD CONSTRAINT c1 CHECK x > 0");
-        assert!(result.contains("AlterAddConstraint"), "Expected AlterAddConstraint in:\n{result}");
-        assert!(result.contains("BinaryExpression"), "Expected BinaryExpression in:\n{result}");
+        assert!(
+            result.contains("AlterAddConstraint"),
+            "Expected AlterAddConstraint in:\n{result}"
+        );
+        assert!(
+            result.contains("BinaryExpression"),
+            "Expected BinaryExpression in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_drop_constraint() {
         let result = parse_to_string("ALTER TABLE t DROP CONSTRAINT c1");
-        assert!(result.contains("AlterDropConstraint"), "Expected AlterDropConstraint in:\n{result}");
+        assert!(
+            result.contains("AlterDropConstraint"),
+            "Expected AlterDropConstraint in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_add_index() {
         let result = parse_to_string("ALTER TABLE t ADD INDEX idx1 col1 TYPE minmax GRANULARITY 3");
-        assert!(result.contains("AlterAddIndex"), "Expected AlterAddIndex in:\n{result}");
+        assert!(
+            result.contains("AlterAddIndex"),
+            "Expected AlterAddIndex in:\n{result}"
+        );
         assert!(result.contains("'idx1'"), "Expected idx1 in:\n{result}");
     }
 
     #[test]
     fn test_alter_drop_index() {
         let result = parse_to_string("ALTER TABLE t DROP INDEX idx1");
-        assert!(result.contains("AlterDropIndex"), "Expected AlterDropIndex in:\n{result}");
+        assert!(
+            result.contains("AlterDropIndex"),
+            "Expected AlterDropIndex in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_clear_index_in_partition() {
         let result = parse_to_string("ALTER TABLE t CLEAR INDEX idx1 IN PARTITION 202301");
-        assert!(result.contains("AlterClearIndex"), "Expected AlterClearIndex in:\n{result}");
-        assert!(result.contains("PartitionExpression"), "Expected PartitionExpression in:\n{result}");
+        assert!(
+            result.contains("AlterClearIndex"),
+            "Expected AlterClearIndex in:\n{result}"
+        );
+        assert!(
+            result.contains("PartitionExpression"),
+            "Expected PartitionExpression in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_materialize_index() {
         let result = parse_to_string("ALTER TABLE t MATERIALIZE INDEX idx1 IN PARTITION 202301");
-        assert!(result.contains("AlterMaterializeIndex"), "Expected AlterMaterializeIndex in:\n{result}");
-        assert!(result.contains("PartitionExpression"), "Expected PartitionExpression in:\n{result}");
+        assert!(
+            result.contains("AlterMaterializeIndex"),
+            "Expected AlterMaterializeIndex in:\n{result}"
+        );
+        assert!(
+            result.contains("PartitionExpression"),
+            "Expected PartitionExpression in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_drop_projection() {
         let result = parse_to_string("ALTER TABLE t DROP PROJECTION proj1");
-        assert!(result.contains("AlterDropProjection"), "Expected AlterDropProjection in:\n{result}");
+        assert!(
+            result.contains("AlterDropProjection"),
+            "Expected AlterDropProjection in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_no_error_on_valid_input() {
         let result = parse_to_string("ALTER TABLE t ADD COLUMN c Int32");
-        assert!(!result.contains("Error"), "Should not contain Error in:\n{result}");
+        assert!(
+            !result.contains("Error"),
+            "Should not contain Error in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_unknown_command_recovers() {
         // Unknown command should produce an Error but not panic
         let result = parse_to_string("ALTER TABLE t UNKNOWN_CMD");
-        assert!(result.contains("AlterStatement"), "Expected AlterStatement in:\n{result}");
-        assert!(result.contains("Error"), "Expected error recovery in:\n{result}");
+        assert!(
+            result.contains("AlterStatement"),
+            "Expected AlterStatement in:\n{result}"
+        );
+        assert!(
+            result.contains("Error"),
+            "Expected error recovery in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_database_dot_table() {
         let result = parse_to_string("ALTER TABLE mydb.mytable DROP COLUMN c");
-        assert!(result.contains("TableIdentifier"), "Expected TableIdentifier in:\n{result}");
-        assert!(result.contains("'mydb'"), "Expected database name in:\n{result}");
-        assert!(result.contains("'mytable'"), "Expected table name in:\n{result}");
+        assert!(
+            result.contains("TableIdentifier"),
+            "Expected TableIdentifier in:\n{result}"
+        );
+        assert!(
+            result.contains("'mydb'"),
+            "Expected database name in:\n{result}"
+        );
+        assert!(
+            result.contains("'mytable'"),
+            "Expected table name in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_add_column_with_after() {
         let result = parse_to_string("ALTER TABLE t ADD COLUMN c Int32 AFTER b");
-        assert!(result.contains("AlterAddColumn"), "Expected AlterAddColumn in:\n{result}");
-        assert!(result.contains("'b'"), "Expected AFTER column name in:\n{result}");
+        assert!(
+            result.contains("AlterAddColumn"),
+            "Expected AlterAddColumn in:\n{result}"
+        );
+        assert!(
+            result.contains("'b'"),
+            "Expected AFTER column name in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_add_column_first() {
         let result = parse_to_string("ALTER TABLE t ADD COLUMN c Int32 FIRST");
-        assert!(result.contains("AlterAddColumn"), "Expected AlterAddColumn in:\n{result}");
-        assert!(result.contains("'FIRST'"), "Expected FIRST keyword in:\n{result}");
+        assert!(
+            result.contains("AlterAddColumn"),
+            "Expected AlterAddColumn in:\n{result}"
+        );
+        assert!(
+            result.contains("'FIRST'"),
+            "Expected FIRST keyword in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_update_multiple_assignments() {
         let result = parse_to_string("ALTER TABLE t UPDATE x = 1, y = 2 WHERE z > 0");
-        assert!(result.contains("AlterUpdateWhere"), "Expected AlterUpdateWhere in:\n{result}");
-        assert!(result.contains("AssignmentList"), "Expected AssignmentList in:\n{result}");
+        assert!(
+            result.contains("AlterUpdateWhere"),
+            "Expected AlterUpdateWhere in:\n{result}"
+        );
+        assert!(
+            result.contains("AssignmentList"),
+            "Expected AssignmentList in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_detach_partition_id() {
         let result = parse_to_string("ALTER TABLE t DETACH PARTITION ID 'all'");
-        assert!(result.contains("AlterDetachPartition"), "Expected AlterDetachPartition in:\n{result}");
-        assert!(result.contains("PartitionExpression"), "Expected PartitionExpression in:\n{result}");
+        assert!(
+            result.contains("AlterDetachPartition"),
+            "Expected AlterDetachPartition in:\n{result}"
+        );
+        assert!(
+            result.contains("PartitionExpression"),
+            "Expected PartitionExpression in:\n{result}"
+        );
         assert!(result.contains("'ID'"), "Expected ID keyword in:\n{result}");
-        assert!(!result.contains("Error"), "Should not contain Error in:\n{result}");
+        assert!(
+            !result.contains("Error"),
+            "Should not contain Error in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_drop_partition_id() {
         let result = parse_to_string("ALTER TABLE t DROP PARTITION ID 'abc'");
-        assert!(result.contains("AlterDropPartition"), "Expected AlterDropPartition in:\n{result}");
-        assert!(result.contains("PartitionExpression"), "Expected PartitionExpression in:\n{result}");
-        assert!(!result.contains("Error"), "Should not contain Error in:\n{result}");
+        assert!(
+            result.contains("AlterDropPartition"),
+            "Expected AlterDropPartition in:\n{result}"
+        );
+        assert!(
+            result.contains("PartitionExpression"),
+            "Expected PartitionExpression in:\n{result}"
+        );
+        assert!(
+            !result.contains("Error"),
+            "Should not contain Error in:\n{result}"
+        );
     }
 
     #[test]
     fn test_alter_attach_partition_id() {
         let result = parse_to_string("ALTER TABLE t ATTACH PARTITION ID '20200101'");
-        assert!(result.contains("AlterAttachPartition"), "Expected AlterAttachPartition in:\n{result}");
-        assert!(result.contains("PartitionExpression"), "Expected PartitionExpression in:\n{result}");
-        assert!(!result.contains("Error"), "Should not contain Error in:\n{result}");
+        assert!(
+            result.contains("AlterAttachPartition"),
+            "Expected AlterAttachPartition in:\n{result}"
+        );
+        assert!(
+            result.contains("PartitionExpression"),
+            "Expected PartitionExpression in:\n{result}"
+        );
+        assert!(
+            !result.contains("Error"),
+            "Should not contain Error in:\n{result}"
+        );
     }
 }

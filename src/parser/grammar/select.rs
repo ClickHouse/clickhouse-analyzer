@@ -1,9 +1,9 @@
-use crate::parser::syntax_kind::SyntaxKind;
 use crate::parser::grammar::common;
 use crate::parser::grammar::expressions::{parse_expression, parse_window_spec};
 use crate::parser::grammar::show::{at_explain_statement, parse_explain_statement};
 use crate::parser::keyword::Keyword;
 use crate::parser::parser::Parser;
+use crate::parser::syntax_kind::SyntaxKind;
 
 /// Parses a full SELECT statement:
 ///   [WITH ...] [FROM ... [FINAL] [AS alias]] [JOIN ...]
@@ -187,10 +187,22 @@ pub fn at_end_of_column_list(p: &mut Parser) -> bool {
 }
 
 const SELECT_CLAUSE_KEYWORDS: &[Keyword] = &[
-    Keyword::Select, Keyword::From, Keyword::Where, Keyword::Order,
-    Keyword::Limit, Keyword::Group, Keyword::Having, Keyword::Prewhere,
-    Keyword::Settings, Keyword::Format, Keyword::Union, Keyword::Except,
-    Keyword::Intersect, Keyword::Window, Keyword::Sample, Keyword::Qualify,
+    Keyword::Select,
+    Keyword::From,
+    Keyword::Where,
+    Keyword::Order,
+    Keyword::Limit,
+    Keyword::Group,
+    Keyword::Having,
+    Keyword::Prewhere,
+    Keyword::Settings,
+    Keyword::Format,
+    Keyword::Union,
+    Keyword::Except,
+    Keyword::Intersect,
+    Keyword::Window,
+    Keyword::Sample,
+    Keyword::Qualify,
 ];
 
 /// True if the parser is positioned at a clause keyword that can appear
@@ -240,8 +252,7 @@ fn at_join_keyword(p: &mut Parser) -> bool {
             || p.at_keyword(Keyword::Semi)
             || p.at_keyword(Keyword::Anti));
 
-    at_unambiguous || at_ambiguous
-        || p.at_keyword(Keyword::Array)
+    at_unambiguous || at_ambiguous || p.at_keyword(Keyword::Array)
 }
 
 /// True if the parser is positioned at the start of a SELECT statement.
@@ -335,21 +346,19 @@ fn parse_select_clause(p: &mut Parser) {
     p.expect_keyword(Keyword::Select);
 
     // DISTINCT [ON (...)]
-    if p.eat_keyword(Keyword::Distinct) {
-        if p.at_keyword(Keyword::On) {
-            p.advance(); // consume ON
-            p.expect(SyntaxKind::OpeningRoundBracket);
-            // parse comma-separated column list inside parens
-            let mut first = true;
-            while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() && !p.end_of_statement() {
-                if !first {
-                    p.expect(SyntaxKind::Comma);
-                }
-                first = false;
-                parse_expression(p);
+    if p.eat_keyword(Keyword::Distinct) && p.at_keyword(Keyword::On) {
+        p.advance(); // consume ON
+        p.expect(SyntaxKind::OpeningRoundBracket);
+        // parse comma-separated column list inside parens
+        let mut first = true;
+        while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() && !p.end_of_statement() {
+            if !first {
+                p.expect(SyntaxKind::Comma);
             }
-            p.expect(SyntaxKind::ClosingRoundBracket);
+            first = false;
+            parse_expression(p);
         }
+        p.expect(SyntaxKind::ClosingRoundBracket);
     }
 
     parse_column_list(p);
@@ -417,9 +426,7 @@ fn parse_table_reference(p: &mut Parser) {
         return;
     }
 
-    if (p.at_identifier() || common::at_query_parameter(p))
-        && !at_end_of_column_list(p)
-    {
+    if (p.at_identifier() || common::at_query_parameter(p)) && !at_end_of_column_list(p) {
         let m = p.start();
         if common::at_query_parameter(p) {
             common::parse_query_parameter(p);
@@ -449,7 +456,8 @@ fn parse_table_reference(p: &mut Parser) {
                 // SETTINGS clause inside table function arguments:
                 // e.g. mysql('host', db, tbl, 'user', '', SETTINGS connect_timeout = 100)
                 if p.at_keyword(Keyword::Settings)
-                    && (p.nth(1) == SyntaxKind::BareWord || p.nth(1) == SyntaxKind::QuotedIdentifier)
+                    && (p.nth(1) == SyntaxKind::BareWord
+                        || p.nth(1) == SyntaxKind::QuotedIdentifier)
                     && p.nth(2) == SyntaxKind::Equals
                 {
                     common::parse_optional_settings_clause(p);
@@ -459,7 +467,8 @@ fn parse_table_reference(p: &mut Parser) {
                     p.expect(SyntaxKind::Comma);
                     // Check for SETTINGS after comma
                     if p.at_keyword(Keyword::Settings)
-                        && (p.nth(1) == SyntaxKind::BareWord || p.nth(1) == SyntaxKind::QuotedIdentifier)
+                        && (p.nth(1) == SyntaxKind::BareWord
+                            || p.nth(1) == SyntaxKind::QuotedIdentifier)
                         && p.nth(2) == SyntaxKind::Equals
                     {
                         common::parse_optional_settings_clause(p);
@@ -535,7 +544,13 @@ fn parse_optional_table_alias(p: &mut Parser) {
             p.recover_with_error("Expected table alias");
         }
         p.complete(m, SyntaxKind::TableAlias);
-    } else if p.at(SyntaxKind::BareWord) && !at_clause_keyword(p) && !at_join_keyword(p) && !p.at_keyword(Keyword::On) && !p.at_keyword(Keyword::Using) && !p.at_keyword(Keyword::Final) {
+    } else if p.at(SyntaxKind::BareWord)
+        && !at_clause_keyword(p)
+        && !at_join_keyword(p)
+        && !p.at_keyword(Keyword::On)
+        && !p.at_keyword(Keyword::Using)
+        && !p.at_keyword(Keyword::Final)
+    {
         let m = p.start();
         p.advance();
         p.complete(m, SyntaxKind::TableAlias);
@@ -565,8 +580,12 @@ fn parse_join_clause(p: &mut Parser) {
     }
 
     // Optional join type: INNER | LEFT | RIGHT | FULL | CROSS | NATURAL
-    if p.at_keyword(Keyword::Inner) || p.at_keyword(Keyword::Left) || p.at_keyword(Keyword::Right)
-        || p.at_keyword(Keyword::Full) || p.at_keyword(Keyword::Cross) || p.at_keyword(Keyword::Natural)
+    if p.at_keyword(Keyword::Inner)
+        || p.at_keyword(Keyword::Left)
+        || p.at_keyword(Keyword::Right)
+        || p.at_keyword(Keyword::Full)
+        || p.at_keyword(Keyword::Cross)
+        || p.at_keyword(Keyword::Natural)
     {
         p.advance();
     }
@@ -672,11 +691,10 @@ fn parse_group_by_clause(p: &mut Parser) {
         // WITH TOTALS | WITH ROLLUP | WITH CUBE
         if p.at_keyword(Keyword::With) {
             p.advance(); // consume WITH
-            if p.at_keyword(Keyword::Totals) {
-                p.advance();
-            } else if p.at_keyword(Keyword::Rollup) {
-                p.advance();
-            } else if p.at_keyword(Keyword::Cube) {
+            if p.at_keyword(Keyword::Totals)
+                || p.at_keyword(Keyword::Rollup)
+                || p.at_keyword(Keyword::Cube)
+            {
                 p.advance();
             } else {
                 p.recover_with_error("Expected TOTALS, ROLLUP, or CUBE after WITH");
@@ -745,7 +763,9 @@ fn parse_window_clause(p: &mut Parser) {
     p.expect_keyword(Keyword::Window);
 
     let mut first = true;
-    while !p.eof() && !p.end_of_statement() && !at_order_by_terminator(p)
+    while !p.eof()
+        && !p.end_of_statement()
+        && !at_order_by_terminator(p)
         && !p.at_keyword(Keyword::Window)
     {
         if !first {
@@ -980,10 +1000,7 @@ fn parse_limit_clause(p: &mut Parser) {
     p.expect_keyword(Keyword::Limit);
     parse_expression(p);
 
-    if p.at_keyword(Keyword::Offset) {
-        p.advance();
-        parse_expression(p);
-    } else if p.at(SyntaxKind::Comma) {
+    if p.at_keyword(Keyword::Offset) || p.at(SyntaxKind::Comma) {
         p.advance();
         parse_expression(p);
     }
@@ -1046,7 +1063,7 @@ fn parse_settings_clause(p: &mut Parser) {
 #[cfg(test)]
 mod tests {
     use crate::parser::parse;
-    use expect_test::{expect, Expect};
+    use expect_test::{Expect, expect};
 
     fn check(input: &str, expected: Expect) {
         let result = parse(input);
@@ -1057,7 +1074,9 @@ mod tests {
 
     #[test]
     fn simple_select() {
-        check("SELECT 1", expect![[r#"
+        check(
+            "SELECT 1",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1065,12 +1084,15 @@ mod tests {
                   ColumnList
                     NumberLiteral
                       '1'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn select_from() {
-        check("SELECT a FROM t", expect![[r#"
+        check(
+            "SELECT a FROM t",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1082,12 +1104,15 @@ mod tests {
                   'FROM'
                   TableIdentifier
                     't'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn from_before_select() {
-        check("FROM t SELECT a", expect![[r#"
+        check(
+            "FROM t SELECT a",
+            expect![[r#"
             File
               SelectStatement
                 FromClause
@@ -1099,12 +1124,15 @@ mod tests {
                   ColumnList
                     ColumnReference
                       'a'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn select_where_order_limit() {
-        check("SELECT x FROM t WHERE x > 1 ORDER BY x LIMIT 10", expect![[r#"
+        check(
+            "SELECT x FROM t WHERE x > 1 ORDER BY x LIMIT 10",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1134,12 +1162,15 @@ mod tests {
                   'LIMIT'
                   NumberLiteral
                     '10'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn select_with_alias() {
-        check("SELECT a AS b, c d FROM t", expect![[r#"
+        check(
+            "SELECT a AS b, c d FROM t",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1159,12 +1190,15 @@ mod tests {
                   'FROM'
                   TableIdentifier
                     't'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn qualified_table_name() {
-        check("SELECT 1 FROM db.table", expect![[r#"
+        check(
+            "SELECT 1 FROM db.table",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1178,14 +1212,17 @@ mod tests {
                     'db'
                     '.'
                     'table'
-        "#]]);
+        "#]],
+        );
     }
 
     // ============ NEW TESTS ============
 
     #[test]
     fn select_distinct() {
-        check("SELECT DISTINCT a, b FROM t", expect![[r#"
+        check(
+            "SELECT DISTINCT a, b FROM t",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1201,12 +1238,15 @@ mod tests {
                   'FROM'
                   TableIdentifier
                     't'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn select_distinct_on() {
-        check("SELECT DISTINCT ON (a) a, b FROM t", expect![[r#"
+        check(
+            "SELECT DISTINCT ON (a) a, b FROM t",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1227,12 +1267,15 @@ mod tests {
                   'FROM'
                   TableIdentifier
                     't'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn group_by() {
-        check("SELECT a FROM t GROUP BY a", expect![[r#"
+        check(
+            "SELECT a FROM t GROUP BY a",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1249,12 +1292,15 @@ mod tests {
                   'BY'
                   ColumnReference
                     'a'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn group_by_with_totals() {
-        check("SELECT a, count(*) FROM t GROUP BY a WITH TOTALS", expect![[r#"
+        check(
+            "SELECT a, count(*) FROM t GROUP BY a WITH TOTALS",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1283,12 +1329,15 @@ mod tests {
                     'a'
                   'WITH'
                   'TOTALS'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn group_by_with_rollup() {
-        check("SELECT a FROM t GROUP BY a WITH ROLLUP", expect![[r#"
+        check(
+            "SELECT a FROM t GROUP BY a WITH ROLLUP",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1307,12 +1356,15 @@ mod tests {
                     'a'
                   'WITH'
                   'ROLLUP'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn group_by_with_cube() {
-        check("SELECT a FROM t GROUP BY a WITH CUBE", expect![[r#"
+        check(
+            "SELECT a FROM t GROUP BY a WITH CUBE",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1331,12 +1383,15 @@ mod tests {
                     'a'
                   'WITH'
                   'CUBE'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn group_by_grouping_sets() {
-        check("SELECT a, b, count() FROM t GROUP BY GROUPING SETS ((a, b), (a), ())", expect![[r#"
+        check(
+            "SELECT a, b, count() FROM t GROUP BY GROUPING SETS ((a, b), (a), ())",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1384,12 +1439,15 @@ mod tests {
                       '('
                       ')'
                     ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn group_by_having() {
-        check("SELECT a FROM t GROUP BY a HAVING count(*) > 1", expect![[r#"
+        check(
+            "SELECT a FROM t GROUP BY a HAVING count(*) > 1",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1421,12 +1479,15 @@ mod tests {
                     '>'
                     NumberLiteral
                       '1'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn order_by_asc_desc() {
-        check("SELECT a FROM t ORDER BY a ASC, b DESC", expect![[r#"
+        check(
+            "SELECT a FROM t ORDER BY a ASC, b DESC",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1450,12 +1511,15 @@ mod tests {
                     ColumnReference
                       'b'
                     'DESC'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn order_by_nulls_first() {
-        check("SELECT a FROM t ORDER BY a NULLS FIRST", expect![[r#"
+        check(
+            "SELECT a FROM t ORDER BY a NULLS FIRST",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1475,12 +1539,15 @@ mod tests {
                       'a'
                     'NULLS'
                     'FIRST'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn order_by_desc_nulls_last() {
-        check("SELECT a FROM t ORDER BY a DESC NULLS LAST", expect![[r#"
+        check(
+            "SELECT a FROM t ORDER BY a DESC NULLS LAST",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1501,12 +1568,15 @@ mod tests {
                     'DESC'
                     'NULLS'
                     'LAST'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn limit_offset() {
-        check("SELECT a FROM t LIMIT 10 OFFSET 5", expect![[r#"
+        check(
+            "SELECT a FROM t LIMIT 10 OFFSET 5",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1525,12 +1595,15 @@ mod tests {
                   'OFFSET'
                   NumberLiteral
                     '5'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn limit_comma_syntax() {
-        check("SELECT a FROM t LIMIT 5, 10", expect![[r#"
+        check(
+            "SELECT a FROM t LIMIT 5, 10",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1549,12 +1622,15 @@ mod tests {
                   ','
                   NumberLiteral
                     '10'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn prewhere_where() {
-        check("SELECT a FROM t PREWHERE a > 0 WHERE b > 1", expect![[r#"
+        check(
+            "SELECT a FROM t PREWHERE a > 0 WHERE b > 1",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1582,12 +1658,15 @@ mod tests {
                     '>'
                     NumberLiteral
                       '1'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn settings_single() {
-        check("SELECT a FROM t SETTINGS max_threads = 4", expect![[r#"
+        check(
+            "SELECT a FROM t SETTINGS max_threads = 4",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1606,12 +1685,15 @@ mod tests {
                     '='
                     NumberLiteral
                       '4'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn settings_multiple() {
-        check("SELECT a FROM t SETTINGS max_threads = 4, timeout = 10", expect![[r#"
+        check(
+            "SELECT a FROM t SETTINGS max_threads = 4, timeout = 10",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1636,12 +1718,15 @@ mod tests {
                     '='
                     NumberLiteral
                       '10'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn limit_by_then_limit() {
-        check("SELECT a FROM t ORDER BY a LIMIT 3 BY a LIMIT 10", expect![[r#"
+        check(
+            "SELECT a FROM t ORDER BY a LIMIT 3 BY a LIMIT 10",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1670,12 +1755,15 @@ mod tests {
                   'LIMIT'
                   NumberLiteral
                     '10'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn inner_join_on() {
-        check("SELECT a FROM t1 INNER JOIN t2 ON t1.id = t2.id", expect![[r#"
+        check(
+            "SELECT a FROM t1 INNER JOIN t2 ON t1.id = t2.id",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1703,12 +1791,15 @@ mod tests {
                       't2'
                       '.'
                       'id'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn left_join_on() {
-        check("SELECT a FROM t1 LEFT JOIN t2 ON t1.id = t2.id", expect![[r#"
+        check(
+            "SELECT a FROM t1 LEFT JOIN t2 ON t1.id = t2.id",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1736,12 +1827,15 @@ mod tests {
                       't2'
                       '.'
                       'id'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn right_outer_join_using() {
-        check("SELECT a FROM t1 RIGHT OUTER JOIN t2 USING (id)", expect![[r#"
+        check(
+            "SELECT a FROM t1 RIGHT OUTER JOIN t2 USING (id)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1764,12 +1858,15 @@ mod tests {
                   ColumnReference
                     'id'
                   ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn cross_join() {
-        check("SELECT a FROM t1 CROSS JOIN t2", expect![[r#"
+        check(
+            "SELECT a FROM t1 CROSS JOIN t2",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1786,12 +1883,15 @@ mod tests {
                   'JOIN'
                   TableIdentifier
                     't2'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn global_left_join() {
-        check("SELECT a FROM t1 GLOBAL LEFT JOIN t2 ON t1.id = t2.id", expect![[r#"
+        check(
+            "SELECT a FROM t1 GLOBAL LEFT JOIN t2 ON t1.id = t2.id",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1820,12 +1920,15 @@ mod tests {
                       't2'
                       '.'
                       'id'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn any_left_join_using() {
-        check("SELECT a FROM t1 ANY LEFT JOIN t2 USING id", expect![[r#"
+        check(
+            "SELECT a FROM t1 ANY LEFT JOIN t2 USING id",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1846,12 +1949,15 @@ mod tests {
                   'USING'
                   ColumnReference
                     'id'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn multiple_joins() {
-        check("SELECT a FROM t1 JOIN t2 ON t1.id = t2.id JOIN t3 ON t2.id = t3.id", expect![[r#"
+        check(
+            "SELECT a FROM t1 JOIN t2 ON t1.id = t2.id JOIN t3 ON t2.id = t3.id",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1893,12 +1999,15 @@ mod tests {
                       't3'
                       '.'
                       'id'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn subquery_from() {
-        check("SELECT a FROM (SELECT 1 AS x) AS sub", expect![[r#"
+        check(
+            "SELECT a FROM (SELECT 1 AS x) AS sub",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1923,12 +2032,15 @@ mod tests {
                   TableAlias
                     'AS'
                     'sub'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn table_function() {
-        check("SELECT * FROM numbers(10)", expect![[r#"
+        check(
+            "SELECT * FROM numbers(10)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1944,12 +2056,15 @@ mod tests {
                     NumberLiteral
                       '10'
                     ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn select_from_final() {
-        check("SELECT a FROM t FINAL", expect![[r#"
+        check(
+            "SELECT a FROM t FINAL",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -1962,12 +2077,15 @@ mod tests {
                   TableIdentifier
                     't'
                   'FINAL'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn join_with_aliases() {
-        check("SELECT a FROM t1 AS a JOIN t2 AS b ON a.id = b.id", expect![[r#"
+        check(
+            "SELECT a FROM t1 AS a JOIN t2 AS b ON a.id = b.id",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2000,12 +2118,15 @@ mod tests {
                       'b'
                       '.'
                       'id'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn left_semi_join() {
-        check("SELECT a FROM t1 LEFT SEMI JOIN t2 ON t1.id = t2.id", expect![[r#"
+        check(
+            "SELECT a FROM t1 LEFT SEMI JOIN t2 ON t1.id = t2.id",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2034,12 +2155,15 @@ mod tests {
                       't2'
                       '.'
                       'id'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn left_anti_join() {
-        check("SELECT a FROM t1 LEFT ANTI JOIN t2 ON t1.id = t2.id", expect![[r#"
+        check(
+            "SELECT a FROM t1 LEFT ANTI JOIN t2 ON t1.id = t2.id",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2068,12 +2192,15 @@ mod tests {
                       't2'
                       '.'
                       'id'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn format_clause() {
-        check("SELECT 1 FORMAT JSON", expect![[r#"
+        check(
+            "SELECT 1 FORMAT JSON",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2084,12 +2211,15 @@ mod tests {
                 FormatClause
                   'FORMAT'
                   'JSON'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn format_clause_with_from() {
-        check("SELECT col FROM t FORMAT JSONEachRow", expect![[r#"
+        check(
+            "SELECT col FROM t FORMAT JSONEachRow",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2104,12 +2234,15 @@ mod tests {
                 FormatClause
                   'FORMAT'
                   'JSONEachRow'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn format_clause_after_settings() {
-        check("SELECT 1 SETTINGS max_threads=4 FORMAT CSV", expect![[r#"
+        check(
+            "SELECT 1 SETTINGS max_threads=4 FORMAT CSV",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2127,12 +2260,15 @@ mod tests {
                 FormatClause
                   'FORMAT'
                   'CSV'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn format_clause_after_all_clauses() {
-        check("SELECT a FROM t WHERE x > 1 ORDER BY a LIMIT 10 FORMAT TabSeparated", expect![[r#"
+        check(
+            "SELECT a FROM t WHERE x > 1 ORDER BY a LIMIT 10 FORMAT TabSeparated",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2165,12 +2301,15 @@ mod tests {
                 FormatClause
                   'FORMAT'
                   'TabSeparated'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn format_clause_after_order_by() {
-        check("SELECT col FROM t ORDER BY col FORMAT JSON", expect![[r#"
+        check(
+            "SELECT col FROM t ORDER BY col FORMAT JSON",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2191,12 +2330,15 @@ mod tests {
                 FormatClause
                   'FORMAT'
                   'JSON'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn format_clause_after_group_by() {
-        check("SELECT col FROM t GROUP BY col FORMAT JSON", expect![[r#"
+        check(
+            "SELECT col FROM t GROUP BY col FORMAT JSON",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2216,12 +2358,15 @@ mod tests {
                 FormatClause
                   'FORMAT'
                   'JSON'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn format_clause_after_limit_by() {
-        check("SELECT col FROM t LIMIT 10 BY col FORMAT JSON", expect![[r#"
+        check(
+            "SELECT col FROM t LIMIT 10 BY col FORMAT JSON",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2243,12 +2388,15 @@ mod tests {
                 FormatClause
                   'FORMAT'
                   'JSON'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn format_clause_after_having() {
-        check("SELECT col, count() FROM t GROUP BY col HAVING count() > 1 FORMAT CSV", expect![[r#"
+        check(
+            "SELECT col, count() FROM t GROUP BY col HAVING count() > 1 FORMAT CSV",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2287,12 +2435,15 @@ mod tests {
                 FormatClause
                   'FORMAT'
                   'CSV'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn window_over_clause() {
-        check("SELECT sum(x) OVER (PARTITION BY y ORDER BY z)", expect![[r#"
+        check(
+            "SELECT sum(x) OVER (PARTITION BY y ORDER BY z)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2320,12 +2471,15 @@ mod tests {
                         ColumnReference
                           'z'
                         ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn window_over_name() {
-        check("SELECT sum(x) OVER w FROM t", expect![[r#"
+        check(
+            "SELECT sum(x) OVER w FROM t",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2347,12 +2501,15 @@ mod tests {
                   'FROM'
                   TableIdentifier
                     't'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn window_with_frame() {
-        check("SELECT sum(x) OVER (ORDER BY z ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)", expect![[r#"
+        check(
+            "SELECT sum(x) OVER (ORDER BY z ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2384,12 +2541,15 @@ mod tests {
                           'CURRENT'
                           'ROW'
                         ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn window_clause() {
-        check("SELECT sum(x) OVER w FROM t WINDOW w AS (ORDER BY z)", expect![[r#"
+        check(
+            "SELECT sum(x) OVER w FROM t WINDOW w AS (ORDER BY z)",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2423,12 +2583,15 @@ mod tests {
                       ColumnReference
                         'z'
                       ')'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn sample_clause() {
-        check("SELECT * FROM t SAMPLE 0.1", expect![[r#"
+        check(
+            "SELECT * FROM t SAMPLE 0.1",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2444,12 +2607,15 @@ mod tests {
                     'SAMPLE'
                     NumberLiteral
                       '0.1'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn sample_with_offset() {
-        check("SELECT * FROM t SAMPLE 0.1 OFFSET 0.5", expect![[r#"
+        check(
+            "SELECT * FROM t SAMPLE 0.1 OFFSET 0.5",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2468,12 +2634,15 @@ mod tests {
                     'OFFSET'
                     NumberLiteral
                       '0.5'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn array_join_multiple() {
-        check("SELECT * FROM t ARRAY JOIN arr1, arr2", expect![[r#"
+        check(
+            "SELECT * FROM t ARRAY JOIN arr1, arr2",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2493,12 +2662,15 @@ mod tests {
                   ','
                   ColumnReference
                     'arr2'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn left_array_join_with_alias() {
-        check("SELECT * FROM t LEFT ARRAY JOIN arr AS a", expect![[r#"
+        check(
+            "SELECT * FROM t LEFT ARRAY JOIN arr AS a",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2519,12 +2691,15 @@ mod tests {
                   ColumnAlias
                     'AS'
                     'a'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn with_fill_clause() {
-        check("SELECT date FROM t ORDER BY date WITH FILL FROM 0 TO 100 STEP 1", expect![[r#"
+        check(
+            "SELECT date FROM t ORDER BY date WITH FILL FROM 0 TO 100 STEP 1",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2554,12 +2729,15 @@ mod tests {
                       'STEP'
                       NumberLiteral
                         '1'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn limit_with_ties() {
-        check("SELECT a FROM t LIMIT 1 WITH TIES", expect![[r#"
+        check(
+            "SELECT a FROM t LIMIT 1 WITH TIES",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2577,22 +2755,37 @@ mod tests {
                     '1'
                   'WITH'
                   'TIES'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn except_set_operation_after_settings() {
         let result = parse("SELECT a FROM t SETTINGS min_hit_rate = 1.0 EXCEPT SELECT a FROM t2");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
-        assert!(buf.contains("UnionClause"), "tree should contain set operation: {}", buf);
-        assert!(buf.contains("SettingsClause"), "tree should contain SETTINGS: {}", buf);
+        assert!(
+            buf.contains("UnionClause"),
+            "tree should contain set operation: {}",
+            buf
+        );
+        assert!(
+            buf.contains("SettingsClause"),
+            "tree should contain SETTINGS: {}",
+            buf
+        );
     }
 
     #[test]
     fn apply_bare_function_name() {
-        check("SELECT a.* APPLY toString FROM t", expect![[r#"
+        check(
+            "SELECT a.* APPLY toString FROM t",
+            expect![[r#"
             File
               SelectStatement
                 SelectClause
@@ -2612,17 +2805,25 @@ mod tests {
                   'FROM'
                   TableIdentifier
                     't'
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]
     fn apply_chained() {
         let result = parse("SELECT a.* APPLY(toDate) APPLY(any) FROM t");
-        assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+        assert!(
+            result.errors.is_empty(),
+            "unexpected errors: {:?}",
+            result.errors
+        );
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         // Two nested ColumnTransformer nodes
-        assert!(buf.matches("ColumnTransformer").count() >= 2, "should have chained transformers: {}", buf);
+        assert!(
+            buf.matches("ColumnTransformer").count() >= 2,
+            "should have chained transformers: {}",
+            buf
+        );
     }
-
 }

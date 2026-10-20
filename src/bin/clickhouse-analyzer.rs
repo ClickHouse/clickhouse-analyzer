@@ -30,8 +30,11 @@ fn main() {
     let result = clickhouse_analyzer::parse(&input);
 
     if format_mode {
-        let formatted =
-            clickhouse_analyzer::format(&result.tree, &clickhouse_analyzer::FormatConfig::default(), &result.source);
+        let formatted = clickhouse_analyzer::format(
+            &result.tree,
+            &clickhouse_analyzer::FormatConfig::default(),
+            &result.source,
+        );
         print!("{formatted}");
     } else {
         let mut buf = String::new();
