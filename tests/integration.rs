@@ -2970,16 +2970,18 @@ fn alter_modify_column_comment_comma_separated() {
                     'COLUMN'
                     ColumnDefinition
                       'c1'
-                      'COMMENT'
-                      ''x''
+                      ColumnComment
+                        'COMMENT'
+                        ''x''
                   ','
                   AlterModifyColumn
                     'MODIFY'
                     'COLUMN'
                     ColumnDefinition
                       'c2'
-                      'COMMENT'
-                      ''y''
+                      ColumnComment
+                        'COMMENT'
+                        ''y''
         "#]],
     );
 }

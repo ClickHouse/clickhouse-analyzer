@@ -514,7 +514,7 @@ pub fn parse_column_definition_list(p: &mut Parser) {
     p.complete(m, SyntaxKind::ColumnDefinitionList);
 }
 
-/// Parse a single column definition: name Type [DEFAULT|MATERIALIZED|ALIAS|EPHEMERAL expr] [CODEC(codec)] [TTL expr] [COMMENT 'comment']
+/// Parse a single column definition: name Type [DEFAULT|MATERIALIZED|ALIAS|EPHEMERAL expr] (CODEC(codec)] | TTL expr | COMMENT 'comment')*
 fn parse_column_definition(p: &mut Parser) {
     let m = p.start();
 
@@ -552,39 +552,50 @@ fn parse_column_definition(p: &mut Parser) {
         p.complete(m2, SyntaxKind::ColumnDefault);
     }
 
-    // CODEC(...)
-    if p.at_keyword(Keyword::Codec) {
-        let m2 = p.start();
-        p.advance(); // CODEC
-        if p.at(SyntaxKind::OpeningRoundBracket) {
-            p.advance();
-            parse_codec_args(p);
-            p.expect(SyntaxKind::ClosingRoundBracket);
-        }
-        p.complete(m2, SyntaxKind::ColumnCodec);
-    }
-
-    // TTL expr
-    if p.at_keyword(Keyword::Ttl) {
-        let m2 = p.start();
-        p.advance(); // TTL
-        parse_expression(p);
-        p.complete(m2, SyntaxKind::ColumnTtl);
-    }
-
-    // COMMENT 'string'
-    if p.at_keyword(Keyword::Comment) {
-        let m2 = p.start();
-        p.advance(); // COMMENT
-        if p.at(SyntaxKind::StringToken) {
-            p.advance();
-        } else {
-            p.recover_with_error("Expected string literal after COMMENT");
-        }
-        p.complete(m2, SyntaxKind::ColumnComment);
-    }
+    parse_column_modifiers(p);
 
     p.complete(m, SyntaxKind::ColumnDefinition);
+}
+
+/// Parse a column's CODEC, TTL and COMMENT.
+/// ClickHouse < 26.8 requires the order COMMENT, CODEC, STATISTICS, TTL.
+/// Later versions allow any order. Note STATISTICS is not parsed yet.
+pub(crate) fn parse_column_modifiers(p: &mut Parser) {
+    let (mut seen_codec, mut seen_ttl, mut seen_comment) = (false, false, false);
+    loop {
+        if !seen_codec && p.at_keyword(Keyword::Codec) {
+            // CODEC(...)
+            seen_codec = true;
+            let m2 = p.start();
+            p.advance(); // CODEC
+            if p.at(SyntaxKind::OpeningRoundBracket) {
+                p.advance();
+                parse_codec_args(p);
+                p.expect(SyntaxKind::ClosingRoundBracket);
+            }
+            p.complete(m2, SyntaxKind::ColumnCodec);
+        } else if !seen_ttl && p.at_keyword(Keyword::Ttl) {
+            // TTL expr
+            seen_ttl = true;
+            let m2 = p.start();
+            p.advance(); // TTL
+            parse_expression(p);
+            p.complete(m2, SyntaxKind::ColumnTtl);
+        } else if !seen_comment && p.at_keyword(Keyword::Comment) {
+            // COMMENT 'string'
+            seen_comment = true;
+            let m2 = p.start();
+            p.advance(); // COMMENT
+            if p.at(SyntaxKind::StringToken) {
+                p.advance();
+            } else {
+                p.recover_with_error("Expected string literal after COMMENT");
+            }
+            p.complete(m2, SyntaxKind::ColumnComment);
+        } else {
+            break;
+        }
+    }
 }
 
 /// Check if current pos looks like it could be a column type
@@ -1057,6 +1068,39 @@ mod tests {
         let mut buf = String::new();
         result.tree.print(&mut buf, 0, &result.source);
         assert!(buf.contains("ColumnComment"));
+    }
+
+    #[test]
+    fn test_create_table_column_modifiers() {
+        for column in [
+            "a UInt64 COMMENT 'x' CODEC(ZSTD(1))",
+            "a UInt64 CODEC(ZSTD(1)) COMMENT 'x'",
+            "a UInt64 DEFAULT 0 COMMENT 'x' CODEC(ZSTD(1))",
+            "a UInt64 COMMENT 'x' TTL d + INTERVAL 1 DAY",
+            "a UInt64 TTL d + INTERVAL 1 DAY CODEC(ZSTD(1)) COMMENT 'x'",
+        ] {
+            let result = parse(&format!(
+                "CREATE TABLE t ({column}, b String) ENGINE = Memory"
+            ));
+            assert!(
+                result.errors.is_empty(),
+                "unexpected errors for {column}: {:?}",
+                result.errors
+            );
+            let mut buf = String::new();
+            result.tree.print(&mut buf, 0, &result.source);
+            assert_eq!(
+                buf.matches("ColumnDefinition\n").count(),
+                2,
+                "{column}:\n{buf}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_create_table_column_modifier_repeated() {
+        let result = parse("CREATE TABLE t (a UInt64 COMMENT 'x' COMMENT 'y') ENGINE = Memory");
+        assert!(!result.errors.is_empty());
     }
 
     #[test]

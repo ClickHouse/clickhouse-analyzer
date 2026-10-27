@@ -1,4 +1,5 @@
 use crate::parser::grammar::common;
+use crate::parser::grammar::create_table;
 use crate::parser::grammar::expressions::parse_expression;
 use crate::parser::grammar::select::parse_select_statement;
 use crate::parser::grammar::types::parse_column_type;
@@ -787,33 +788,7 @@ fn parse_column_definition(p: &mut Parser) {
         parse_expression(p);
     }
 
-    // Optional CODEC(...)
-    if p.at_keyword(Keyword::Codec) {
-        p.advance();
-        if p.at(SyntaxKind::OpeningRoundBracket) {
-            p.advance();
-            while !p.at(SyntaxKind::ClosingRoundBracket) && !p.eof() {
-                p.advance();
-            }
-            p.expect(SyntaxKind::ClosingRoundBracket);
-        }
-    }
-
-    // Optional TTL expr
-    if p.at_keyword(Keyword::Ttl) {
-        p.advance();
-        parse_expression(p);
-    }
-
-    // Optional COMMENT 'string'
-    if p.at_keyword(Keyword::Comment) {
-        p.advance();
-        if p.at(SyntaxKind::StringToken) {
-            p.advance();
-        } else {
-            p.recover_with_error("Expected comment string");
-        }
-    }
+    create_table::parse_column_modifiers(p);
 
     p.complete(m, SyntaxKind::ColumnDefinition);
 }
@@ -1244,6 +1219,22 @@ mod tests {
             !result.contains("Error"),
             "Should not contain Error in:\n{result}"
         );
+    }
+
+    #[test]
+    fn test_alter_column_modifiers() {
+        for input in [
+            "ALTER TABLE t MODIFY COLUMN a CODEC(ZSTD(1))",
+            "ALTER TABLE t MODIFY COLUMN a UInt64 COMMENT 'x' CODEC(ZSTD(1))",
+            "ALTER TABLE t ADD COLUMN a UInt64 TTL d + INTERVAL 1 DAY CODEC(ZSTD(1)) COMMENT 'x'",
+        ] {
+            let result = parse(input);
+            assert!(
+                result.errors.is_empty(),
+                "unexpected errors for {input}: {:?}",
+                result.errors
+            );
+        }
     }
 
     #[test]
