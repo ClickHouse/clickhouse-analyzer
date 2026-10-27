@@ -55,7 +55,7 @@ pub fn compute(tree: &SyntaxTree, source: &str, line_index: &LineIndex) -> Vec<S
 
     for (start, end, token_type) in raw_tokens {
         let pos = line_index.position(start);
-        let length = end - start;
+        let length = source[start as usize..end as usize].encode_utf16().count() as u32;
 
         let delta_line = pos.line - prev_line;
         let delta_start = if delta_line == 0 {
@@ -279,3 +279,24 @@ static KEYWORDS: phf::Set<&'static str> = phf::phf_set! {
     "UNBOUNDED", "UNCOMPRESSED", "UNDROP", "UNFREEZE", "UNION", "UPDATE", "USE",
     "USER", "USING", "VALUES", "VIEW", "WHEN", "WHERE", "WINDOW", "WITH",
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser;
+
+    #[test]
+    fn lengths_are_utf16_code_units() {
+        fn lengths(source: &str) -> Vec<u32> {
+            let parse = parser::parse(source);
+            compute(&parse.tree, source, &LineIndex::new(source))
+                .iter()
+                .map(|token| token.length)
+                .collect()
+        }
+        // `SELECT` - 6 bytes, 6 UTF-16 units
+        // `'é😀'` - 8 bytes, 5 UTF-16 units
+        // `-- naïve` - 9 bytes, 8 UTF-18 units
+        assert_eq!(lengths("SELECT 'é😀' -- naïve"), [6, 5, 8]);
+    }
+}
