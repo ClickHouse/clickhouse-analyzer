@@ -229,6 +229,7 @@ pub enum SyntaxKind {
     // =======================================================================
     NumberLiteral,
     StringLiteral,
+    TypedLiteral,
     DateLiteral,
     BooleanLiteral,
     NullLiteral,
